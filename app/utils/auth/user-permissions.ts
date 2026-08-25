@@ -22,7 +22,9 @@ export function getAllSystemPermissionKeys(): string[] {
     level: 0,
     actions: [...definition.actions],
   }))
-  return permissionRowsToFlatKeys(rows)
+  const keys = permissionRowsToFlatKeys(rows)
+  if (!keys.includes('configuration.manage')) keys.push('configuration.manage')
+  return keys.sort()
 }
 
 /** Resolve flat permission keys for the signed-in user. */

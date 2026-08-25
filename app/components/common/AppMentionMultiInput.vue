@@ -81,7 +81,7 @@ function moveActive(offset: number) {
 <template>
   <div ref="root" class="relative">
     <div
-      class="flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-md border border-default bg-default px-2 py-1.5 shadow-xs transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
+      class="flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-md border border-default bg-default px-3 py-2 shadow-xs transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
       :class="disabled ? 'cursor-not-allowed opacity-60' : ''"
       @click="!disabled && (open = true)"
     >
@@ -106,7 +106,7 @@ function moveActive(offset: number) {
       <input
         v-model="query"
         type="text"
-        class="min-w-28 flex-1 border-0 bg-transparent px-0.5 py-0.5 text-sm text-highlighted outline-none placeholder:text-dimmed disabled:cursor-not-allowed"
+        class="min-w-28 flex-1 border-0 bg-transparent px-0.5 py-0.5 text-base text-highlighted outline-none placeholder:text-dimmed disabled:cursor-not-allowed"
         :placeholder="model.length ? $t('docetra.fields.mentionSearchMore') : placeholder"
         :disabled="disabled"
         autocomplete="off"

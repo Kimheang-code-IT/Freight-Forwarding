@@ -136,10 +136,10 @@ export function createFreightSeed(): Record<string, FreightRecord[]> {
   ]
 
   const roles: FreightRecord[] = [
-    { id: id('rl', 1), name: 'Administrator', description: 'Full system access', userCount: 1, permissionCount: 'All', permissions: 'All modules', status: 'Active' },
-    { id: id('rl', 2), name: 'Operations', description: 'Jobs, shipments, documents and deliveries', userCount: 4, permissionCount: 24, permissions: 'Operations modules', status: 'Active' },
-    { id: id('rl', 3), name: 'Finance', description: 'Debit notes, payments, AR/AP and profitability', userCount: 2, permissionCount: 19, permissions: 'Finance modules', status: 'Active' },
-    { id: id('rl', 4), name: 'Customs', description: 'Customs processing and related documents', userCount: 2, permissionCount: 12, permissions: 'Customs and documents', status: 'Active' },
+    { id: id('rl', 1), name: 'Administrator', description: 'Full system access', userCount: 1, permissionCount: 0, status: 'Active' },
+    { id: id('rl', 2), name: 'Operations', description: 'Jobs, shipments, documents and deliveries', userCount: 4, permissionCount: 0, status: 'Active' },
+    { id: id('rl', 3), name: 'Finance', description: 'Debit notes, payments, AR/AP and profitability', userCount: 2, permissionCount: 0, status: 'Active' },
+    { id: id('rl', 4), name: 'Customs', description: 'Customs processing and related documents', userCount: 2, permissionCount: 0, status: 'Active' },
   ]
 
   const auditLogs: FreightRecord[] = [

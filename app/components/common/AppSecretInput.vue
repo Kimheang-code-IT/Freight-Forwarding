@@ -40,13 +40,14 @@ const value = computed({
 </script>
 
 <template>
-  <UFormField :label="labelText" :hint="helpText || undefined">
+  <UFormField :label="labelText" :help="helpText || undefined">
     <UInput
       v-model="value"
       :type="revealed ? 'text' : 'password'"
       :placeholder="placeholder"
       :disabled="disabled"
       :autocomplete="autocomplete"
+      size="lg"
       class="w-full"
       :ui="{ trailing: 'pe-1' }"
     >

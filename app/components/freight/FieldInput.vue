@@ -12,7 +12,8 @@ const emit = defineEmits<{
   'update:modelValue': [unknown]
 }>()
 
-const { fieldLabel, km } = useFreightLabel()
+const { t, te } = useI18n()
+const { fieldLabel } = useFreightLabel()
 
 const items = computed(() =>
   (props.field.options || [])
@@ -22,16 +23,46 @@ const items = computed(() =>
 )
 
 const help = computed(() => {
-  if (props.field.computed) return km.value ? 'គណនាស្វ័យប្រវត្តិ។' : 'Calculated automatically.'
-  const label = fieldLabel(props.field).toLowerCase()
-  return km.value
-    ? `បញ្ចូល${fieldLabel(props.field)}សម្រាប់កំណត់ត្រានេះ។`
-    : `Enter the ${label} used on this record.`
+  if (props.field.help) return props.field.help
+  if (props.field.helpKey && te(props.field.helpKey)) return t(props.field.helpKey)
+  const fieldHelpKey = `freight.fieldHelp.${props.field.key}`
+  if (te(fieldHelpKey)) return t(fieldHelpKey)
+  if (props.field.computed) return t('freight.ui.calculatedHelp')
+  return t('freight.ui.enterFieldHelp', { field: fieldLabel(props.field) })
 })
+
+const checkboxTrue = computed(() => String(props.field.options?.[0] ?? 'Yes'))
+const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
 </script>
 
 <template>
   <UFormField
+    v-if="field.type === 'checkbox'"
+    :help="help"
+    class="min-w-0"
+  >
+    <div class="flex min-h-11 items-center pt-1">
+      <UCheckbox
+        :model-value="modelValue"
+        :true-value="checkboxTrue"
+        :false-value="checkboxFalse"
+        :disabled="disabled || field.computed"
+        size="lg"
+        @update:model-value="emit('update:modelValue', $event)"
+      >
+        <template #label>
+          <span class="inline-flex items-center gap-2 text-base text-highlighted">
+            <span>{{ fieldLabel(field) }}</span>
+            <UTooltip :text="help">
+              <UIcon name="i-lucide-info" class="size-4 text-muted" />
+            </UTooltip>
+          </span>
+        </template>
+      </UCheckbox>
+    </div>
+  </UFormField>
+  <UFormField
+    v-else
     :label="fieldLabel(field)"
     :required="Boolean(field.required)"
     :help="help"
@@ -53,6 +84,7 @@ const help = computed(() => {
       :items="items"
       :disabled="disabled"
       value-key="value"
+      size="lg"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />
@@ -69,15 +101,17 @@ const help = computed(() => {
       :model-value="String(modelValue ?? '')"
       :disabled="disabled"
       :rows="4"
+      size="lg"
       autoresize
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />
-    <UInput
+    <CommonAppInputDate
       v-else-if="field.type === 'date' || field.type === 'datetime'"
-      :type="field.type === 'datetime' ? 'datetime-local' : 'date'"
       :model-value="String(modelValue ?? '')"
-      :disabled="disabled"
+      :granularity="field.type === 'datetime' ? 'minute' : 'day'"
+      :disabled="disabled || field.computed"
+      :required="Boolean(field.required)"
       size="lg"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"

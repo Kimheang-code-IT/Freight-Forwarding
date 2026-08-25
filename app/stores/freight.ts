@@ -1,14 +1,17 @@
 import { defineStore } from 'pinia'
 import { freightModules, type FreightModule } from '~/config/freight-modules'
 import {
-  createFreightSeed,
   derivePayables,
   deriveProfitability,
   deriveReceivables,
   type FreightRecord,
 } from '~/config/freight-seed'
-
-const STORAGE_KEY = 'lcs-freight-data-v1'
+import { getLcsDb, persistLcsDb, setLcsDb } from '~/repositories/mock/db'
+import { assertMutableRecord } from '~/utils/lcs/commands'
+import { financeDomainStatus, jobDomainStatus } from '~/utils/lcs/states'
+import { filterScopedRecords, stampTenant } from '~/utils/lcs/scope'
+import { sessionFromUser } from '~/utils/lcs/session-from-user'
+import { formatLcsMoney } from '~/utils/lcs/format'
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -19,72 +22,132 @@ function newId(prefix: string) {
 }
 
 export const useFreightStore = defineStore('freight', () => {
-  const collections = ref<Record<string, FreightRecord[]>>(createFreightSeed())
+  const revision = ref(0)
   const hydrated = ref(false)
 
+  function session() {
+    const auth = useAuthStore()
+    const tenant = useTenantStore()
+    return sessionFromUser(auth.user, tenant.organizationId, tenant.branchId)
+  }
+
+  const tenant = useTenantStore()
+  watch(() => [tenant.organizationId, tenant.branchId, tenant.assignedBranches.length], () => {
+    revision.value += 1
+  })
+
   function persist() {
-    if (!import.meta.client) return
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(collections.value))
+    persistLcsDb()
+    revision.value += 1
   }
 
   function hydrate() {
-    if (hydrated.value || !import.meta.client) return
+    if (hydrated.value) return
     hydrated.value = true
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) collections.value = JSON.parse(raw) as Record<string, FreightRecord[]>
-      else persist()
-    }
-    catch {
-      persist()
-    }
+    getLcsDb()
+    revision.value += 1
   }
+
+  function reload() {
+    getLcsDb()
+    revision.value += 1
+  }
+
+  const collections = computed(() => {
+    void revision.value
+    return getLcsDb()
+  })
 
   function moduleByPath(path: string) {
     return freightModules.find(module => module.path === path)
   }
 
-  function list(collection: string): FreightRecord[] {
+  function scoped(collection: string): FreightRecord[] {
     hydrate()
+    const db = collections.value
+    const current = session()
     if (collection === 'receivables') {
-      return deriveReceivables(collections.value.debitNotes || [], collections.value.customerPayments || [])
+      return deriveReceivables(
+        filterScopedRecords(db.debitNotes || [], current).filter(row => String(row.documentType || 'CUSTOMER_INVOICE') === 'CUSTOMER_INVOICE'),
+        filterScopedRecords(db.customerPayments || [], current),
+      )
     }
     if (collection === 'payables') {
-      return derivePayables(collections.value.supplierCosts || [], collections.value.supplierPayments || [])
+      return derivePayables(
+        filterScopedRecords(db.supplierCosts || [], current),
+        filterScopedRecords(db.supplierPayments || [], current),
+      )
     }
     if (collection === 'profitability') {
-      return deriveProfitability(collections.value.jobs || [], collections.value.debitNotes || [], collections.value.supplierCosts || [])
+      const jobs = filterScopedRecords(db.jobs || [], current)
+      const notes = filterScopedRecords(db.debitNotes || [], current).filter(row => String(row.documentType || 'CUSTOMER_INVOICE') === 'CUSTOMER_INVOICE')
+      const costs = filterScopedRecords(db.supplierCosts || [], current)
+      return deriveProfitability(jobs, notes, costs).map((row) => {
+        const postedNotes = notes.filter(note =>
+          String(note.jobNo) === String(row.jobNo) && financeDomainStatus(note.status) === 'POSTED',
+        )
+        const postedRevenue = postedNotes.reduce((sum, note) => sum + Number(note.total || note.amount || 0), 0)
+        return {
+          ...row,
+          postedRevenue,
+          postedProfit: Number((postedRevenue - Number(row.totalCost || 0)).toFixed(2)),
+        }
+      })
     }
-    return collections.value[collection] || []
+    return filterScopedRecords(db[collection] || [], current)
+  }
+
+  function list(collection: string): FreightRecord[] {
+    return scoped(collection)
   }
 
   function get(collection: string, id: string) {
     return list(collection).find(row => row.id === id) || null
   }
 
+  function getJobByNo(jobNo: string) {
+    const value = jobNo.trim()
+    if (!value) return null
+    return list('jobs').find(row => String(row.jobNo || '') === value) || null
+  }
+
   function save(collection: string, record: FreightRecord): FreightRecord {
     hydrate()
     if (['receivables', 'payables', 'profitability'].includes(collection)) return record
-    const rows = collections.value[collection] ? [...collections.value[collection]] : []
-    const index = rows.findIndex(row => row.id === record.id)
-    const next: FreightRecord = { ...record, updatedAt: new Date().toISOString() }
+    const db = getLcsDb()
+    const existing = (db[collection] || []).find(row => row.id === record.id) || null
+    if (existing) {
+      const visible = filterScopedRecords([existing], session())
+      if (!visible.length) return existing
+    }
+    assertMutableRecord(collection, existing, record)
+    const next = stampTenant({ ...record, updatedAt: new Date().toISOString() } as FreightRecord, session())
+    const rows = db[collection] ? [...db[collection]] : []
+    const index = rows.findIndex(row => row.id === next.id)
     if (index >= 0) rows[index] = next
     else rows.unshift({ ...next, createdAt: new Date().toISOString() })
-    collections.value = { ...collections.value, [collection]: rows }
+    db[collection] = rows
+    setLcsDb(db)
     persist()
     return next
   }
 
   function create(collection: string, data: Record<string, unknown>, prefix = 'rec'): FreightRecord {
     const { id: _ignored, ...rest } = data
-    const record = { ...rest, id: newId(prefix) } as FreightRecord
+    const record = stampTenant({ ...rest, id: newId(prefix) } as FreightRecord, session())
     return save(collection, record)
   }
 
   function remove(collection: string, ids: string[]) {
     hydrate()
-    const rows = (collections.value[collection] || []).filter(row => !ids.includes(row.id))
-    collections.value = { ...collections.value, [collection]: rows }
+    const db = getLcsDb()
+    const current = session()
+    const rows = (db[collection] || []).filter((row) => {
+      if (!ids.includes(row.id)) return true
+      return !filterScopedRecords([row], current).length
+    })
+    db[collection] = rows
+    setLcsDb(db)
     persist()
   }
 
@@ -94,7 +157,7 @@ export const useFreightStore = defineStore('freight', () => {
     const copy = clone(source)
     delete (copy as { createdAt?: string }).createdAt
     delete (copy as { id?: string }).id
-    return create(collection, { ...copy, ...overrides }, collection.slice(0, 3))
+    return create(collection, { ...copy, ...overrides, status: overrides.status || 'Draft' }, collection.slice(0, 3))
   }
 
   function addAudit(action: string, module: string, recordNo: string, remark = '') {
@@ -168,51 +231,60 @@ export const useFreightStore = defineStore('freight', () => {
 
   const dashboard = computed(() => {
     hydrate()
+    void revision.value
     const jobs = list('jobs')
-    const today = new Date().toISOString().slice(0, 10)
-    const customs = list('customs')
-    const deliveries = list('deliveries')
     const receivables = list('receivables')
     const payables = list('payables')
-    const profit = list('profitability')
     const documents = list('documents')
+    const deliveries = list('deliveries')
+    const customs = list('customs')
+    const components = list('serviceComponents')
+    const charges = list('jobCharges')
+    const financeDocs = list('debitNotes')
+    const payments = list('customerPayments')
+    const cash = list('cashAccounts')
+    const audits = list('auditLogs')
+    const locale = 'en'
+    const money = (value: number) => formatLcsMoney(value, 'USD', locale)
     const kpis = [
-      { id: 'jobsToday', label: 'Jobs Today', labelKm: 'ការងារថ្ងៃនេះ', value: jobs.filter(j => String(j.date) === today).length, to: '/operations/jobs' },
-      { id: 'import', label: 'Import Jobs', labelKm: 'ការងារនាំចូល', value: jobs.filter(j => j.direction === 'Import').length, to: '/operations/jobs' },
-      { id: 'export', label: 'Export Jobs', labelKm: 'ការងារនាំចេញ', value: jobs.filter(j => j.direction === 'Export').length, to: '/operations/jobs' },
-      { id: 'inTransit', label: 'In Transit', labelKm: 'កំពុងដឹក', value: jobs.filter(j => j.status === 'In Transit').length, to: '/operations/jobs' },
-      { id: 'pendingCustoms', label: 'Pending Customs', labelKm: 'រង់ចាំគយ', value: jobs.filter(j => ['Customs Processing', 'Documents Received', 'Transport Registered'].includes(String(j.status))).length, to: '/operations/customs' },
-      { id: 'cleared', label: 'Customs Cleared', labelKm: 'គយបានបញ្ចេញ', value: jobs.filter(j => ['Customs Cleared', 'In Transit', 'Arrived Factory', 'Delivered', 'Closed'].includes(String(j.status))).length, to: '/operations/customs' },
-      { id: 'pendingDelivery', label: 'Pending Delivery', labelKm: 'រង់ចាំប្រគល់', value: jobs.filter(j => ['Customs Cleared', 'In Transit', 'Arrived Factory'].includes(String(j.status))).length, to: '/operations/deliveries' },
-      { id: 'completed', label: 'Completed Jobs', labelKm: 'ការងារបានបញ្ចប់', value: jobs.filter(j => ['Delivered', 'Financial Completed', 'Closed'].includes(String(j.status))).length, to: '/operations/jobs' },
-      { id: 'ar', label: 'Customer Receivable', labelKm: 'ត្រូវទទួល', value: `$${receivables.reduce((s, r) => s + Number(r.outstanding || 0), 0).toLocaleString()}`, to: '/finance/accounts-receivable' },
-      { id: 'ap', label: 'Supplier Payable', labelKm: 'ត្រូវបង់', value: `$${payables.reduce((s, r) => s + Number(r.outstanding || 0), 0).toLocaleString()}`, to: '/finance/accounts-payable' },
-      { id: 'revenue', label: 'Total Revenue', labelKm: 'ចំណូលសរុប', value: `$${profit.reduce((s, r) => s + Number(r.revenue || 0), 0).toLocaleString()}`, to: '/finance/job-profitability' },
-      { id: 'cost', label: 'Total Cost', labelKm: 'ថ្លៃសរុប', value: `$${profit.reduce((s, r) => s + Number(r.totalCost || 0), 0).toLocaleString()}`, to: '/finance/job-charges' },
-      { id: 'profit', label: 'Monthly Profit', labelKm: 'ប្រាក់ចំណេញប្រចាំខែ', value: `$${profit.reduce((s, r) => s + Number(r.profit || 0), 0).toLocaleString()}`, to: '/finance/job-profitability' },
+      { id: 'openJobs', value: jobs.filter(row => ['OPEN', 'IN_PROGRESS'].includes(jobDomainStatus(row))).length, to: '/service-orders' },
+      { id: 'onHold', value: jobs.filter(row => jobDomainStatus(row) === 'ON_HOLD').length, to: '/service-orders?workflowStatus=ON_HOLD' },
+      { id: 'pendingComponents', value: components.filter(row => String(row.status) === 'PENDING').length, to: '/service-orders' },
+      { id: 'issuedCharges', value: charges.filter(row => String(row.status) === 'Issued').length, to: '/service-charges?status=Issued' },
+      { id: 'draftFinance', value: financeDocs.filter(row => financeDomainStatus(row.status) === 'DRAFT').length, to: '/finance/documents?status=Draft' },
+      { id: 'overdueAr', value: money(receivables.filter(row => String(row.status) === 'Overdue').reduce((sum, row) => sum + Number(row.outstanding || 0), 0)), to: '/reports/outstanding-receivables' },
+      { id: 'overdueAp', value: money(payables.filter(row => Number(row.outstanding) > 0).reduce((sum, row) => sum + Number(row.outstanding || 0), 0)), to: '/reports/outstanding-payables' },
+      { id: 'unallocated', value: money(payments.reduce((sum, row) => sum + Number(row.unallocatedAmount || 0), 0)), to: '/reports/unallocated-payments' },
+      { id: 'cash', value: money(cash.reduce((sum, row) => sum + Number(row.balance || 0), 0)), to: '/reports/trial-balance' },
+      { id: 'recentAudit', value: audits.slice(0, 8).length, to: '/administration/audit-logs' },
     ]
-    const recentJobs = jobs.slice(0, 8)
+    const recentJobs = jobs.filter(row => jobDomainStatus(row) !== 'CLOSED').slice(0, 8)
+    const customsPending = customs.filter(row => ['Preparing', 'Submitted', 'Processing', 'On Hold'].includes(String(row.status))).slice(0, 8)
+    const receivableRows = receivables.filter(row => Number(row.outstanding) > 0).slice(0, 8)
+    const payableRows = payables.filter(row => Number(row.outstanding) > 0).slice(0, 8)
+    const recentAudit = audits.slice(0, 8)
     const alerts = [
-      { id: 'eta', title: 'Containers arriving soon', titleKm: 'កុងតឺន័រនឹងមកដល់ឆាប់ៗ', tone: 'warning' as const, items: deliveries.filter(d => ['Arriving', 'Scheduled'].includes(String(d.status))).map(d => `${d.jobNo} · ${d.containerNo} · ETA ${d.etaFactory}`) },
-      { id: 'docs', title: 'Missing documents', titleKm: 'ឯកសារខ្វះ', tone: 'error' as const, items: [
+      { id: 'eta', tone: 'warning' as const, items: deliveries.filter(d => ['Arriving', 'Scheduled'].includes(String(d.status))).map(d => `${d.jobNo} · ${d.containerNo} · ETA ${d.etaFactory}`) },
+      { id: 'docs', tone: 'error' as const, items: [
         ...documents.filter(d => d.status === 'Missing' || String(d.remark || '').toLowerCase().includes('missing')).map(d => `${d.jobNo} · ${d.documentType}`),
         ...jobs.flatMap(job => (Array.isArray(job.checklist) ? job.checklist as Array<Record<string, unknown>> : [])
           .filter(item => item.required && item.status === 'Missing')
           .map(item => `${job.jobNo} · ${item.type}`)),
       ].slice(0, 8) },
-      { id: 'customs', title: 'Pending customs', titleKm: 'រង់ចាំគយ', tone: 'warning' as const, items: customs.filter(c => ['Preparing', 'Submitted', 'Processing', 'On Hold'].includes(String(c.status))).map(c => `${c.jobNo} · ${c.customsNo} · ${c.status}`) },
-      { id: 'delivery', title: 'Pending delivery', titleKm: 'រង់ចាំប្រគល់', tone: 'info' as const, items: deliveries.filter(d => ['Scheduled', 'Arriving', 'Unloading'].includes(String(d.status))).map(d => `${d.jobNo} · ${d.factory}`) },
-      { id: 'unpaid', title: 'Unpaid customer invoices', titleKm: 'វិក្កយបត្រអតិថិជនមិនទាន់បង់', tone: 'error' as const, items: receivables.filter(r => Number(r.outstanding) > 0).map(r => `${r.customer} · ${r.invoiceNo} · $${r.outstanding}`) },
-      { id: 'supplierDue', title: 'Supplier payment due', titleKm: 'ដល់ពេលបង់អ្នកផ្គត់ផ្គង់', tone: 'warning' as const, items: payables.filter(p => Number(p.outstanding) > 0).map(p => `${p.supplier} · ${p.invoiceNo} · $${p.outstanding}`) },
+      { id: 'customs', tone: 'warning' as const, items: customs.filter(c => ['Preparing', 'Submitted', 'Processing', 'On Hold'].includes(String(c.status))).map(c => `${c.jobNo} · ${c.customsNo} · ${c.status}`) },
+      { id: 'unallocated', tone: 'warning' as const, items: payments.filter(p => Number(p.unallocatedAmount) > 0).map(p => `${p.paymentNo} · ${formatLcsMoney(p.unallocatedAmount)}`) },
+      { id: 'audit', tone: 'info' as const, items: audits.slice(0, 6).map(a => `${a.occurredAt} · ${a.action} · ${a.recordNo}`) },
     ]
-    return { kpis, recentJobs, alerts }
+    return { kpis, recentJobs, customsPending, receivableRows, payableRows, alerts, recentAudit }
   })
 
   return {
     collections,
     hydrate,
+    reload,
     list,
     get,
+    getJobByNo,
     save,
     create,
     remove,

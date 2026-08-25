@@ -2,6 +2,9 @@
 import { useGlobalSearch } from '~/composables/search/useGlobalSearch'
 
 const { t } = useI18n()
+const tenant = useTenantStore()
+onMounted(() => tenant.hydrate())
+
 const {
   open,
   searchTerm,
@@ -65,11 +68,22 @@ const {
       </template>
     </UDashboardSearch>
 
-    <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <LayoutAppHeader />
-      <main class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0">
-        <slot />
-      </main>
-    </div>
+    <UDashboardPanel
+      id="main"
+      class="min-w-0"
+      :ui="{
+        root: 'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+        body: 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0 sm:p-0 gap-0',
+      }"
+    >
+      <template #header>
+        <LayoutAppHeader />
+      </template>
+      <template #body>
+        <div class="dashboard-page-slot flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <NuxtPage :page-key="page => page.fullPath" />
+        </div>
+      </template>
+    </UDashboardPanel>
   </UDashboardGroup>
 </template>

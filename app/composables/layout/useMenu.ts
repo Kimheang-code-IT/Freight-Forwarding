@@ -33,59 +33,104 @@ export function useMenu() {
 
   const pageLink = (label: string, to: string): NavigationMenuItem => ({ label, to, exact: true, class: 'text-sm gap-2', onSelect: close })
 
-  const group = (label: string, icon: string, children: NavigationMenuItem[], defaultOpen = false): NavigationMenuItem => ({
+  const ROUTE_PERMISSION: Record<string, string> = {
+    '/': 'dashboard.view',
+    '/quotations': 'sales.quotations.view',
+    '/service-orders': 'operations.service_orders.view',
+    '/service-charges': 'finance.service_charges.view',
+    '/finance/documents': 'finance.financial_documents.view',
+    '/finance/chart-of-accounts': 'finance.accounting.view',
+    '/finance/financial-accounts': 'finance.accounting.view',
+    '/finance/journals': 'finance.accounting.view',
+    '/finance/accounting-periods': 'finance.accounting.view',
+    '/reports': 'reports.view',
+    '/master-data/business-parties': 'master.reference.view',
+    '/master-data/places': 'master.reference.view',
+    '/master-data/trade-directions': 'master.reference.view',
+    '/master-data/container-types': 'master.reference.view',
+    '/master-data/transport-types': 'master.reference.view',
+    '/master-data/transport-assets': 'master.reference.view',
+    '/master-data/fee-types': 'master.reference.view',
+    '/configuration/component-templates': 'configuration.manage',
+    '/configuration/component-groups': 'configuration.manage',
+    '/configuration/trade-direction-components': 'configuration.manage',
+    '/configuration/posting-rules': 'finance.accounting.view',
+    '/administration/users': 'admin.users.view',
+    '/administration/roles': 'admin.roles.view',
+    '/administration/audit-logs': 'admin.audit_logs.view',
+    '/administration/organizations': 'admin.organization.view',
+    '/administration/branches': 'admin.organization.view',
+    '/administration/system-settings': 'settings.app_config.view',
+  }
+
+  const auth = useAuthStore()
+
+  function canSee(to: string) {
+    const permission = ROUTE_PERMISSION[to]
+    if (!permission) return true
+    return auth.canAccessPage(permission)
+  }
+
+  function filterItem(item: NavigationMenuItem): NavigationMenuItem | null {
+    if (item.children?.length) {
+      const children = item.children.map(filterItem).filter((child): child is NavigationMenuItem => Boolean(child))
+      if (!children.length) return null
+      return { ...item, children }
+    }
+    const to = typeof item.to === 'string' ? item.to : ''
+    return canSee(to) ? item : null
+  }
+
+  const group = (id: string, label: string, icon: string, children: NavigationMenuItem[]): NavigationMenuItem => ({
     label,
     icon,
     type: 'trigger',
-    defaultOpen,
+    value: id,
+    defaultOpen: true,
     class: 'mt-1 text-sm gap-2',
     children,
   })
 
-  const links = computed<NavigationMenuItem[][]>(() => [[
-    { label: t('freight.nav.dashboard'), icon: 'i-lucide-layout-dashboard', to: '/', exact: true, class: 'text-sm gap-2', onSelect: close },
-    group(t('freight.nav.sales'), 'i-lucide-briefcase-business', [
-      pageLink(t('freight.pages.companies'), '/sales/companies'),
-      pageLink(t('freight.pages.quotations'), '/sales/quotations'),
-    ], true),
-    group(t('freight.nav.operations'), 'i-lucide-container', [
-      pageLink(t('freight.pages.jobs'), '/operations/jobs'),
-      pageLink(t('freight.pages.shipments'), '/operations/shipments'),
-      pageLink(t('freight.pages.customs'), '/operations/customs'),
-      pageLink(t('freight.pages.documents'), '/operations/documents'),
-      pageLink(t('freight.pages.deliveries'), '/operations/deliveries'),
-    ], true),
-    group(t('freight.nav.finance'), 'i-lucide-banknote', [
-      pageLink(t('freight.pages.debitNotes'), '/finance/debit-notes'),
-      pageLink(t('freight.pages.customerPayments'), '/finance/customer-payments'),
-      pageLink(t('freight.pages.jobCharges'), '/finance/job-charges'),
-      pageLink(t('freight.pages.supplierCosts'), '/finance/supplier-costs'),
-      pageLink(t('freight.pages.supplierPayments'), '/finance/supplier-payments'),
-      pageLink(t('freight.pages.accountsReceivable'), '/finance/accounts-receivable'),
-      pageLink(t('freight.pages.accountsPayable'), '/finance/accounts-payable'),
-      pageLink(t('freight.pages.jobProfitability'), '/finance/job-profitability'),
-    ]),
-    { label: t('freight.nav.reports'), icon: 'i-lucide-book-open-text', to: '/reports', exact: true, class: 'mt-1 text-sm gap-2', onSelect: close },
-    group(t('freight.nav.master'), 'i-lucide-database', [
-      pageLink(t('freight.pages.suppliers'), '/master-data/suppliers'),
-      pageLink(t('freight.pages.zones'), '/master-data/zones'),
-      pageLink(t('freight.pages.locations'), '/master-data/locations'),
-      pageLink(t('freight.pages.equipmentTypes'), '/master-data/equipment-types'),
-      pageLink(t('freight.pages.directions'), '/master-data/directions'),
-      pageLink(t('freight.pages.chargeTypes'), '/master-data/charge-types'),
-      pageLink(t('freight.pages.currencies'), '/master-data/currencies'),
-    ]),
-    group(t('freight.nav.settings'), 'i-lucide-settings', [
-      pageLink(t('docetra.pages.appConfig'), '/settings/app-config'),
-      pageLink(t('docetra.pages.appInfo'), '/settings/app-info'),
-      pageLink(t('docetra.pages.storage'), '/settings/storage'),
-    ]),
-    group(t('freight.nav.userManagement'), 'i-lucide-shield', [
-      pageLink(t('freight.pages.users'), '/administration/users'),
-      pageLink(t('freight.pages.roles'), '/administration/roles'),
-      pageLink(t('freight.pages.auditLogs'), '/administration/audit-logs'),
-    ]),
-  ], []])
+  const links = computed<NavigationMenuItem[][]>(() => {
+    const tree: NavigationMenuItem[] = [
+      { label: t('freight.nav.dashboard'), icon: 'i-lucide-layout-dashboard', to: '/', exact: true, class: 'text-sm gap-2', onSelect: close },
+      { label: t('freight.nav.quotations'), icon: 'i-lucide-file-check-2', to: '/quotations', class: 'text-sm gap-2', onSelect: close },
+      { label: t('freight.pages.serviceOrders'), icon: 'i-lucide-briefcase', to: '/service-orders', class: 'text-sm gap-2', onSelect: close },
+      { label: t('freight.pages.serviceCharges'), icon: 'i-lucide-receipt-text', to: '/service-charges', class: 'text-sm gap-2', onSelect: close },
+      group('finance', t('freight.nav.finance'), 'i-lucide-banknote', [
+        pageLink(t('freight.pages.financialDocuments'), '/finance/documents'),
+        pageLink(t('freight.pages.chartOfAccounts'), '/finance/chart-of-accounts'),
+        pageLink(t('freight.pages.financialAccounts'), '/finance/financial-accounts'),
+        pageLink(t('freight.pages.journals'), '/finance/journals'),
+        pageLink(t('freight.pages.accountingPeriods'), '/finance/accounting-periods'),
+      ]),
+      { label: t('freight.nav.reports'), icon: 'i-lucide-chart-no-axes-combined', to: '/reports', class: 'text-sm gap-2', onSelect: close },
+      group('master', t('freight.nav.master'), 'i-lucide-database', [
+        pageLink(t('freight.pages.businessParties'), '/master-data/business-parties'),
+        pageLink(t('freight.pages.places'), '/master-data/places'),
+        pageLink(t('freight.pages.tradeDirections'), '/master-data/trade-directions'),
+        pageLink(t('freight.pages.containerTypes'), '/master-data/container-types'),
+        pageLink(t('freight.pages.transportTypes'), '/master-data/transport-types'),
+        pageLink(t('freight.pages.transportAssets'), '/master-data/transport-assets'),
+        pageLink(t('freight.pages.feeTypes'), '/master-data/fee-types'),
+      ]),
+      group('configuration', t('freight.nav.configuration'), 'i-lucide-blocks', [
+        pageLink(t('freight.pages.componentGroups'), '/configuration/component-groups'),
+        pageLink(t('freight.pages.componentTemplates'), '/configuration/component-templates'),
+        pageLink(t('freight.pages.tradeDirectionComponents'), '/configuration/trade-direction-components'),
+        pageLink(t('freight.pages.postingRules'), '/configuration/posting-rules'),
+      ]),
+      group('administration', t('freight.nav.administration'), 'i-lucide-shield-check', [
+        pageLink(t('freight.pages.organizations'), '/administration/organizations'),
+        pageLink(t('freight.pages.branches'), '/administration/branches'),
+        pageLink(t('freight.pages.users'), '/administration/users'),
+        pageLink(t('freight.pages.roles'), '/administration/roles'),
+        pageLink(t('freight.pages.settings'), '/administration/system-settings'),
+        pageLink(t('freight.pages.auditLogs'), '/administration/audit-logs'),
+      ]),
+    ]
+    return [tree.map(filterItem).filter((item): item is NavigationMenuItem => Boolean(item)), []]
+  })
 
   return { open, collapsed, links, close, setCollapsed }
 }

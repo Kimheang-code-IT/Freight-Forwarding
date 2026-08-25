@@ -3,14 +3,15 @@
  */
 import type { CommandPaletteItem, CommandPaletteGroup } from '@nuxt/ui'
 import type { SearchHit, SearchMode } from '~/types/docetra/search'
-import { askAi, searchKeyword, searchSemantic } from '~/adapters/search'
 import { ensureSearchIndexSeeded } from '~/utils/search/seed-index'
 import { useMenu } from '~/composables/layout/useMenu'
+import { useSearch } from '~/composables/search/useSearch'
 
 export function useGlobalSearch() {
   const { t } = useI18n()
   const router = useRouter()
   const { links, close: closeSidebar } = useMenu()
+  const { askAi, searchKeyword, searchSemantic } = useSearch()
 
   const open = ref(false)
   const searchTerm = ref('')

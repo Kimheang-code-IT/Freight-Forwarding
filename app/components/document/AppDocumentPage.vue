@@ -25,6 +25,7 @@ const props = withDefaults(defineProps<{
   showSave?: boolean
   showComments?: boolean
   showMetaRail?: boolean
+  showTabs?: boolean
   showListNav?: boolean
   canNavigatePrevious?: boolean
   canNavigateNext?: boolean
@@ -71,6 +72,7 @@ const props = withDefaults(defineProps<{
   showSave: true,
   showComments: false,
   showMetaRail: false,
+  showTabs: true,
   showListNav: false,
   canNavigatePrevious: false,
   canNavigateNext: false,
@@ -169,7 +171,7 @@ async function onSaveClick() {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-default">
+  <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-default">
     <LayoutAppHeaderPageActions
       :can-create="false"
       :refreshing="pending"
@@ -268,7 +270,7 @@ async function onSaveClick() {
 
         <div class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <DocumentAppDocumentTabBar
-            v-if="showForm && !notFound && !error"
+            v-if="showTabs && showForm && !notFound && !error"
             :tabs="tabs"
             :active-tab="activeTab"
             @update:active-tab="selectTab"

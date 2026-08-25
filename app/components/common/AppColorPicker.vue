@@ -38,14 +38,14 @@ const PRESETS = [
       <input
         v-model="model"
         type="color"
-        class="size-9 cursor-pointer rounded-md border border-default bg-transparent p-0.5"
+        class="size-11 cursor-pointer rounded-md border border-default bg-transparent p-0.5"
         :disabled="props.disabled"
         :aria-label="labelText"
       >
       <UInput
         v-model="model"
         class="w-32"
-        size="sm"
+        size="lg"
         :disabled="props.disabled"
         placeholder="#2563eb"
       />

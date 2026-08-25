@@ -10,7 +10,10 @@
     "postinstall": "nuxt prepare",
     "prepare:nuxt": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "typecheck:unused": "vue-tsc --noEmit --noUnusedLocals --noUnusedParameters -p .nuxt/tsconfig.json"
+    "typecheck:unused": "vue-tsc --noEmit --noUnusedLocals --noUnusedParameters -p .nuxt/tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.96",
@@ -45,8 +48,11 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@nuxt/eslint": "^1.17.0",
     "@nuxt/fonts": "^0.14.0",
+    "eslint": "^10.9.0",
     "typescript": "^5.9.3",
+    "vitest": "^4.1.11",
     "vue-tsc": "^3.2.5"
   },
   "packageManager": "pnpm@10.30.3",

@@ -12,7 +12,7 @@ const collapsedModel = computed({
 const sidebarUi = computed(() => ({
   root: collapsedModel.value
     ? 'app-sidebar bg-muted/50 border-e border-default'
-    : 'app-sidebar bg-elevated/25 backdrop-blur-sm border-e border-default dark:bg-[#18191a]',
+    : 'app-sidebar bg-muted/50 border-e border-default',
   header: collapsedModel.value
     ? 'h-auto flex-col items-center justify-center gap-2 px-0 pt-3 pb-2 shrink-0'
     : 'h-auto flex-col items-stretch gap-3 px-3 pt-3 pb-2 shrink-0',
@@ -93,6 +93,9 @@ const sidebarUi = computed(() => ({
         :collapsed="isCollapsed"
         :items="links[0]"
         orientation="vertical"
+        type="multiple"
+        :default-value="['finance', 'master', 'configuration', 'administration']"
+        :unmount-on-hide="false"
         tooltip
         popover
         :ui="isCollapsed

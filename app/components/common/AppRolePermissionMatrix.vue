@@ -128,10 +128,10 @@ function updateLevel(documentType: string, value: string | number) {
           {{ $t('docetra.rolePermissions.clearAll') }}
         </UButton>
         <UButton
-          color="primary"
+          color="error"
           variant="soft"
           size="sm"
-          icon="i-lucide-shield-check"
+          icon="i-lucide-shield-plus"
           :disabled="disabled || allGranted"
           @click="toggleAll(true)"
         >

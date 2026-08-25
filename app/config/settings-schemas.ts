@@ -323,6 +323,27 @@ export const appConfigTabs: DocumentTabSchema[] = [
   },
 ]
 
+const SYSTEM_SETTINGS_TAB_IDS = new Set(['localization', 'email', 'telegram', 'security'])
+const SETTINGS_FIELD_HELP: Record<string, string> = {
+  'email.enabled': 'docetra.fieldHelp.enableEmail',
+  'email.replyToEmail': 'docetra.fieldHelp.replyTo',
+  'telegram.enabled': 'docetra.fieldHelp.enableTelegram',
+}
+
+/** Administration system settings — Localization, Email, Telegram, Security only. */
+export const systemSettingsTabs: DocumentTabSchema[] = appConfigTabs
+  .filter(tab => SYSTEM_SETTINGS_TAB_IDS.has(tab.id))
+  .map(tab => ({
+    ...tab,
+    sections: tab.sections.map(section => ({
+      ...section,
+      fields: section.fields.map(field => ({
+        ...field,
+        helpKey: field.helpKey || SETTINGS_FIELD_HELP[field.key],
+      })),
+    })),
+  }))
+
 const storageCommonFields = [
   { key: 'name', labelKey: 'docetra.fields.name', type: 'text' as const, required: true },
   { key: 'active', labelKey: 'docetra.status.active', type: 'boolean' as const },

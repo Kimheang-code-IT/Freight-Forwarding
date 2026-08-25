@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import { h, resolveComponent } from 'vue'
-import type { FreightTable } from '~/config/freight-modules'
+import type { FreightLineColumn, FreightTable } from '~/config/freight-modules'
 import { useFreightLabel } from '~/composables/freight/useFreight'
+import type { DatePickerGranularity } from '~/utils/date-picker'
 import { freightTableUiReadonly } from '~/utils/table/theme'
 
 const props = defineProps<{
@@ -15,11 +16,22 @@ const emit = defineEmits<{
   'update:modelValue': [Array<Record<string, unknown>>]
 }>()
 
-const { fieldLabel, km } = useFreightLabel()
+const { t } = useI18n()
+const { fieldLabel, tableTitle } = useFreightLabel()
 const UButton = resolveComponent('UButton')
 const UInput = resolveComponent('UInput')
 const UInputNumber = resolveComponent('UInputNumber')
 const USelect = resolveComponent('USelect')
+const UCheckbox = resolveComponent('UCheckbox')
+const CommonAppInputDate = resolveComponent('CommonAppInputDate')
+
+function lineDateGranularity(column: FreightLineColumn): DatePickerGranularity | null {
+  if (column.type === 'datetime') return 'minute'
+  if (column.type === 'date') return 'day'
+  if (/At$|Time$/i.test(column.key)) return 'minute'
+  if (/Date$/i.test(column.key)) return 'day'
+  return null
+}
 
 const rows = computed({
   get: () => props.modelValue || [],
@@ -41,7 +53,7 @@ function updateCell(index: number, key: string, value: unknown) {
 }
 
 function addRow() {
-  const blank = Object.fromEntries(props.table.columns.map(column => [column.key, column.type === 'number' ? 0 : '']))
+  const blank = Object.fromEntries(props.table.columns.map(column => [column.key, column.type === 'number' ? 0 : column.type === 'checkbox' ? String(column.options?.[1] ?? 'No') : '']))
   rows.value = [...rows.value, blank]
 }
 
@@ -63,12 +75,23 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
       enableSorting: false,
       cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
         const index = Number(row.original._rowIndex || 0)
+        if (column.type === 'checkbox') {
+          return h(UCheckbox, {
+            'modelValue': row.original[column.key],
+            'trueValue': String(column.options?.[0] ?? 'Yes'),
+            'falseValue': String(column.options?.[1] ?? 'No'),
+            'disabled': props.disabled,
+            'size': 'lg',
+            'aria-label': fieldLabel(column),
+            'onUpdate:modelValue': (value: unknown) => updateCell(index, column.key, value),
+          })
+        }
         if (column.type === 'select') {
           return h(USelect, {
             'modelValue': String(row.original[column.key] || '') || undefined,
             'items': (column.options || []).filter(Boolean).map(option => ({ label: option, value: option })),
             'disabled': props.disabled,
-            'size': 'sm',
+            'size': 'lg',
             'class': 'w-full min-w-40',
             'onUpdate:modelValue': (value: unknown) => updateCell(index, column.key, value),
           })
@@ -77,15 +100,26 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
           return h(UInputNumber, {
             'modelValue': Number(row.original[column.key] || 0),
             'disabled': props.disabled,
-            'size': 'sm',
+            'size': 'lg',
             'class': 'w-full min-w-28',
             'onUpdate:modelValue': (value: number | null) => updateCell(index, column.key, value ?? 0),
+          })
+        }
+        const dateGranularity = lineDateGranularity(column)
+        if (dateGranularity) {
+          return h(CommonAppInputDate, {
+            'modelValue': String(row.original[column.key] ?? ''),
+            'granularity': dateGranularity,
+            'disabled': props.disabled,
+            'size': 'lg',
+            'class': 'w-full min-w-44',
+            'onUpdate:modelValue': (value: string) => updateCell(index, column.key, value),
           })
         }
         return h(UInput, {
           'modelValue': String(row.original[column.key] ?? ''),
           'disabled': props.disabled,
-          'size': 'sm',
+          'size': 'lg',
           'class': 'w-full min-w-36',
           'onUpdate:modelValue': (value: string) => updateCell(index, column.key, value),
         })
@@ -115,7 +149,7 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
   <section class="space-y-3">
     <div class="flex items-center justify-between gap-2">
       <h3 class="text-sm font-medium text-highlighted">
-        {{ km && table.titleKm ? table.titleKm : table.title }}
+        {{ tableTitle(table) }}
       </h3>
       <UButton
         v-if="!disabled"
@@ -123,7 +157,7 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
         color="neutral"
         variant="soft"
         icon="i-lucide-plus"
-        :label="table.addLabel || 'Add row'"
+        :label="table.addLabel || t('freight.ui.addRow')"
         @click="addRow"
       />
     </div>

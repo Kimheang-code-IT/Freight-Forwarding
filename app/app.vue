@@ -72,21 +72,13 @@ useSeoMeta({
 </script>
 
 <template>
-  <UApp :locale="currentLocale">
+  <UApp class="h-full min-h-0" :locale="currentLocale">
     <NuxtLoadingIndicator
       color="var(--ui-primary, #e8472a)"
       error-color="#ef4444"
       :height="3"
     />
-    <NuxtLayout>
-      <!-- Nuxt passes the destination route to this function. Using useRoute()
-           here can stay pinned to the first page and leave the previous table
-           mounted after navigation. -->
-      <NuxtPage
-        :key="$route.fullPath"
-        :page-key="route => route.fullPath"
-      />
-    </NuxtLayout>
+    <NuxtLayout />
     <CommonAppAccessAlertHost />
     <CommonAppConfirmHost />
   </UApp>

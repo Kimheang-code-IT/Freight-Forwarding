@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
-import { changePassword, removeProfileAvatar, updateProfileAvatar } from '~/adapters/auth'
+import { useAuth } from '~/composables/auth/useAuth'
 import { useAuthStore } from '~/stores/auth'
 import { resolveUserAvatar } from '~/utils/auth/user-avatar'
 import {
@@ -13,6 +13,7 @@ import {
 const open = defineModel<boolean>('open', { default: false })
 
 const auth = useAuthStore()
+const { changePassword, removeProfileAvatar, updateProfileAvatar } = useAuth()
 const { t, te } = useI18n()
 const toast = useToast()
 

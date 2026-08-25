@@ -76,7 +76,7 @@ function onDrop(event: DragEvent) {
 </script>
 
 <template>
-  <UFormField :label="labelText" :hint="helpText">
+  <UFormField :label="labelText" :help="helpText">
     <div
       class="relative flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-default bg-elevated/40 p-4 transition"
       :class="[

@@ -2,12 +2,12 @@ import { useAccessAlert } from '~/composables/common/useAccessAlert'
 
 const PERMITTED_LANDING_ROUTES = [
   ['/', 'dashboard.view'],
-  ['/operations/jobs', 'operations.jobs.view'],
-  ['/sales/companies', 'sales.companies.view'],
-  ['/finance/debit-notes', 'finance.debit_notes.view'],
+  ['/service-orders', 'operations.service_orders.view'],
+  ['/quotations', 'sales.quotations.view'],
+  ['/finance/documents', 'finance.financial_documents.view'],
   ['/reports', 'reports.view'],
   ['/administration/users', 'admin.users.view'],
-  ['/settings/app-config', 'settings.app_config.view'],
+  ['/configuration/system-settings', 'settings.app_config.view'],
 ] as const
 
 export default defineNuxtRouteMiddleware((to, from) => {
@@ -19,9 +19,6 @@ export default defineNuxtRouteMiddleware((to, from) => {
     '/auth/forget-password',
     '/auth/verify-code',
     '/auth/reset-password',
-    // Legacy redirects
-    '/login',
-    '/forget-password',
   ]
   const isPublicPage = publicPaths.includes(to.path)
 

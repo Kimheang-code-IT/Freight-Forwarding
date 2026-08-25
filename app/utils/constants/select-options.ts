@@ -83,10 +83,10 @@ export const PAGE_SIZE_OPTIONS: FieldOption[] = [
 
 export const LANDING_PAGE_OPTIONS: FieldOption[] = [
   { label: 'Dashboard', value: '/' },
-  { label: 'Jobs', value: '/operations/jobs' },
-  { label: 'Companies', value: '/sales/companies' },
-  { label: 'Quotations', value: '/sales/quotations' },
-  { label: 'Debit Notes', value: '/finance/debit-notes' },
+  { label: 'Service Orders', value: '/service-orders' },
+  { label: 'Business Parties', value: '/master-data/business-parties' },
+  { label: 'Quotations', value: '/quotations' },
+  { label: 'Financial Documents', value: '/finance/documents' },
   { label: 'Reports', value: '/reports' },
 ]
 

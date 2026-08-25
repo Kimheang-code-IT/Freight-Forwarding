@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import {
-  resendPasswordResetCode,
-  verifyPasswordResetCode,
-} from '~/adapters/auth'
+import { useAuth } from '~/composables/auth/useAuth'
 import { usePageSeo } from '~/composables/usePageSeo'
 import {
   getPasswordResetSession,
   markPasswordResetVerified,
-  MOCK_RESET_CODE,
 } from '~/utils/auth/password-reset'
 
 definePageMeta({
@@ -17,13 +13,12 @@ definePageMeta({
 const { t } = useI18n()
 const router = useRouter()
 const toast = useToast()
-const config = useRuntimeConfig()
+const { resendPasswordResetCode, verifyPasswordResetCode } = useAuth()
 
 const verifying = ref(false)
 const resending = ref(false)
 const code = ref<string[]>(['', '', '', '', '', ''])
 const session = ref(getPasswordResetSession())
-const useMock = computed(() => config.public.useMockData !== false)
 
 usePageSeo({
   title: () => t('pages.forgetPassword.verifyTitle'),
@@ -99,12 +94,6 @@ async function onResendCode() {
       <h2 class="text-center text-2xl font-normal">
         {{ t('pages.forgetPassword.verifyTitle') }}
       </h2>
-      <p v-if="useMock" class="text-center text-xs text-muted">
-        {{ t('pages.forgetPassword.mockCodeHint', { code: MOCK_RESET_CODE }) }}
-      </p>
-      <p class="text-center text-sm text-muted">
-        {{ t('pages.forgetPassword.sentDesc', { email: session?.email || '…' }) }}
-      </p>
     </div>
 
     <form class="flex w-full flex-col items-center gap-5" @submit.prevent="onVerifyCode">

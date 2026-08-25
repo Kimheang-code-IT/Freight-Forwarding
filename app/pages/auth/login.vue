@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
-import { useAuthSession } from '~/utils/auth/session'
 import { readRememberMe } from '~/utils/auth/remember-me'
-import { loginWithCredentials } from '~/adapters/auth'
+import { useAuth } from '~/composables/auth/useAuth'
 import { usePageSeo } from '~/composables/usePageSeo'
 
 definePageMeta({
@@ -13,8 +12,8 @@ definePageMeta({
 const { t, locale } = useI18n()
 const router = useRouter()
 const toast = useToast()
-const authSession = useAuthSession()
-const config = useRuntimeConfig()
+const auth = useAuthStore()
+const { loginWithCredentials } = useAuth()
 const submitting = ref(false)
 const googleLoading = ref(false)
 const loginForm = useTemplateRef<{ state?: Record<string, unknown> }>('loginForm')
@@ -37,7 +36,7 @@ function buildFields(): AuthFormField[] {
       placeholder: t('pages.auth.emailPlaceholder'),
       required: true,
       autocomplete: 'username',
-      defaultValue: remembered.email || (config.public.useMockData ? 'admin@gmail.com' : ''),
+      defaultValue: remembered.email || 'admin@gmail.com',
     },
     {
       name: 'password',
@@ -68,11 +67,6 @@ type Schema = {
   password: string
 }
 
-async function completeLogin(token: string | undefined, user: { name: string }) {
-  authSession.login(token, user as any)
-  await router.push('/')
-}
-
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   if (submitting.value) return
 
@@ -81,13 +75,10 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     const formState = loginForm.value?.state || {}
     const email = String(payload.data?.email ?? formState.email ?? '').trim()
     const password = String(payload.data?.password ?? formState.password ?? '')
-
     const result = await loginWithCredentials(email, password)
-    const payloadData = (result as { data?: { user?: { name: string }, token?: string } }).data
-    const user = payloadData?.user
+    const user = result.data?.user
 
-    const requiresToken = config.public.useMockData !== false || config.public.authMode === 'bearer'
-    if (!user || (requiresToken && !payloadData?.token)) {
+    if (!user) {
       toast.add({
         title: t('pages.auth.loginFailed'),
         description: t('pages.auth.loginFailedDesc'),
@@ -96,7 +87,8 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
       return
     }
 
-    await completeLogin(payloadData.token, user)
+    auth.login(user)
+    await router.push('/')
   }
   catch {
     toast.add({
@@ -115,7 +107,6 @@ async function onGoogleLogin() {
 
   googleLoading.value = true
   try {
-    // OAuth provider wiring comes later — mock success keeps the UI flow usable.
     await new Promise(resolve => setTimeout(resolve, 600))
     toast.add({
       title: t('pages.auth.googleComingSoon'),
@@ -156,7 +147,7 @@ const googleProvider = computed(() => ({
       @submit="onSubmit"
     >
       <template #leading>
-        <img src="/assets/images/logo.png" alt="Logo" class="mx-auto h-20 w-auto rounded-full shadow">
+        <img src="/assets/images/logo.png" alt="Logo" class="mx-auto h-16 w-auto">
       </template>
 
       <template #footer>
@@ -193,7 +184,6 @@ const googleProvider = computed(() => ({
               {{ t('pages.auth.forgotPassword') }}
             </UButton>
           </div>
-
           <div class="text-center">
             <span class="text-sm font-normal text-muted">{{ $t('settings.aboutCopyright') }}</span>
           </div>

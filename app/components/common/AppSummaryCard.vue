@@ -78,9 +78,10 @@ function onActivate() {
 
 <template>
   <div
-    class="flex flex-col rounded-md border border-default bg-default p-4 transition hover:border-default/80"
-    :class="to ? 'cursor-pointer' : ''"
-    role="group"
+    class="flex flex-col rounded-md border border-default bg-default p-3"
+    :class="to ? 'cursor-pointer hover:border-accented' : ''"
+    :role="to ? 'link' : 'group'"
+    :tabindex="to ? 0 : undefined"
     @click="to ? onActivate() : undefined"
     @keydown.enter.prevent="to ? onActivate() : undefined"
   >
@@ -105,7 +106,7 @@ function onActivate() {
       <p v-if="loading" class="text-2xl font-semibold tabular-nums text-muted">
         …
       </p>
-      <p v-else class="text-2xl font-semibold tabular-nums tracking-tight text-highlighted">
+      <p v-else class="text-lg font-semibold tabular-nums tracking-tight text-highlighted">
         {{ displayValue }}
       </p>
       <span

@@ -1,78 +1,33 @@
 import { defineStore } from 'pinia'
 import { computed } from 'vue'
 import type { AuthUser } from '~/types/auth-user'
-import { publishAuthSessionEvent } from '~/utils/auth/session-sync'
 
 export const useAuthStore = defineStore('auth', () => {
-  const config = useRuntimeConfig()
-  const usesCookieSession = computed(() =>
-    config.public.useMockData === false && config.public.authMode === 'cookie',
-  )
   const cookieOptions = {
     default: () => null,
     path: '/',
     sameSite: 'strict' as const,
     secure: import.meta.env.PROD,
   }
-  // The access token remains JS-readable until the API supports an HttpOnly session cookie.
-  const token = useCookie<string | null>('auth_token', cookieOptions)
   const user = useCookie<AuthUser | null>('auth_user', cookieOptions)
-  const sessionChecked = useState('auth-session-checked', () => false)
-  const sessionChecking = useState('auth-session-checking', () => false)
+  const isLoggedIn = computed(() => Boolean(user.value))
 
-  const isLoggedIn = computed(() => usesCookieSession.value ? Boolean(user.value) : Boolean(token.value))
-
-  function login(newToken: string | null | undefined, userData: AuthUser) {
-    token.value = usesCookieSession.value ? null : (newToken || null)
+  function login(userData: AuthUser) {
     user.value = userData
-    sessionChecked.value = true
-    publishAuthSessionEvent('login')
+    useTenantStore().applyUser(userData)
   }
 
-  function clearSession(notify = true) {
-    token.value = null
+  function clearSession() {
     user.value = null
-    sessionChecked.value = true
-    if (notify) publishAuthSessionEvent('logout')
+    if (import.meta.client) {
+      localStorage.removeItem('lcs-active-org')
+      localStorage.removeItem('lcs-active-branch')
+    }
   }
 
   async function logout() {
-    try {
-      if (config.public.useMockData === false) {
-        const { logoutSession } = await import('~/adapters/auth')
-        await logoutSession()
-      }
-    }
-    catch {
-      // Always clear the browser snapshot; the backend session expires independently.
-    }
-    finally {
-      clearSession()
-      await navigateTo('/auth/login')
-    }
-  }
-
-  async function validateSession() {
-    if (config.public.useMockData !== false) {
-      sessionChecked.value = true
-      return isLoggedIn.value
-    }
-    if (sessionChecking.value) return isLoggedIn.value
-    sessionChecking.value = true
-    try {
-      const { getCurrentSession } = await import('~/adapters/auth')
-      const response = await getCurrentSession()
-      user.value = response.data
-      sessionChecked.value = true
-      return true
-    }
-    catch {
-      clearSession(false)
-      return false
-    }
-    finally {
-      sessionChecking.value = false
-    }
+    clearSession()
+    await navigateTo('/auth/login')
   }
 
   /**
@@ -83,11 +38,14 @@ export const useAuthStore = defineStore('auth', () => {
   function canAccessPage(pageId: string): boolean {
     const currentUser = user.value
     if (!currentUser) return false
+    if (currentUser.role === 'SuperAdmin') return true
     if (currentUser.pageAccess?.includes('ALL_PAGES')) return true
 
     if (Array.isArray(currentUser.permissions)) {
       if (currentUser.permissions.includes('ALL_PAGES')) return true
-      return currentUser.permissions.includes(pageId)
+      if (currentUser.permissions.includes(pageId)) return true
+      if (pageId === 'configuration.manage' && currentUser.permissions.includes('configuration.configure')) return true
+      return false
     }
 
     const access = currentUser.pageAccess
@@ -105,15 +63,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    token,
     user,
     isLoggedIn,
-    sessionChecked: readonly(sessionChecked),
-    sessionChecking: readonly(sessionChecking),
     login,
     clearSession,
     logout,
-    validateSession,
     updateUser,
     canAccessPage,
   }

@@ -8,7 +8,8 @@ export default defineNuxtConfig({
     '@vueuse/nuxt',
     '@nuxtjs/i18n',
     '@nuxt/fonts',
-    '@pinia/nuxt'
+    '@pinia/nuxt',
+    '@nuxt/eslint',
   ],
 
   app: {
@@ -57,7 +58,8 @@ export default defineNuxtConfig({
       'utils/format/**',
       'utils/helpers/**',
       'utils/storage/**',
-      'utils/validation/**'
+      'utils/validation/**',
+      'utils/lcs/**',
     ]
   },
 

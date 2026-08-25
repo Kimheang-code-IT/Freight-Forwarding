@@ -42,12 +42,10 @@
   }
 
   html,
-  body {
-    font-family: var(--font-sans) !important;
-  }
-
+  body,
   #__nuxt {
-    font-family: var(--font-sans);
+    height: 100%;
+    font-family: var(--font-sans) !important;
   }
   
   .dark,
@@ -92,6 +90,16 @@
     border-bottom: 1px solid var(--ui-border);
     flex-shrink: 0;
     overflow: hidden;
+  }
+
+  /* Keep Nuxt page roots filling the dashboard panel after client navigation. */
+  .dashboard-page-slot > * {
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+    height: 100%;
+    flex: 1 1 auto;
+    flex-direction: column;
   }
 
   /* Compact ERP card metadata chip for quick visual scanning. */
@@ -214,11 +222,20 @@
 }
 
 /* Freight list tables — grey bordered header + cell grid + row hover */
+.freight-table table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
 .freight-table table thead {
   background-color: #f4f4f5 !important;
 }
 
-.freight-table table thead th {
+.freight-table table thead th,
+.freight-table table [data-slot='th'] {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   border: 1px solid #e4e4e7 !important;
   background-color: #f4f4f5 !important;
   color: #27272a;
@@ -229,7 +246,8 @@
   background-color: #27272a !important;
 }
 
-.dark .freight-table table thead th {
+.dark .freight-table table thead th,
+.dark .freight-table table [data-slot='th'] {
   border-color: #3f3f46 !important;
   background-color: #27272a !important;
   color: #f4f4f5;

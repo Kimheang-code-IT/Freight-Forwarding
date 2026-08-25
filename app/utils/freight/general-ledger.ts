@@ -1,4 +1,5 @@
 import type { FreightRecord } from '~/config/freight-seed'
+import { financeDomainStatus } from '~/utils/lcs/states'
 
 export interface GeneralLedgerRow {
   id: string
@@ -39,6 +40,7 @@ export function buildGeneralLedger(collections: Record<string, FreightRecord[]>)
   const rows: Omit<GeneralLedgerRow, 'balance'>[] = []
 
   for (const note of collections.debitNotes || []) {
+    if (financeDomainStatus(note.status) !== 'POSTED') continue
     const amount = Number(note.total || note.amount || 0)
     if (!amount) continue
     const voucherNo = String(note.debitNoteNo || note.id)

@@ -9,7 +9,8 @@ const props = defineProps<{
   groups: Array<FreightRelated & { rows: FreightRecord[] }>
 }>()
 
-const { km } = useFreightLabel()
+const { t } = useI18n()
+const { relatedTitle } = useFreightLabel()
 
 function titleOf(row: FreightRecord) {
   return String(row.jobNo || row.quotationNo || row.debitNoteNo || row.documentNo || row.paymentNo || row.name || row.id)
@@ -18,13 +19,13 @@ function titleOf(row: FreightRecord) {
 const columns = computed<TableColumn<FreightRecord>[]>(() => [
   {
     id: 'title',
-    header: km.value ? 'កំណត់ត្រា' : 'Record',
+    header: t('freight.ui.record'),
     accessorFn: row => titleOf(row),
     enableSorting: false,
   },
   {
     accessorKey: 'status',
-    header: km.value ? 'ស្ថានភាព' : 'Status',
+    header: t('freight.ui.cols.status'),
     enableSorting: false,
     cell: ({ row }) => String(row.original.status || row.original.containerNo || row.original.date || '—'),
   },
@@ -41,9 +42,9 @@ function openRelated(path: string) {
   <div class="space-y-6">
     <section v-for="group in groups" :key="group.path" class="space-y-2">
       <div class="flex items-center justify-between">
-        <h3 class="text-sm font-medium text-highlighted">{{ km && group.titleKm ? group.titleKm : group.title }}</h3>
+        <h3 class="text-sm font-medium text-highlighted">{{ relatedTitle(group) }}</h3>
         <UButton size="xs" color="neutral" variant="ghost" :to="group.path" trailing-icon="i-lucide-arrow-up-right">
-          View all
+          {{ t('freight.ui.viewAll') }}
         </UButton>
       </div>
       <UTable

@@ -41,6 +41,7 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => [
     cell: ({ row }) => h(UCheckbox, {
       'modelValue': Boolean(row.original.required),
       'disabled': props.disabled,
+      'aria-label': `Required ${String(row.original.type || '')}`,
       'onUpdate:modelValue': (value: boolean | 'indeterminate') => update(Number(row.original._rowIndex), 'required', value === true),
     }),
   },

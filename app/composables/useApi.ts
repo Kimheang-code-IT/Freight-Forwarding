@@ -26,7 +26,7 @@ type ApiFetchError = Error & {
 }
 
 // Shared across every useApi() consumer so a later request can cancel an older
-// request even when adapters/composables created separate useApi instances.
+// request even when composables created separate useApi instances.
 const requestControllers = new Map<string, AbortController>()
 
 /**
@@ -82,7 +82,6 @@ export function useApi() {
             activeRequests.value += 1
             error.value = null
             const method = options.method || 'GET'
-            const cookieAuth = config.public.authMode === 'cookie' && config.public.useMockData === false
             return await $fetch<T>(url, {
                 baseURL,
                 ...options,
@@ -90,10 +89,9 @@ export function useApi() {
                 query: compactQuery(options.query),
                 signal: controller.signal,
                 timeout: Number(config.public.apiTimeoutMs) || 30000,
-                credentials: cookieAuth ? 'include' : 'same-origin',
+                credentials: 'same-origin',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    ...(!cookieAuth && authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
                     ...csrfRequestHeaders(
                         method,
                         String(config.public.csrfCookieName),

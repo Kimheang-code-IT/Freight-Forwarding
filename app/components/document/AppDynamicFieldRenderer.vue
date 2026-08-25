@@ -20,7 +20,7 @@ import type { CardDisplayEntityKey } from '~/types/docetra/settings'
 import { TELEGRAM_TEMPLATE_VARIABLES } from '~/types/docetra/settings'
 import { createClientId } from '~/utils/client-id'
 import { resolveFieldHelp } from '~/utils/field-help'
-import { loadReferenceOptions } from '~/adapters/reference-options'
+import { useReferenceOptions } from '~/composables/common/useReferenceOptions'
 
 const props = defineProps<{
   field: DocumentFieldSchema
@@ -33,6 +33,7 @@ const emit = defineEmits<{
 }>()
 
 const { t, te } = useI18n()
+const { loadReferenceOptions } = useReferenceOptions()
 
 const hintOpen = ref(false)
 
@@ -738,12 +739,13 @@ function removeDestination(id: string) {
     v-else-if="isBoolean"
     :help="helpText"
   >
-    <div class="flex min-h-9 flex-wrap items-center gap-2 pt-1">
+    <div class="flex min-h-11 flex-wrap items-center gap-2 pt-1">
       <UCheckbox
         v-model="boolValue"
         :disabled="disabled || field.readOnly"
         :required="field.required"
-        :ui="{ label: 'text-sm text-highlighted' }"
+        size="lg"
+        :ui="{ label: 'text-base text-highlighted' }"
       >
         <template #label>
           <span class="inline-flex items-center gap-1.5">
@@ -798,6 +800,7 @@ function removeDestination(id: string) {
           :rows="textareaRows"
           :maxrows="TEXTAREA_MAX_ROWS"
           autoresize
+          size="lg"
           class="w-full"
           :class="field.key === 'telegram.messageTemplate' ? 'font-mono text-sm' : ''"
         />
@@ -805,6 +808,7 @@ function removeDestination(id: string) {
           v-else-if="field.type === 'number'"
           v-model="numberValue"
           :disabled="disabled || field.readOnly"
+          size="lg"
           class="w-full"
         />
         <CommonAppInputDate
@@ -812,6 +816,7 @@ function removeDestination(id: string) {
           v-model="stringValue"
           :disabled="disabled || field.readOnly"
           :required="field.required"
+          size="lg"
           class="w-full"
         />
         <CommonAppInputDate
@@ -820,6 +825,7 @@ function removeDestination(id: string) {
           granularity="minute"
           :disabled="disabled || field.readOnly"
           :required="field.required"
+          size="lg"
           class="w-full"
         />
         <UInputMenu
@@ -830,6 +836,7 @@ function removeDestination(id: string) {
           :placeholder="placeholderText"
           :disabled="disabled || field.readOnly"
           :loading="optionsPending"
+          size="lg"
           class="w-full"
           @update:search-term="searchRemoteOptions"
         />
@@ -841,6 +848,7 @@ function removeDestination(id: string) {
           :placeholder="placeholderText"
           :disabled="disabled || field.readOnly"
           :loading="optionsPending"
+          size="lg"
           class="w-full"
         />
         <CommonAppMentionMultiInput
@@ -857,6 +865,7 @@ function removeDestination(id: string) {
           v-model="csvValue"
           :placeholder="placeholderText"
           :disabled="disabled || field.readOnly"
+          size="lg"
           class="w-full"
         />
         <UInput
@@ -865,6 +874,7 @@ function removeDestination(id: string) {
           :type="field.type === 'url' ? 'url' : 'text'"
           :placeholder="placeholderText"
           :disabled="disabled || field.readOnly"
+          size="lg"
           class="w-full"
         />
       </div>

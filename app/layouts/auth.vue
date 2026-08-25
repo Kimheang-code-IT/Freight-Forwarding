@@ -6,7 +6,7 @@
 
     <div class="flex h-full items-center justify-center px-4">
       <UPageCard variant="subtle" class="w-full max-w-sm">
-        <slot />
+        <NuxtPage />
       </UPageCard>
     </div>
   </div>

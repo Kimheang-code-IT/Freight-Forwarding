@@ -6,6 +6,7 @@ const props = defineProps<{
   steps?: readonly string[] | string[]
 }>()
 
+const { t } = useI18n()
 const steps = computed(() => props.steps?.length ? [...props.steps] : [...JOB_STATUS])
 const currentIndex = computed(() => {
   const index = steps.value.findIndex(step => step === props.current)
@@ -14,7 +15,7 @@ const currentIndex = computed(() => {
 </script>
 
 <template>
-  <ol class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+  <ol class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5" :aria-label="t('freight.ui.jobProgress')">
     <li
       v-for="(step, index) in steps"
       :key="step"
@@ -24,6 +25,7 @@ const currentIndex = computed(() => {
         : index === currentIndex
           ? 'border-primary/40 bg-primary/5'
           : 'border-default bg-default'"
+      :aria-current="index === currentIndex ? 'step' : undefined"
     >
       <span
         class="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold"
@@ -32,11 +34,15 @@ const currentIndex = computed(() => {
           : index === currentIndex
             ? 'bg-primary text-white'
             : 'bg-elevated text-muted'"
+        :aria-hidden="true"
       >
-        {{ index + 1 }}
+        {{ index < currentIndex ? '✓' : index + 1 }}
       </span>
       <span class="text-xs font-medium" :class="index <= currentIndex ? 'text-highlighted' : 'text-muted'">
         {{ step }}
+        <span class="sr-only">
+          {{ index < currentIndex ? t('freight.ui.stepCompleted') : index === currentIndex ? t('freight.ui.stepCurrent') : t('freight.ui.stepPending') }}
+        </span>
       </span>
     </li>
   </ol>
