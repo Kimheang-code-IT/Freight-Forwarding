@@ -1,4 +1,5 @@
 import type { FreightField, FreightModule } from './freight-modules'
+import { DOCUMENT_SEQUENCE_STATUSES, DOCUMENT_SEQUENCE_TYPES } from '~/utils/document-sequences'
 import {
   ACCOUNT_TYPES,
   ACTIVE_STATUS,
@@ -173,6 +174,29 @@ export const lcsReferenceModules: FreightModule[] = [
       field('address', 'Address', 'អាសយដ្ឋាន', undefined, undefined, 'textarea', undefined, false, { colSpan: 2 }),
     ],
     filters: [field('status', 'Status', 'ស្ថានភាព', '', '', 'select', ACTIVE_STATUS)],
+  }),
+  module({
+    path: '/administration/document-sequences', title: 'Document Sequences', titleKm: 'លំដាប់លេខឯកសារ', singular: 'Document Sequence', singularKm: 'លំដាប់ឯកសារ', description: 'Manage organization-scoped automatic document numbering by document type and year.', descriptionKm: 'គ្រប់គ្រងលេខឯកសារស្វ័យប្រវត្តិតាមអង្គភាព ប្រភេទឯកសារ និងឆ្នាំ។',
+    icon: 'i-lucide-list-ordered', group: 'admin', permission: 'configuration.manage', collection: 'documentSequences', titleField: 'documentType', kind: 'standard', canCreate: true,
+    columns: [
+      column('documentType', 'Document Type', 'ប្រភេទឯកសារ'), column('year', 'Year', 'ឆ្នាំ'), column('prefix', 'Prefix', 'បុព្វបទ'),
+      column('lastValue', 'Last Value', 'តម្លៃចុងក្រោយ'), column('paddingLength', 'Padding Length', 'ប្រវែងលេខ'), column('nextNumberPreview', 'Next Number Preview', 'លេខបន្ទាប់'), column('status', 'Status', 'ស្ថានភាព'),
+    ],
+    fields: [
+      field('organizationName', 'Organization', 'អង្គភាព', undefined, undefined, 'text', undefined, false, { computed: true }),
+      field('documentType', 'Document Type', 'ប្រភេទឯកសារ', undefined, undefined, 'select', DOCUMENT_SEQUENCE_TYPES, true),
+      field('year', 'Year', 'ឆ្នាំ', undefined, undefined, 'number', undefined, true),
+      field('prefix', 'Prefix', 'បុព្វបទ', undefined, undefined, 'text', undefined, true),
+      field('lastValue', 'Starting / Last Value', 'តម្លៃចាប់ផ្តើម / ចុងក្រោយ', 'Numbering', 'ការដាក់លេខ', 'number', undefined, true),
+      field('paddingLength', 'Padding Length', 'ប្រវែងលេខ', 'Numbering', 'ការដាក់លេខ', 'number', undefined, true),
+      field('nextNumberPreview', 'Next Number Preview', 'លេខបន្ទាប់', 'Numbering', 'ការដាក់លេខ', 'text', undefined, false, { computed: true }),
+      field('status', 'Status', 'ស្ថានភាព', 'Control', 'ការគ្រប់គ្រង', 'select', DOCUMENT_SEQUENCE_STATUSES, true),
+    ],
+    filters: [
+      field('documentType', 'Document Type', 'ប្រភេទឯកសារ', '', '', 'select', DOCUMENT_SEQUENCE_TYPES),
+      field('year', 'Year', 'ឆ្នាំ', '', '', 'select'),
+      field('status', 'Status', 'ស្ថានភាព', '', '', 'select', DOCUMENT_SEQUENCE_STATUSES),
+    ],
   }),
 
   module({

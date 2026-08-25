@@ -468,7 +468,15 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       stamp({ id: 'pr-002', documentType: 'SUPPLIER_BILL', feeType: 'TRANSPORT', debitAccount: '5010 · Transport Expense', creditAccount: '2010 · Accounts Payable', taxAccount: '1210 · Input Tax', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     documentSequences: [
-      ...['Quotation', 'Service Order', 'Service Charge', 'Financial Document', 'Receipt', 'Payment', 'Journal'].map((documentType, index) => stamp({ id: `seq-${index + 1}`, documentType, year: 2026, prefix: ['QT', 'SO', 'SC', 'FD', 'RC', 'PY', 'JE'][index], lastValue: 40 + index, paddingLength: 5, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID)),
+      ...['QUOTATION', 'SERVICE_ORDER', 'SERVICE_CHARGE', 'CUSTOMER_INVOICE', 'SUPPLIER_BILL', 'CUSTOMER_RECEIPT', 'SUPPLIER_PAYMENT', 'JOURNAL'].map((documentType, index) => stamp({
+        id: `seq-${index + 1}`,
+        documentType,
+        year: 2026,
+        prefix: ['Q', 'SO', 'SC', 'INV', 'BILL', 'REC', 'PAY', 'JE'][index],
+        lastValue: 40 + index,
+        paddingLength: 6,
+        status: 'ACTIVE',
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID)),
     ],
     systemSettings: [
       stamp({ id: 'set-001', organizationName: 'LCS Freight', branchName: '', settingKey: 'default_currency', settingValue: 'USD', displayValue: 'USD', scope: 'Organization', sensitive: 'No', updatedBy: 'System Administrator', updatedAt: '2026-08-20T08:00:00' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),

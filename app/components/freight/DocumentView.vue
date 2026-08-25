@@ -21,6 +21,7 @@ import { isLcsDomainError } from '~/utils/lcs/errors'
 import { financeDomainStatus, isRecordReadOnly, quotationDomainStatus } from '~/utils/lcs/states'
 import { normalizePermissionRows, permissionRowsToFlatKeys } from '~/utils/role/permissions'
 import type { AppRolePermissionRow } from '~/types/docetra/entities'
+import { documentSequencePreview, documentSequenceTypeLabel } from '~/utils/document-sequences'
 
 const { module, isCreate, recordId, route } = useFreightRouteModule()
 const store = useFreightStore()
@@ -35,6 +36,7 @@ const lcs = useLcs()
 const saving = ref(false)
 const activeTab = ref('general')
 const model = ref<FreightRecord>({ id: '' } as FreightRecord)
+const originalModel = ref<FreightRecord | null>(null)
 const notFound = ref(false)
 
 const {
@@ -73,6 +75,11 @@ function load() {
   if (!module.value) return
   if (isCreate.value) {
     model.value = emptyFreightRecord(module.value) as FreightRecord
+    if (module.value.collection === 'documentSequences') {
+      model.value.organizationName = auth.user?.organizationName || ''
+      model.value.nextNumberPreview = documentSequencePreview(model.value)
+    }
+    originalModel.value = null
     notFound.value = false
     const query = route.query
     for (const [key, value] of Object.entries(query)) {
@@ -84,6 +91,7 @@ function load() {
   const found = store.get(module.value.collection, recordId.value)
   notFound.value = !found
   model.value = found ? { ...found } as FreightRecord : emptyFreightRecord(module.value) as FreightRecord
+  originalModel.value = found ? { ...found } as FreightRecord : null
   applyRoleMatrix()
 }
 
@@ -92,7 +100,10 @@ watch([() => module.value?.path, recordId, isCreate], load, { immediate: true })
 const title = computed(() => {
   if (!module.value) return ''
   if (isCreate.value) return t('freight.ui.newEntity', { entity: moduleSingular(module.value) })
-  return String(model.value[module.value.titleField] || moduleSingular(module.value))
+  const value = model.value[module.value.titleField]
+  return module.value.collection === 'documentSequences'
+    ? documentSequenceTypeLabel(value || moduleSingular(module.value))
+    : String(value || moduleSingular(module.value))
 })
 
 watch([title, () => module.value, () => model.value.status], () => {
@@ -107,7 +118,15 @@ watch([title, () => module.value, () => model.value.status], () => {
 onBeforeUnmount(clear)
 usePageSeo({ title: () => title.value })
 
-const sections = computed(() => module.value ? groupedFields(module.value) : [])
+const sections = computed(() => {
+  if (!module.value) return []
+  const groups = groupedFields(module.value)
+  if (module.value.collection !== 'documentSequences' || isCreate.value) return groups
+  return groups.map(group => ({
+    ...group,
+    fields: group.fields.map(field => ['documentType', 'year'].includes(field.key) ? { ...field, computed: true } : field),
+  }))
+})
 const compactAdminForm = computed(() =>
   module.value?.collection === 'organizations' || module.value?.collection === 'branches',
 )
@@ -147,7 +166,7 @@ const postingPreview = computed(() => {
   return { period: String(period?.name || period?.code || model.value.periodId || 'Current open period'), total, debitAccount, creditAccount, difference: 0 }
 })
 const canMutateRecord = computed(() => Boolean(module.value) && !readOnly.value && !isCreate.value && Boolean(model.value.id))
-const deactivationOnly = computed(() => module.value?.group === 'master')
+const deactivationOnly = computed(() => module.value?.group === 'master' || module.value?.collection === 'documentSequences')
 const hasDuplicateAction = computed(() => Boolean(module.value?.actions?.some(action => action.key === 'duplicate')))
 const headerActions = computed(() => {
   const collection = module.value?.collection
@@ -244,6 +263,15 @@ const currentTab = computed(() => tabs.value.find(tab => tab.id === activeTab.va
 
 const moreItems = computed<DropdownMenuItem[][]>(() => {
   if (!canMutateRecord.value) return []
+  if (module.value?.collection === 'documentSequences') {
+    const active = String(model.value.status || '').toUpperCase() === 'ACTIVE'
+    return [[{
+      label: t(active ? 'docetra.rowActions.deactivate' : 'docetra.rowActions.activate'),
+      icon: active ? 'i-lucide-circle-off' : 'i-lucide-circle-check',
+      color: active ? 'warning' as const : 'success' as const,
+      onSelect: () => { void setDocumentSequenceStatus(active ? 'INACTIVE' : 'ACTIVE') },
+    }]]
+  }
   return [[
     ...(!hasDuplicateAction.value ? [{
       label: t('freight.ui.duplicate'),
@@ -306,6 +334,13 @@ function setTable(key: string, rows: Array<Record<string, unknown>>) {
 
 function recalculate() {
   if (!module.value) return
+  if (module.value.collection === 'documentSequences') {
+    model.value = {
+      ...model.value,
+      prefix: String(model.value.prefix || '').trimStart(),
+      nextNumberPreview: documentSequencePreview(model.value),
+    }
+  }
   if (module.value.kind === 'quotation') {
     const pricingLines = Array.isArray(model.value.pricingLines) ? model.value.pricingLines as Array<Record<string, unknown>> : []
     if (pricingLines.length) {
@@ -401,6 +436,57 @@ async function save(status?: string) {
     recalculate()
     const payload = { ...model.value }
     if (status) payload.status = status
+    if (module.value.collection === 'documentSequences') {
+      payload.prefix = String(payload.prefix || '').trim()
+      const sequenceYear = Number(payload.year)
+      const lastValue = Number(payload.lastValue)
+      const paddingLength = Number(payload.paddingLength)
+      payload.year = sequenceYear
+      payload.lastValue = lastValue
+      payload.paddingLength = paddingLength
+      payload.status = String(payload.status || 'ACTIVE').toUpperCase()
+      payload.nextNumberPreview = documentSequencePreview(payload)
+
+      if (!Number.isInteger(sequenceYear) || sequenceYear < 1000 || sequenceYear > 9999) {
+        toast.add({ title: 'Year must be a positive 4-digit year.', color: 'error' })
+        return
+      }
+      if (!Number.isInteger(lastValue) || lastValue < 0) {
+        toast.add({ title: 'Last Value must be a whole number greater than or equal to 0.', color: 'error' })
+        return
+      }
+      if (!Number.isInteger(paddingLength) || paddingLength <= 0) {
+        toast.add({ title: 'Padding Length must be a whole number greater than 0.', color: 'error' })
+        return
+      }
+      if (!['ACTIVE', 'INACTIVE'].includes(String(payload.status))) {
+        toast.add({ title: 'Status must be ACTIVE or INACTIVE.', color: 'error' })
+        return
+      }
+      const duplicate = store.list('documentSequences').find(row =>
+        String(row.id) !== String(payload.id || '')
+        && String(row.documentType) === String(payload.documentType)
+        && Number(row.year) === Number(payload.year),
+      )
+      if (duplicate) {
+        toast.add({
+          title: 'A document sequence already exists for this document type and year.',
+          description: `${documentSequenceTypeLabel(payload.documentType)} / ${payload.year}`,
+          color: 'error',
+        })
+        return
+      }
+      if (!isCreate.value && originalModel.value && Number(payload.lastValue) !== Number(originalModel.value.lastValue)) {
+        const ok = await confirm({
+          kind: 'generic',
+          title: 'Change the last sequence value?',
+          description: 'Changing the last value can create duplicate or skipped document numbers. Continue only after verifying the numbering history.',
+          confirmLabel: 'Change Last Value',
+          confirmColor: 'warning',
+        })
+        if (!ok) return
+      }
+    }
     const missing = module.value.fields.filter(field => field.required && !field.computed && !String(payload[field.key] ?? '').trim())
     if (missing.length) {
       toast.add({ title: t('freight.ui.missingRequired'), description: missing.map(fieldLabel).join(', '), color: 'error' })
@@ -408,16 +494,21 @@ async function save(status?: string) {
     }
     if (isCreate.value || !payload.id) {
       const sequenceTypes: Record<string, { type: string, fallback: string }> = {
-        quotations: { type: 'Quotation', fallback: 'QT' },
-        jobCharges: { type: 'Service Charge', fallback: 'SC' },
-        debitNotes: { type: 'Financial Document', fallback: 'FD' },
-        journals: { type: 'Journal', fallback: 'JE' },
+        quotations: { type: 'QUOTATION', fallback: 'Q' },
+        jobCharges: { type: 'SERVICE_CHARGE', fallback: 'SC' },
+        debitNotes: { type: String(payload.documentType || 'CUSTOMER_INVOICE'), fallback: 'INV' },
+        journals: { type: 'JOURNAL', fallback: 'JE' },
       }
       const sequenceInfo = sequenceTypes[module.value.collection]
       if (sequenceInfo && !String(payload[module.value.titleField] || '').trim()) {
-        const sequence = store.list('documentSequences').find(row => String(row.documentType) === sequenceInfo.type)
+        const currentYear = new Date().getFullYear()
+        const sequence = store.list('documentSequences').find(row =>
+          String(row.documentType) === sequenceInfo.type
+          && Number(row.year) === currentYear
+          && String(row.status).toUpperCase() === 'ACTIVE',
+        )
         const next = Number(sequence?.lastValue || store.list(module.value.collection).length) + 1
-        payload[module.value.titleField] = `${sequence?.prefix || sequenceInfo.fallback}-${new Date().getFullYear()}-${String(next).padStart(Number(sequence?.paddingLength || 5), '0')}`
+        payload[module.value.titleField] = `${sequence?.prefix || sequenceInfo.fallback}-${currentYear}-${String(next).padStart(Number(sequence?.paddingLength || 6), '0')}`
         if (sequence) store.save('documentSequences', { ...sequence, lastValue: next })
       }
       payload.createdAt ||= new Date().toISOString()
@@ -431,7 +522,10 @@ async function save(status?: string) {
     store.addAudit(status ? `Set status ${status}` : 'Saved', module.value.title, String(saved[module.value.titleField] || saved.id))
     toast.add({ title: t('freight.ui.save'), color: 'success' })
     if (isCreate.value) await navigateTo(`${module.value.path}/${saved.id}`)
-    else model.value = saved
+    else {
+      model.value = saved
+      originalModel.value = { ...saved }
+    }
   }
   catch (error) {
     if (isLcsDomainError(error)) toast.add({ title: error.message, color: 'error' })
@@ -440,6 +534,14 @@ async function save(status?: string) {
   finally {
     saving.value = false
   }
+}
+
+async function setDocumentSequenceStatus(status: 'ACTIVE' | 'INACTIVE') {
+  if (module.value?.collection !== 'documentSequences' || !canMutateRecord.value) return
+  model.value = store.save(module.value.collection, { ...model.value, status })
+  originalModel.value = { ...model.value }
+  store.addAudit(status === 'ACTIVE' ? 'Activated' : 'Deactivated', module.value.title, String(model.value.documentType || model.value.id))
+  toast.add({ title: t(status === 'ACTIVE' ? 'docetra.common.activated' : 'docetra.common.deactivated'), color: 'success' })
 }
 
 async function runAction(key: string) {
@@ -570,7 +672,7 @@ async function runAction(key: string) {
 async function deleteRecord() {
   if (!module.value || !canMutateRecord.value) return
   if (deactivationOnly.value) {
-    model.value = store.save(module.value.collection, { ...model.value, status: 'Inactive' })
+    model.value = store.save(module.value.collection, { ...model.value, status: module.value.collection === 'documentSequences' ? 'INACTIVE' : 'Inactive' })
     store.addAudit('Deactivated', module.value.title, String(model.value[module.value.titleField] || model.value.id))
     toast.add({ title: t('freight.ui.recordDeactivated'), color: 'success' })
     return

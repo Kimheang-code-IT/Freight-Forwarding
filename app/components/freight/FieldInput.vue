@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { FreightField } from '~/config/freight-modules'
 import { useFreightLabel } from '~/composables/freight/useFreight'
+import { documentSequenceTypeLabel } from '~/utils/document-sequences'
 
 const props = defineProps<{
   field: FreightField
@@ -19,7 +20,7 @@ const items = computed(() =>
   (props.field.options || [])
     .map(option => String(option).trim())
     .filter(Boolean)
-    .map(option => ({ label: option, value: option })),
+    .map(option => ({ label: props.field.key === 'documentType' ? documentSequenceTypeLabel(option) : option, value: option })),
 )
 
 const help = computed(() => {

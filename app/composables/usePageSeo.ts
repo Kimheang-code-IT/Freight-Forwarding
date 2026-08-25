@@ -8,8 +8,8 @@ type PageSeoOptions = {
   ogImage?: MaybeRefOrGetter<string | undefined>
 }
 
-/** Prefer landscape OG asset; logo.png is the fallback. */
-const DEFAULT_OG_IMAGE = '/og-image.png'
+/** Default social preview image. */
+const DEFAULT_OG_IMAGE = '/logo.png'
 
 /**
  * Per-page SEO. Titles are the page label only — brand is not appended

@@ -190,9 +190,14 @@ async function save() {
   try {
     const payload = { ...model.value }
     if (isCreate.value || !payload.id) {
-      const sequence = store.list('documentSequences').find(row => String(row.documentType) === 'Service Order')
+      const currentYear = new Date().getFullYear()
+      const sequence = store.list('documentSequences').find(row =>
+        String(row.documentType) === 'SERVICE_ORDER'
+        && Number(row.year) === currentYear
+        && String(row.status).toUpperCase() === 'ACTIVE',
+      )
       const next = Number(sequence?.lastValue || store.list('jobs').length) + 1
-      payload.jobNo ||= `${sequence?.prefix || 'SO'}-${new Date().getFullYear()}-${String(next).padStart(Number(sequence?.paddingLength || 5), '0')}`
+      payload.jobNo ||= `${sequence?.prefix || 'SO'}-${currentYear}-${String(next).padStart(Number(sequence?.paddingLength || 6), '0')}`
       payload.status ||= 'NEW'
       payload.workflowStatus ||= 'NEW'
       payload.currency ||= 'USD'

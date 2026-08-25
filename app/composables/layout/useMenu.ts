@@ -60,6 +60,7 @@ export function useMenu() {
     '/administration/audit-logs': 'admin.audit_logs.view',
     '/administration/organizations': 'admin.organization.view',
     '/administration/branches': 'admin.organization.view',
+    '/administration/document-sequences': 'configuration.manage',
     '/administration/system-settings': 'settings.app_config.view',
   }
 
@@ -125,6 +126,7 @@ export function useMenu() {
         pageLink(t('freight.pages.branches'), '/administration/branches'),
         pageLink(t('freight.pages.users'), '/administration/users'),
         pageLink(t('freight.pages.roles'), '/administration/roles'),
+        pageLink(t('freight.pages.documentSequences'), '/administration/document-sequences'),
         pageLink(t('freight.pages.settings'), '/administration/system-settings'),
         pageLink(t('freight.pages.auditLogs'), '/administration/audit-logs'),
       ]),

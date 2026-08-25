@@ -12,6 +12,7 @@ import { financeDomainStatus, jobDomainStatus } from '~/utils/lcs/states'
 import { filterScopedRecords, stampTenant } from '~/utils/lcs/scope'
 import { sessionFromUser } from '~/utils/lcs/session-from-user'
 import { formatLcsMoney } from '~/utils/lcs/format'
+import { documentSequencePreview, normalizeDocumentSequenceRecord } from '~/utils/document-sequences'
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -94,7 +95,16 @@ export const useFreightStore = defineStore('freight', () => {
         }
       })
     }
-    return filterScopedRecords(db[collection] || [], current)
+    const rows = filterScopedRecords(db[collection] || [], current)
+    if (collection === 'documentSequences') {
+      const organizationName = String(useAuthStore().user?.organizationName || '')
+      return rows.map(row => ({
+        ...normalizeDocumentSequenceRecord(row),
+        organizationName,
+        nextNumberPreview: documentSequencePreview(row),
+      }))
+    }
+    return rows
   }
 
   function list(collection: string): FreightRecord[] {

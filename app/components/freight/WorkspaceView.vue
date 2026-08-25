@@ -19,6 +19,7 @@ import { isNumericKey, jobWorkspacePath, workspaceSectionForPath } from '~/utils
 import { getFilterSelectUi, isFilterValueActive } from '~/utils/filter/select-ui'
 import { parsePageLimit, TABLE_PAGE_SIZES } from '~/utils/pagination'
 import { freightTableFillUi, freightTableCheckboxMeta, TABLE_VIRTUALIZE_AFTER } from '~/utils/table/theme'
+import { documentSequenceTypeLabel } from '~/utils/document-sequences'
 
 const { module, route } = useFreightRouteModule()
 const store = useFreightStore()
@@ -57,7 +58,7 @@ const canManageModule = computed(() => {
 })
 const canCreate = computed(() => Boolean(current.value?.canCreate) && !current.value?.readOnly && canManageModule.value)
 const canMutate = computed(() => Boolean(current.value) && !current.value?.readOnly && canManageModule.value)
-const deactivationOnly = computed(() => current.value?.group === 'master')
+const deactivationOnly = computed(() => current.value?.group === 'master' || current.value?.collection === 'documentSequences')
 const dateField = computed(() => {
   const fields = current.value?.fields || []
   return fields.find(field => field.type === 'date' || field.type === 'datetime' || field.key === 'date' || /date$/i.test(field.key))?.key
@@ -185,6 +186,28 @@ function rowMenuItems(row: Record<string, unknown>): DropdownMenuItem[][] {
     },
   ]
   const collection = current.value?.collection
+  if (collection === 'documentSequences') {
+    items[0] = {
+      label: t('docetra.rowActions.detail'),
+      icon: 'i-lucide-eye',
+      onSelect: () => openRow(row),
+    }
+    if (canMutate.value) {
+      items.push({
+        label: 'Edit',
+        icon: 'i-lucide-pencil',
+        onSelect: () => openRow(row),
+      })
+      const active = String(row.status || '').toUpperCase() === 'ACTIVE'
+      items.push({
+        label: t(active ? 'docetra.rowActions.deactivate' : 'docetra.rowActions.activate'),
+        icon: active ? 'i-lucide-circle-off' : 'i-lucide-circle-check',
+        color: active ? 'warning' : 'success',
+        onSelect: () => setDocumentSequenceStatus(row, active ? 'INACTIVE' : 'ACTIVE'),
+      })
+    }
+    return [items]
+  }
   if (collection === 'quotations') {
     const status = quotationDomainStatus(row.status)
     if (status === 'DRAFT' && lcs.can('quotation.update_draft')) {
@@ -440,11 +463,18 @@ async function deactivateIds(ids: string[]) {
   if (!current.value || !canMutate.value || !ids.length) return
   for (const id of ids) {
     const record = store.get(current.value.collection, id)
-    if (record) store.save(current.value.collection, { ...record, status: 'Inactive' })
+    if (record) store.save(current.value.collection, { ...record, status: current.value.collection === 'documentSequences' ? 'INACTIVE' : 'Inactive' })
   }
   store.addAudit('Deactivated', current.value.title, ids.join(', '))
   rowSelection.value = {}
   toast.add({ title: t('freight.ui.deactivated'), color: 'success' })
+}
+
+function setDocumentSequenceStatus(row: Record<string, unknown>, status: 'ACTIVE' | 'INACTIVE') {
+  if (!current.value || !canMutate.value) return
+  store.save(current.value.collection, { ...row, id: String(row.id || ''), status } as FreightRecord)
+  store.addAudit(status === 'ACTIVE' ? 'Activated' : 'Deactivated', current.value.title, String(row.documentType || row.id || ''))
+  toast.add({ title: t(status === 'ACTIVE' ? 'docetra.common.activated' : 'docetra.common.deactivated'), color: 'success' })
 }
 
 function refresh() {
@@ -467,7 +497,7 @@ function filterItems(filter: { options?: readonly string[] | string[], key: stri
   return [...new Set([...fromOptions, ...fromData])]
     .map(value => String(value).trim())
     .filter(Boolean)
-    .map(value => ({ label: value, value }))
+    .map(value => ({ label: filter.key === 'documentType' ? documentSequenceTypeLabel(value) : value, value }))
 }
 </script>
 

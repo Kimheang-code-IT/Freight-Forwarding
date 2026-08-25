@@ -3,6 +3,7 @@ import type { FreightAction, FreightField, FreightModule, FreightRelated, Freigh
 import { getFreightModule } from '~/config/freight-modules'
 import { JOB_CHECKLIST_TYPES } from '~/config/freight-options'
 import { isMoneyKey } from '~/utils/freight/job-workspace'
+import { documentSequenceTypeLabel } from '~/utils/document-sequences'
 
 export function i18nSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'general'
@@ -98,6 +99,12 @@ export function emptyFreightRecord(module: FreightModule) {
     record.userCount = 0
     record.permissionCount = 0
   }
+  if (module.collection === 'documentSequences') {
+    record.year = new Date().getFullYear()
+    record.lastValue = 0
+    record.paddingLength = 6
+    record.status = 'ACTIVE'
+  }
   if (module.kind === 'job') {
     record.checklist = JOB_CHECKLIST_TYPES.map(type => ({ type, required: true, status: 'Missing', remark: '' }))
     record.activity = []
@@ -139,6 +146,7 @@ export function formatMoneyUsd(value: unknown) {
 }
 
 export function formatFreightCell(value: unknown, key: string) {
+  if (key === 'documentType') return documentSequenceTypeLabel(value)
   if (isMoneyKey(key)) return formatMoneyUsd(value)
   if (typeof value === 'number') return asNumber(value).toLocaleString()
   if (Array.isArray(value)) return value.map(item => String(item ?? '').trim()).filter(Boolean).join(', ') || '—'

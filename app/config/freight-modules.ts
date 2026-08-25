@@ -1498,5 +1498,5 @@ export const freightNavGroups = [
   { id: 'reports', label: 'Reports', labelKm: 'របាយការណ៍', icon: 'i-lucide-chart-no-axes-combined', paths: ['/reports'] },
   { id: 'master', label: 'Master Data', labelKm: 'ទិន្នន័យមេ', icon: 'i-lucide-database', paths: ['/master-data/business-parties', '/master-data/places', '/master-data/trade-directions', '/master-data/container-types', '/master-data/transport-types', '/master-data/transport-assets', '/master-data/fee-types'] },
   { id: 'configuration', label: 'Configuration', labelKm: 'ការកំណត់រចនាសម្ព័ន្ធ', icon: 'i-lucide-blocks', paths: ['/configuration/component-groups', '/configuration/component-templates', '/configuration/trade-direction-components', '/configuration/posting-rules'] },
-  { id: 'administration', label: 'Administration', labelKm: 'រដ្ឋបាល', icon: 'i-lucide-shield-check', paths: ['/administration/organizations', '/administration/branches', '/administration/users', '/administration/roles', '/administration/system-settings', '/administration/audit-logs'] },
+  { id: 'administration', label: 'Administration', labelKm: 'រដ្ឋបាល', icon: 'i-lucide-shield-check', paths: ['/administration/organizations', '/administration/branches', '/administration/users', '/administration/roles', '/administration/document-sequences', '/administration/system-settings', '/administration/audit-logs'] },
 ]

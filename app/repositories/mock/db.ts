@@ -1,5 +1,6 @@
 import type { FreightRecord } from '~/config/freight-seed'
 import { createLcsFreightSeed } from '~/config/lcs-seed'
+import { normalizeDocumentSequenceRecord } from '~/utils/document-sequences'
 
 export const LCS_FREIGHT_STORAGE_KEY = 'lcs-freight-data-v2'
 
@@ -35,6 +36,7 @@ export function getLcsDb(): Record<string, FreightRecord[]> {
           })
           memory[collection] = [...merged, ...existingRows.filter(row => !freshRows.some(freshRow => freshRow.id === row.id))]
         }
+        memory.documentSequences = (memory.documentSequences || []).map(normalizeDocumentSequenceRecord)
         if (!memory.idempotency) memory.idempotency = []
         return memory
       }

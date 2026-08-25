@@ -4,7 +4,6 @@ Disallow: /
 
 # Public assets required for link previews (Telegram / WhatsApp / Facebook / X).
 Allow: /logo.png
-Allow: /og-image.png
 Allow: /favicon.ico
 Allow: /robots.txt
 Allow: /auth/login
