@@ -12,6 +12,8 @@ import {
   quotationDomainStatus,
 } from '~/utils/lcs/states'
 import { assertPermission, assertRecordAccess, stampTenant } from '~/utils/lcs/scope'
+import { serviceOrderContainersFromQuotation } from '~/utils/freight/job-containers'
+import { missingRequiredValues } from '~/utils/freight/job-task-fields'
 
 export type LcsCollections = Record<string, FreightRecord[]>
 
@@ -234,7 +236,8 @@ export function convertQuotationRevision(
     throw domainError('DUPLICATE_CONVERSION', 'This quotation revision has already been converted.')
   }
   const direction = String(quotation!.direction || 'Import') === 'Export' ? 'EX' : 'IM'
-  const job = replace(db, 'jobs', stampTenant({
+  const branch = recordBranchFallback(quotation!)
+  const created = replace(db, 'jobs', stampTenant({
     id: newId('job'),
     jobNo: `LCS-${direction}-${Date.now().toString().slice(-6)}`,
     date: new Date().toISOString().slice(0, 10),
@@ -244,11 +247,30 @@ export function convertQuotationRevision(
     pickup: quotation!.pickup,
     border: quotation!.border,
     deliveryLocation: quotation!.delivery,
+    currency: quotation!.currency || 'USD',
+    branchName: quotation!.branchName,
     status: 'Job Created',
     workflowStatus: 'OPEN',
     contact: quotation!.attention,
     templateVersion: '2026.08',
-  } as FreightRecord, session, recordBranchFallback(quotation!)))
+    amount: quotation!.total || quotation!.amount,
+  } as FreightRecord, session, branch))
+  const copied = serviceOrderContainersFromQuotation(quotation!, created)
+  for (const row of copied.requirements) {
+    replace(db, 'containerRequirements', stampTenant({
+      ...row,
+      id: String(row.id || ''),
+      jobNo: created.jobNo,
+      serviceOrderId: created.id,
+    } as unknown as FreightRecord, session, branch))
+  }
+  const job = replace(db, 'jobs', {
+    ...created,
+    containerType: copied.requirements[0] ? String(copied.requirements[0].containerType) : created.containerType,
+    containerRequirements: copied.requirements,
+    actualContainers: copied.actuals,
+    containerPayments: copied.payments,
+  })
   replace(db, 'quotations', { ...quotation!, status: 'Converted', convertedJobNo: job.jobNo })
   audit(db, session, 'Converted quotation to job', 'Quotations', String(quotation!.quotationNo), String(job.jobNo))
   return rememberIdempotent(db, idempotencyKey, 'quotation.convert', revisionId, job)
@@ -356,6 +378,18 @@ export function postFinancialDocument(
     journalId: journal.id,
     postedAt: new Date().toISOString(),
   })
+  const sourceChargeId = String(saved.sourceChargeId || '')
+  if (sourceChargeId) {
+    const charge = findById(db, 'jobCharges', sourceChargeId)
+    if (charge) {
+      replace(db, 'jobCharges', {
+        ...charge,
+        financialDocumentId: charge.financialDocumentId || saved.id,
+        invoiceNo: charge.invoiceNo || saved.debitNoteNo,
+        journalId: journal.id,
+      })
+    }
+  }
   audit(db, session, 'Posted financial document', 'Finance', String(saved.debitNoteNo), String(journal.entryNo))
   return rememberIdempotent(db, idempotencyKey, 'finance.post', documentId, saved)
 }
@@ -469,10 +503,7 @@ export function completeServiceComponent(
   const component = findById(db, 'serviceComponents', componentId)
   assertRecordAccess(component, session)
   const values = Array.isArray(component!.values) ? component!.values as Array<Record<string, unknown>> : []
-  const missing = values.filter((value) => {
-    if (!value.required) return false
-    return !String(value.valueText || value.valueDate || '').trim() && value.valueNumber == null && value.valueBoolean == null
-  })
+  const missing = missingRequiredValues(values)
   if (missing.length) {
     throw domainError('REQUIRED_VALUE_MISSING', 'Required component values must be completed before completion.', {
       field_errors: Object.fromEntries(missing.map(value => [String(value.code), 'Required'])),
@@ -485,6 +516,56 @@ export function completeServiceComponent(
   })
   audit(db, session, 'Completed service component', 'Jobs', String(saved.templateCode), String(saved.templateVersion))
   return rememberIdempotent(db, idempotencyKey, 'component.complete', componentId, saved)
+}
+
+export type EnsureServiceComponentPayload = {
+  jobNo: string
+  serviceOrderId?: string
+  groupCode: string
+  templateCode: string
+  templateVersion?: string
+  latestTemplateVersion?: string
+  required?: boolean
+  repeatable?: boolean
+  values?: unknown[]
+  forceNew?: boolean
+}
+
+export function ensureServiceComponent(
+  db: LcsCollections,
+  session: LcsSession,
+  payload: EnsureServiceComponentPayload,
+) {
+  assertPermission(session, 'service_order.update')
+  const jobNo = String(payload.jobNo || '').trim()
+  const job = rows(db, 'jobs').find(row =>
+    String(row.jobNo || '') === jobNo
+    || String(row.id || '') === String(payload.serviceOrderId || ''),
+  )
+  assertRecordAccess(job, session)
+  const groupCode = String(payload.groupCode || '').trim().toUpperCase()
+  const existing = rows(db, 'serviceComponents').filter(row =>
+    String(row.jobNo || '') === jobNo && String(row.groupCode || '').toUpperCase() === groupCode,
+  )
+  const repeatable = Boolean(payload.repeatable)
+  if (!payload.forceNew && !repeatable && existing.length) return existing[0] as FreightRecord
+
+  const created = stampTenant({
+    id: newId('cmp'),
+    jobNo,
+    serviceOrderId: payload.serviceOrderId || String(job!.id || ''),
+    templateCode: payload.templateCode,
+    templateVersion: payload.templateVersion || '',
+    latestTemplateVersion: payload.latestTemplateVersion || payload.templateVersion || '',
+    groupCode,
+    status: 'PENDING',
+    required: payload.required !== false,
+    sequenceNo: existing.length + 1,
+    values: Array.isArray(payload.values) ? payload.values : [],
+  } as FreightRecord, session)
+  const saved = replace(db, 'serviceComponents', created)
+  audit(db, session, 'Created service component', 'Jobs', String(saved.templateCode), jobNo)
+  return saved
 }
 
 export function addActualContainer(

@@ -4,12 +4,14 @@ import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 import { readRememberMe } from '~/utils/auth/remember-me'
 import { useAuth } from '~/composables/auth/useAuth'
 import { usePageSeo } from '~/composables/usePageSeo'
+import { safeInternalPath } from '~/utils/auth/session'
 
 definePageMeta({
   layout: 'auth',
 })
 
 const { t, locale } = useI18n()
+const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const auth = useAuthStore()
@@ -34,6 +36,7 @@ function buildFields(): AuthFormField[] {
       size: 'lg',
       label: t('pages.auth.email'),
       placeholder: t('pages.auth.emailPlaceholder'),
+      description: t('pages.auth.emailHelp'),
       required: true,
       autocomplete: 'username',
       defaultValue: remembered.email || 'admin@gmail.com',
@@ -44,6 +47,7 @@ function buildFields(): AuthFormField[] {
       size: 'lg',
       label: t('pages.auth.password'),
       placeholder: t('pages.auth.passwordPlaceholder'),
+      description: t('pages.auth.passwordHelp'),
       required: true,
       autocomplete: 'current-password',
       defaultValue: '',
@@ -88,7 +92,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     }
 
     auth.login(user)
-    await router.push('/')
+    await router.replace(safeInternalPath(route.query.redirect) || '/')
   }
   catch {
     toast.add({

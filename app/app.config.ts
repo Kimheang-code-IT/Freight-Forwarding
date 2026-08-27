@@ -111,6 +111,8 @@ export default defineAppConfig({
         size: 'md',
         color: 'neutral',
         variant: 'soft',
+        increment: false,
+        decrement: false,
       },
     },
 

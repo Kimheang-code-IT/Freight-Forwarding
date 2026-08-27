@@ -7,6 +7,7 @@ import {
   completeServiceComponent,
   convertQuotationRevision,
   createFinanceInvoiceFromCharge,
+  ensureServiceComponent,
   issueServiceCharge,
   postFinancialDocument,
   sendQuotationRevision,
@@ -59,9 +60,20 @@ describe('quotation states', () => {
       direction: 'Import',
       customer: 'Manhattan SEZ Co., Ltd.',
       revisionNo: 1,
+      currency: 'USD',
+      total: 1100,
+      containerRequirements: [{ id: 'qrc-acc', containerType: '40HC', quantity: 1, description: 'Test box' }],
+      pricingLines: [{ feeType: 'Trucking Fee', description: 'Freight', quantity: 1, unitPrice: 1000, taxPercent: 10 }],
     })
     const job = convertQuotationRevision(data, adminSession(), 'qt-acc', 'idem-convert-1')
     expect(String(job.jobNo)).toMatch(/^LCS-/)
+    expect(job.containerRequirements).toEqual(expect.arrayContaining([
+      expect.objectContaining({ containerType: '40HC', quantity: 1, sourceQuotationContainerId: 'qrc-acc' }),
+    ]))
+    expect(data.containerRequirements?.some(row => String(row.jobNo) === String(job.jobNo))).toBe(true)
+    expect(job.containerPayments).toEqual(expect.arrayContaining([
+      expect.objectContaining({ feeType: 'Trucking Fee', lineTotal: 1100 }),
+    ]))
     expect(data.quotations.find(row => row.id === 'qt-acc')?.status).toBe('Converted')
 
     try {
@@ -126,6 +138,15 @@ describe('service charges and finance', () => {
     expect(invoice.journalId).toBe('')
   })
 
+  it('copies the posted journal onto the source service charge', () => {
+    const data = db()
+    const posted = postFinancialDocument(data, adminSession(), 'dn-002', 'idem-post-charge')
+    const charge = data.jobCharges.find(row => row.id === 'jc-003')
+    expect(posted.status).toBe('Posted')
+    expect(charge?.journalId).toBe(posted.journalId)
+    expect(charge?.financialDocumentId).toBe('dn-002')
+  })
+
   it('blocks posting into a closed period', () => {
     const data = db()
     try {
@@ -164,6 +185,25 @@ describe('dynamic components', () => {
     }
     const completed = data.serviceComponents.find(row => row.id === 'cmp-001') as FreightRecord
     expect(completed.templateVersion).toBe('2026.04')
+  })
+
+  it('creates a missing component from the template and returns the existing non-repeatable row', () => {
+    const data = db()
+    const created = ensureServiceComponent(data, adminSession(), {
+      jobNo: 'LCS-EX-260820',
+      groupCode: 'PACKING_LIST',
+      templateCode: 'PACKING_LIST',
+      templateVersion: '2026.08',
+      values: [{ code: 'packing_list_no', label: 'Packing List No.', dataType: 'text', required: true }],
+    })
+    expect(created.groupCode).toBe('PACKING_LIST')
+    expect(created.status).toBe('PENDING')
+    const again = ensureServiceComponent(data, adminSession(), {
+      jobNo: 'LCS-EX-260820',
+      groupCode: 'PACKING_LIST',
+      templateCode: 'PACKING_LIST',
+    })
+    expect(again.id).toBe(created.id)
   })
 })
 

@@ -8,15 +8,13 @@ import {
 } from '~/config/freight-seed'
 import { getLcsDb, persistLcsDb, setLcsDb } from '~/repositories/mock/db'
 import { assertMutableRecord } from '~/utils/lcs/commands'
-import { financeDomainStatus, jobDomainStatus } from '~/utils/lcs/states'
+import { financeDomainStatus } from '~/utils/lcs/states'
 import { filterScopedRecords, stampTenant } from '~/utils/lcs/scope'
 import { sessionFromUser } from '~/utils/lcs/session-from-user'
-import { formatLcsMoney } from '~/utils/lcs/format'
 import { documentSequencePreview, normalizeDocumentSequenceRecord } from '~/utils/document-sequences'
-
-function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
-}
+import { buildDashboardSummary, type DashboardFilters, type DashboardSummary } from '~/utils/lcs/dashboard'
+import { matchesFilter, parseFilterQuery } from '~/utils/filter/values'
+import { normalizeAuditLog } from '~/utils/freight/audit-logs'
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -161,15 +159,6 @@ export const useFreightStore = defineStore('freight', () => {
     persist()
   }
 
-  function duplicate(collection: string, id: string, overrides: Record<string, unknown> = {}): FreightRecord | null {
-    const source = get(collection, id)
-    if (!source) return null
-    const copy = clone(source)
-    delete (copy as { createdAt?: string }).createdAt
-    delete (copy as { id?: string }).id
-    return create(collection, { ...copy, ...overrides, status: overrides.status || 'Draft' }, collection.slice(0, 3))
-  }
-
   function addAudit(action: string, module: string, recordNo: string, remark = '') {
     const auth = useAuthStore()
     create('auditLogs', {
@@ -184,7 +173,7 @@ export const useFreightStore = defineStore('freight', () => {
 
   function query(module: FreightModule, options: {
     q?: string
-    filters?: Record<string, string>
+    filters?: Record<string, string | string[]>
     page?: number
     limit?: number
     paginate?: boolean
@@ -197,12 +186,13 @@ export const useFreightStore = defineStore('freight', () => {
     const q = (options.q || '').trim().toLowerCase()
     const filters = options.filters || {}
     let rows = list(module.collection)
+    if (module.collection === 'auditLogs') rows = rows.map(normalizeAuditLog)
     if (q) {
       rows = rows.filter(row => Object.values(row).some(value => String(value ?? '').toLowerCase().includes(q)))
     }
     for (const [key, value] of Object.entries(filters)) {
-      if (!value) continue
-      rows = rows.filter(row => String(row[key] ?? '') === value)
+      if (!parseFilterQuery(value).length) continue
+      rows = rows.filter(row => matchesFilter(row[key], value))
     }
     const dateField = options.dateField
     const dateFrom = (options.dateFrom || '').slice(0, 10)
@@ -239,54 +229,15 @@ export const useFreightStore = defineStore('freight', () => {
     })
   }
 
-  const dashboard = computed(() => {
+  /**
+   * Single aggregated dashboard request (KPIs + charts).
+   * Scope and posted-only accounting rules are enforced inside the builder.
+   */
+  function dashboardSummary(filters: DashboardFilters = {}): DashboardSummary {
     hydrate()
     void revision.value
-    const jobs = list('jobs')
-    const receivables = list('receivables')
-    const payables = list('payables')
-    const documents = list('documents')
-    const deliveries = list('deliveries')
-    const customs = list('customs')
-    const components = list('serviceComponents')
-    const charges = list('jobCharges')
-    const financeDocs = list('debitNotes')
-    const payments = list('customerPayments')
-    const cash = list('cashAccounts')
-    const audits = list('auditLogs')
-    const locale = 'en'
-    const money = (value: number) => formatLcsMoney(value, 'USD', locale)
-    const kpis = [
-      { id: 'openJobs', value: jobs.filter(row => ['OPEN', 'IN_PROGRESS'].includes(jobDomainStatus(row))).length, to: '/service-orders' },
-      { id: 'onHold', value: jobs.filter(row => jobDomainStatus(row) === 'ON_HOLD').length, to: '/service-orders?workflowStatus=ON_HOLD' },
-      { id: 'pendingComponents', value: components.filter(row => String(row.status) === 'PENDING').length, to: '/service-orders' },
-      { id: 'issuedCharges', value: charges.filter(row => String(row.status) === 'Issued').length, to: '/service-charges?status=Issued' },
-      { id: 'draftFinance', value: financeDocs.filter(row => financeDomainStatus(row.status) === 'DRAFT').length, to: '/finance/documents?status=Draft' },
-      { id: 'overdueAr', value: money(receivables.filter(row => String(row.status) === 'Overdue').reduce((sum, row) => sum + Number(row.outstanding || 0), 0)), to: '/reports/outstanding-receivables' },
-      { id: 'overdueAp', value: money(payables.filter(row => Number(row.outstanding) > 0).reduce((sum, row) => sum + Number(row.outstanding || 0), 0)), to: '/reports/outstanding-payables' },
-      { id: 'unallocated', value: money(payments.reduce((sum, row) => sum + Number(row.unallocatedAmount || 0), 0)), to: '/reports/unallocated-payments' },
-      { id: 'cash', value: money(cash.reduce((sum, row) => sum + Number(row.balance || 0), 0)), to: '/reports/trial-balance' },
-      { id: 'recentAudit', value: audits.slice(0, 8).length, to: '/administration/audit-logs' },
-    ]
-    const recentJobs = jobs.filter(row => jobDomainStatus(row) !== 'CLOSED').slice(0, 8)
-    const customsPending = customs.filter(row => ['Preparing', 'Submitted', 'Processing', 'On Hold'].includes(String(row.status))).slice(0, 8)
-    const receivableRows = receivables.filter(row => Number(row.outstanding) > 0).slice(0, 8)
-    const payableRows = payables.filter(row => Number(row.outstanding) > 0).slice(0, 8)
-    const recentAudit = audits.slice(0, 8)
-    const alerts = [
-      { id: 'eta', tone: 'warning' as const, items: deliveries.filter(d => ['Arriving', 'Scheduled'].includes(String(d.status))).map(d => `${d.jobNo} · ${d.containerNo} · ETA ${d.etaFactory}`) },
-      { id: 'docs', tone: 'error' as const, items: [
-        ...documents.filter(d => d.status === 'Missing' || String(d.remark || '').toLowerCase().includes('missing')).map(d => `${d.jobNo} · ${d.documentType}`),
-        ...jobs.flatMap(job => (Array.isArray(job.checklist) ? job.checklist as Array<Record<string, unknown>> : [])
-          .filter(item => item.required && item.status === 'Missing')
-          .map(item => `${job.jobNo} · ${item.type}`)),
-      ].slice(0, 8) },
-      { id: 'customs', tone: 'warning' as const, items: customs.filter(c => ['Preparing', 'Submitted', 'Processing', 'On Hold'].includes(String(c.status))).map(c => `${c.jobNo} · ${c.customsNo} · ${c.status}`) },
-      { id: 'unallocated', tone: 'warning' as const, items: payments.filter(p => Number(p.unallocatedAmount) > 0).map(p => `${p.paymentNo} · ${formatLcsMoney(p.unallocatedAmount)}`) },
-      { id: 'audit', tone: 'info' as const, items: audits.slice(0, 6).map(a => `${a.occurredAt} · ${a.action} · ${a.recordNo}`) },
-    ]
-    return { kpis, recentJobs, customsPending, receivableRows, payableRows, alerts, recentAudit }
-  })
+    return buildDashboardSummary(collections.value, session(), filters)
+  }
 
   return {
     collections,
@@ -298,10 +249,9 @@ export const useFreightStore = defineStore('freight', () => {
     save,
     create,
     remove,
-    duplicate,
     addAudit,
     query,
     related,
-    dashboard,
+    dashboardSummary,
   }
 })

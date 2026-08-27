@@ -50,17 +50,7 @@ export default defineNuxtConfig({
   },
 
   imports: {
-    dirs: [
-      'utils/**',
-      'utils/api/**',
-      'utils/auth/**',
-      'utils/constants/**',
-      'utils/format/**',
-      'utils/helpers/**',
-      'utils/storage/**',
-      'utils/validation/**',
-      'utils/lcs/**',
-    ]
+    dirs: ['utils/**'],
   },
 
   css: ['~/assets/css/main.css'],
@@ -166,17 +156,24 @@ export default defineNuxtConfig({
               return
             }
             if (id.includes('node_modules/echarts') || id.includes('vue-echarts')) return 'echarts'
-            if (id.includes('@tiptap') || id.includes('prosemirror')) return 'tiptap'
-            if (id.includes('@uppy')) return 'uppy'
           },
         },
       },
     },
-    // Pre-bundle common deps only; TipTap/Uppy/ECharts load when their pages mount
+    // Pre-bundle the heavy deps used by the landing route up front, so the
+    // first dashboard visit does not pause while Vite optimizes new modules
+    // and force-reloads the page.
     optimizeDeps: {
       include: [
         '@vueuse/core',
         '@internationalized/date',
+        'zod',
+        '@tanstack/vue-table',
+        'echarts/core',
+        'echarts/charts',
+        'echarts/components',
+        'echarts/renderers',
+        'vue-echarts',
       ],
     },
     css: {

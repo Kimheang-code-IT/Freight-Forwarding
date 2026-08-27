@@ -34,6 +34,10 @@ const LEGACY_TYPES: Record<string, string> = {
   Journal: 'JOURNAL',
 }
 
+export function isDocumentSequenceType(value: string) {
+  return (DOCUMENT_SEQUENCE_TYPES as readonly string[]).includes(value)
+}
+
 export function documentSequenceTypeLabel(value: unknown) {
   const type = String(value || '')
   return TYPE_LABELS[type] || type.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, letter => letter.toUpperCase())

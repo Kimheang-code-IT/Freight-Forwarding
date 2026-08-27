@@ -97,16 +97,23 @@ async function onResendCode() {
     </div>
 
     <form class="flex w-full flex-col items-center gap-5" @submit.prevent="onVerifyCode">
-      <UPinInput
-        v-model="code"
-        :length="6"
-        size="xl"
-        placeholder="○"
-        autofocus
-        otp
-        required
-        :aria-label="t('pages.forgetPassword.enterCode')"
-      />
+      <UFormField
+        :label="t('pages.forgetPassword.enterCode')"
+        :help="t('pages.forgetPassword.codeHelp')"
+        class="w-full"
+      >
+        <UPinInput
+          v-model="code"
+          :length="6"
+          size="xl"
+          placeholder="○"
+          autofocus
+          otp
+          required
+          :aria-label="t('pages.forgetPassword.enterCode')"
+          class="justify-center"
+        />
+      </UFormField>
 
       <div class="flex items-center justify-center gap-1">
         <span class="text-sm text-muted">{{ t('pages.forgetPassword.didntGetCode') }}</span>

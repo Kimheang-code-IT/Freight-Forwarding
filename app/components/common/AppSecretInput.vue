@@ -47,7 +47,7 @@ const value = computed({
       :placeholder="placeholder"
       :disabled="disabled"
       :autocomplete="autocomplete"
-      size="lg"
+      size="md"
       class="w-full"
       :ui="{ trailing: 'pe-1' }"
     >

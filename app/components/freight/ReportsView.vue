@@ -1,132 +1,253 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { PaginationState } from '@tanstack/vue-table'
-import { getPaginationRowModel } from '@tanstack/vue-table'
-import { h, resolveComponent } from 'vue'
+import { h } from 'vue'
+import { ULink } from '#components'
 import { useAppHeader } from '~/composables/layout/useAppHeader'
 import { usePageSeo } from '~/composables/usePageSeo'
-import { formatFreightCell, statusColor } from '~/composables/freight/useFreight'
+import { formatFreightCell, formatMoney, freightStatusBadge, labeledStatusOptions } from '~/composables/freight/useFreight'
 import type { FreightRecord } from '~/config/freight-seed'
-import { buildGeneralLedger } from '~/utils/freight/general-ledger'
-import { parsePageLimit, TABLE_PAGE_SIZES } from '~/utils/pagination'
-import { freightTableFillUiReadonly } from '~/utils/table/theme'
+import { CONTAINER_STATUSES, JOB_WORKFLOW_STATUS } from '~/config/freight-options'
+import { downloadCsv } from '~/utils/export/csv'
+import { paidAmountOf } from '~/utils/freight/finance'
+import { agingBucket, buildStatementGroups, daysSince, postedJournalLines, reportRowDate, statementDifference as statementDifferenceOf } from '~/utils/freight/report'
+import { isFilterValueActive } from '~/utils/filter/select-ui'
+import { matchesFilter } from '~/utils/filter/values'
+import { listTableRowMetaColumn, listTableSelectColumn } from '~/utils/table/list-columns'
+import { listTablePageSummary } from '~/utils/table/list-table'
 
-type ReportDefinition = { slug: string, groupKey: string, titleKey: string, columns: Array<[string, string]> }
-const reports: ReportDefinition[] = [
-  { slug: 'open-service-orders', groupKey: 'operations', titleKey: 'openServiceOrders', columns: [['jobNo', 'serviceOrderNo'], ['customer', 'customer'], ['branchName', 'branch'], ['direction', 'tradeDirection'], ['workflowStatus', 'status'], ['createdAt', 'createdAt']] },
-  { slug: 'service-order-charges', groupKey: 'operations', titleKey: 'serviceOrderCharges', columns: [['chargeNo', 'chargeNo'], ['jobNo', 'serviceOrder'], ['customer', 'customer'], ['documentDate', 'date'], ['currency', 'currency'], ['total', 'total'], ['status', 'status']] },
-  { slug: 'issued-charges-not-converted', groupKey: 'operations', titleKey: 'issuedNotConverted', columns: [['chargeNo', 'chargeNo'], ['jobNo', 'serviceOrder'], ['customer', 'customer'], ['documentDate', 'date'], ['currency', 'currency'], ['total', 'total'], ['status', 'status']] },
-  { slug: 'customer-invoices', groupKey: 'receivables', titleKey: 'customerInvoices', columns: [['debitNoteNo', 'documentNo'], ['customer', 'customer'], ['jobNo', 'serviceOrder'], ['date', 'date'], ['dueDate', 'dueDate'], ['currency', 'currency'], ['total', 'total'], ['status', 'status']] },
-  { slug: 'outstanding-receivables', groupKey: 'receivables', titleKey: 'outstandingReceivables', columns: [['invoiceNo', 'invoiceNo'], ['customer', 'customer'], ['jobNo', 'serviceOrder'], ['dueDate', 'dueDate'], ['currency', 'currency'], ['outstanding', 'outstanding'], ['status', 'status']] },
-  { slug: 'supplier-bills', groupKey: 'payables', titleKey: 'supplierBills', columns: [['debitNoteNo', 'documentNo'], ['customer', 'supplier'], ['jobNo', 'serviceOrder'], ['date', 'date'], ['dueDate', 'dueDate'], ['currency', 'currency'], ['total', 'total'], ['status', 'status']] },
-  { slug: 'outstanding-payables', groupKey: 'payables', titleKey: 'outstandingPayables', columns: [['invoiceNo', 'billNo'], ['supplier', 'supplier'], ['jobNo', 'serviceOrder'], ['dueDate', 'dueDate'], ['currency', 'currency'], ['outstanding', 'outstanding'], ['status', 'status']] },
-  { slug: 'customer-receipts', groupKey: 'payments', titleKey: 'customerReceipts', columns: [['paymentNo', 'receiptNo'], ['customer', 'customer'], ['jobNo', 'serviceOrder'], ['date', 'date'], ['currency', 'currency'], ['received', 'amount'], ['unallocatedAmount', 'unallocated'], ['status', 'status']] },
-  { slug: 'supplier-payments', groupKey: 'payments', titleKey: 'supplierPayments', columns: [['paymentNo', 'paymentNo'], ['supplier', 'supplier'], ['jobNo', 'serviceOrder'], ['date', 'date'], ['currency', 'currency'], ['amount', 'amount'], ['status', 'status']] },
-  { slug: 'unallocated-payments', groupKey: 'payments', titleKey: 'unallocatedPayments', columns: [['paymentNo', 'receiptNo'], ['customer', 'customer'], ['date', 'date'], ['currency', 'currency'], ['received', 'amount'], ['unallocatedAmount', 'unallocated'], ['status', 'status']] },
-  { slug: 'revenue', groupKey: 'accounting', titleKey: 'revenue', columns: [['debitNoteNo', 'documentNo'], ['customer', 'customer'], ['jobNo', 'serviceOrder'], ['postingDate', 'postingDate'], ['currency', 'currency'], ['total', 'revenue'], ['status', 'status']] },
-  { slug: 'expenses', groupKey: 'accounting', titleKey: 'expenses', columns: [['invoiceNo', 'documentNo'], ['supplier', 'supplier'], ['jobNo', 'serviceOrder'], ['date', 'date'], ['currency', 'currency'], ['amount', 'expense'], ['status', 'status']] },
-  { slug: 'general-ledger', groupKey: 'accounting', titleKey: 'generalLedger', columns: [['postingDate', 'postingDate'], ['account', 'account'], ['debit', 'debit'], ['credit', 'credit'], ['balance', 'balance'], ['voucherType', 'voucherType'], ['voucherNo', 'voucherNo'], ['party', 'party'], ['jobNo', 'serviceOrder']] },
-  { slug: 'trial-balance', groupKey: 'accounting', titleKey: 'trialBalance', columns: [['account', 'account'], ['debit', 'debit'], ['credit', 'credit'], ['balance', 'balance']] },
-  { slug: 'service-order-profitability', groupKey: 'profitability', titleKey: 'serviceOrderProfitability', columns: [['jobNo', 'serviceOrder'], ['customer', 'customer'], ['direction', 'tradeDirection'], ['totalRevenue', 'revenue'], ['totalCost', 'cost'], ['profit', 'profit'], ['margin', 'margin']] },
+type Column = { key: string, label: string, numeric?: boolean, status?: boolean }
+type Filter = 'branch' | 'party' | 'status' | 'currency' | 'date'
+type Report = { slug: string, group: 'operations' | 'finance', title: string, description: string, filters: Filter[], columns: Column[], statement?: boolean }
+const c = (key: string, label: string, numeric = false, status = false): Column => ({ key, label, numeric, status })
+const reports: Report[] = [
+  { slug: 'service-orders', group: 'operations', title: 'Service Order Register', description: 'Complete register of freight service orders.', filters: ['branch', 'party', 'status', 'date'], columns: [c('jobNo','Job No.'),c('date','Date'),c('customer','Customer'),c('branchName','Branch'),c('direction','Direction'),c('containers','Containers',true),c('components','Components',true),c('chargeTotal','Charge Total',true),c('invoiceTotal','Invoice Total',true),c('workflowStatus','Status',false,true)] },
+  { slug: 'service-order-status', group: 'operations', title: 'Service Order Status', description: 'See job progress, aging, and pending operational work.', filters: ['branch', 'party', 'status', 'date'], columns: [c('jobNo','Job No.'),c('customer','Customer'),c('branchName','Branch'),c('direction','Direction'),c('createdAt','Created Date'),c('workflowStatus','Status',false,true),c('daysOpen','Days Open',true),c('pendingComponents','Pending Components',true),c('lastActivity','Last Activity')] },
+  { slug: 'containers', group: 'operations', title: 'Containers', description: 'Track actual containers attached to service orders.', filters: ['branch', 'party', 'status'], columns: [c('containerNo','Container No.'),c('containerType','Container Type'),c('jobNo','Service Job'),c('customer','Customer'),c('branchName','Branch'),c('sealNo','Seal'),c('status','Status',false,true),c('netWeightKg','Net Weight',true),c('grossWeightKg','Gross Weight',true),c('currentMilestone','Current Milestone')] },
+  { slug: 'profitability', group: 'operations', title: 'Profitability', description: 'Compare operational values with posted accounting results.', filters: ['branch', 'party', 'currency', 'date'], columns: [c('jobNo','Job No.'),c('customer','Customer'),c('branchName','Branch'),c('quoted','Quoted',true),c('serviceCharges','Service Charges',true),c('postedRevenue','Posted Revenue',true),c('postedCost','Posted Cost',true),c('grossProfit','Gross Profit',true),c('margin','Margin %',true)] },
+  { slug: 'revenue-expense', group: 'finance', title: 'Revenue & Expense', description: 'Posted revenue and expense activity for the selected period.', filters: ['branch', 'party', 'currency', 'date'], columns: [c('postingDate','Date'),c('account','Account'),c('category','Category'),c('party','Party'),c('jobNo','Service Job'),c('description','Description'),c('revenue','Revenue',true),c('expense','Expense',true),c('branchName','Branch')] },
+  { slug: 'accounts-receivable', group: 'finance', title: 'Accounts Receivable', description: 'Posted customer balances and aging.', filters: ['branch', 'party', 'status', 'currency', 'date'], columns: [c('invoiceNo','Invoice No.'),c('customer','Customer'),c('jobNo','Service Job'),c('invoiceDate','Invoice Date'),c('dueDate','Due Date'),c('total','Total',true),c('paid','Paid',true),c('outstanding','Outstanding',true),c('aging','Aging'),c('status','Status',false,true)] },
+  { slug: 'accounts-payable', group: 'finance', title: 'Accounts Payable', description: 'Posted supplier balances and aging.', filters: ['branch', 'party', 'status', 'currency', 'date'], columns: [c('invoiceNo','Bill No.'),c('supplier','Supplier'),c('jobNo','Service Job'),c('billDate','Bill Date'),c('dueDate','Due Date'),c('total','Total',true),c('paid','Paid',true),c('outstanding','Outstanding',true),c('aging','Aging'),c('status','Status',false,true)] },
+  { slug: 'general-ledger', group: 'finance', title: 'General Ledger', description: 'Posted accounting movement by ledger account.', filters: ['branch', 'party', 'date'], columns: [c('postingDate','Posting Date'),c('journalNo','Journal No.'),c('sourceDocument','Source Document'),c('account','Account'),c('description','Description'),c('debit','Debit',true),c('credit','Credit',true),c('runningBalance','Running Balance',true),c('branchName','Branch')] },
+  { slug: 'trial-balance', group: 'finance', title: 'Trial Balance', description: 'Verify debit and credit balances from posted journals.', filters: ['branch', 'date'], columns: [c('accountCode','Account Code'),c('accountName','Account Name'),c('openingDebit','Opening Debit',true),c('openingCredit','Opening Credit',true),c('periodDebit','Period Debit',true),c('periodCredit','Period Credit',true),c('closingDebit','Closing Debit',true),c('closingCredit','Closing Credit',true)] },
+  { slug: 'profit-loss', group: 'finance', title: 'Profit & Loss', description: 'Operating result from posted revenue and expense accounts.', filters: ['branch', 'currency', 'date'], columns: [], statement: true },
+  { slug: 'balance-sheet', group: 'finance', title: 'Balance Sheet', description: 'Financial position from posted asset, liability, and equity accounts.', filters: ['branch', 'currency', 'date'], columns: [], statement: true },
+  { slug: 'cash-flow', group: 'finance', title: 'Cash Flow / Cash & Bank', description: 'Posted cash and bank activity without unsupported classifications.', filters: ['branch', 'currency', 'date'], columns: [c('postingDate','Date'),c('account','Account'),c('sourceDocument','Source'),c('journalNo','Reference'),c('party','Party'),c('description','Description'),c('cashIn','Cash In',true),c('cashOut','Cash Out',true),c('runningBalance','Running Balance',true)] },
 ]
 
 const store = useFreightStore()
 const route = useRoute()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const { setTitle, clear } = useAppHeader()
-const reportSlug = computed(() => String(route.params.slug || 'general-ledger'))
-const report = computed(() => reports.find(item => item.slug === reportSlug.value) || reports.find(item => item.slug === 'general-ledger')!)
-const reportTitle = computed(() => t(`freight.reportCatalog.titles.${report.value.titleKey}`))
-watchEffect(() => setTitle(reportTitle.value))
+const slug = computed(() => String(route.params.slug || 'service-orders'))
+const report = computed(() => reports.find(item => item.slug === slug.value) || reports[0]!)
+watchEffect(() => setTitle(report.value.title))
 onBeforeUnmount(clear)
-usePageSeo({ title: () => reportTitle.value })
+usePageSeo({ title: () => report.value.title })
 
 const q = ref('')
-const status = ref('')
-const currency = ref('')
+const branch = ref<string[]>([])
+const party = ref<string[]>([])
+const status = ref<string[]>([])
+const currency = ref<string[]>([])
 const dateFrom = ref('')
 const dateTo = ref('')
-const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 50 })
-const paginationOptions = { getPaginationRowModel: getPaginationRowModel() }
-const ledgerRows = computed(() => buildGeneralLedger({ debitNotes: store.list('debitNotes'), customerPayments: store.list('customerPayments'), supplierCosts: store.list('supplierCosts'), supplierPayments: store.list('supplierPayments'), journals: store.list('journals') }) as unknown as FreightRecord[])
-
-const allRows = computed<FreightRecord[]>(() => {
-  const finance = store.list('debitNotes')
-  const slug = report.value.slug
-  if (slug === 'open-service-orders') return store.list('jobs').filter(row => ['DRAFT', 'OPEN', 'IN_PROGRESS', 'ON_HOLD'].includes(String(row.workflowStatus || row.status).toUpperCase().replaceAll(' ', '_')))
-  if (slug === 'service-order-charges') return store.list('jobCharges')
-  if (slug === 'issued-charges-not-converted') return store.list('jobCharges').filter(row => String(row.status).toUpperCase() === 'ISSUED' && !row.financialDocumentId)
-  if (slug === 'customer-invoices') return finance.filter(row => String(row.documentType || 'CUSTOMER_INVOICE') === 'CUSTOMER_INVOICE')
-  if (slug === 'outstanding-receivables') return store.list('receivables').filter(row => Number(row.outstanding) > 0)
-  if (slug === 'supplier-bills') return finance.filter(row => String(row.documentType) === 'SUPPLIER_BILL')
-  if (slug === 'outstanding-payables') return store.list('payables').filter(row => Number(row.outstanding) > 0)
-  if (slug === 'customer-receipts') return store.list('customerPayments')
-  if (slug === 'supplier-payments') return store.list('supplierPayments')
-  if (slug === 'unallocated-payments') return store.list('customerPayments').filter(row => Number(row.unallocatedAmount) > 0)
-  if (slug === 'revenue') return finance.filter(row => String(row.documentType || 'CUSTOMER_INVOICE') === 'CUSTOMER_INVOICE' && String(row.status).toUpperCase() === 'POSTED')
-  if (slug === 'expenses') return store.list('supplierCosts')
-  if (slug === 'service-order-profitability') return store.list('profitability')
-  if (slug === 'trial-balance') {
-    const grouped = new Map<string, FreightRecord>()
-    for (const row of ledgerRows.value) {
-      const account = String(row.account || 'Unassigned')
-      const current = grouped.get(account) || { id: account, account, debit: 0, credit: 0, balance: 0 }
-      current.debit = Number(current.debit || 0) + Number(row.debit || 0)
-      current.credit = Number(current.credit || 0) + Number(row.credit || 0)
-      current.balance = Number(current.debit) - Number(current.credit)
-      grouped.set(account, current)
-    }
-    return [...grouped.values()]
-  }
-  return ledgerRows.value
+const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 20 })
+const rowSelection = ref<Record<string, boolean>>({})
+const postedLines = computed<FreightRecord[]>(() => postedJournalLines(store.list('journals'), store.list('chartOfAccounts')))
+function jobByNo(value: unknown) { return store.list('jobs').find(row => String(row.jobNo) === String(value)) }
+const rows = computed<FreightRecord[]>(() => {
+  const jobs = store.list('jobs'), charges = store.list('jobCharges'), documents = store.list('debitNotes'), components = store.list('serviceComponents')
+  if (['service-orders','service-order-status'].includes(slug.value)) return jobs.map(job => { const related = components.filter(r => r.jobNo === job.jobNo); return { ...job, workflowStatus: job.workflowStatus || job.status, containers: store.list('actualContainers').filter(r => r.jobNo === job.jobNo).length, components: related.length, chargeTotal: charges.filter(r => r.jobNo === job.jobNo).reduce((s,r) => s + Number(r.total || 0),0), invoiceTotal: documents.filter(r => r.jobNo === job.jobNo && String(r.status).toUpperCase() === 'POSTED').reduce((s,r) => s + Number(r.total || 0),0), daysOpen: daysSince(job.createdAt || job.date), pendingComponents: related.filter(r => String(r.status).toUpperCase() !== 'COMPLETED').length, lastActivity: job.updatedAt || job.createdAt || job.date } })
+  if (slug.value === 'containers') return store.list('actualContainers').map(row => { const job = jobByNo(row.jobNo); return { ...row, customer: job?.customer, branchName: job?.branchName, currentMilestone: job?.stage || job?.workflowStatus || job?.status } })
+  if (slug.value === 'profitability') return store.list('profitability').map(row => { const job = jobByNo(row.jobNo), serviceCharges = charges.filter(r => r.jobNo === row.jobNo).reduce((s,r) => s + Number(r.total || 0),0), postedRevenue = Number(row.postedRevenue || 0), postedCost = Number(row.totalCost || 0); return { ...row, branchName: job?.branchName, date: job?.date, currency: job?.currency || 'USD', quoted: Number(job?.quotationAmount || job?.amount || 0), serviceCharges, postedRevenue, postedCost, grossProfit: postedRevenue-postedCost, margin: postedRevenue ? (postedRevenue-postedCost)/postedRevenue*100 : 0 } })
+  if (slug.value === 'accounts-receivable') return store.list('receivables').map(row => ({ ...row, invoiceDate: row.date, paid: paidAmountOf(row), aging: agingBucket(row.dueDate) }))
+  if (slug.value === 'accounts-payable') return store.list('payables').map(row => ({ ...row, billDate: row.date, paid: paidAmountOf(row), aging: agingBucket(row.dueDate) }))
+  if (slug.value === 'revenue-expense') return postedLines.value.filter(r => ['Revenue','Expense'].includes(String(r.accountType))).map(r => ({ ...r, category: r.accountType, revenue: r.accountType === 'Revenue' ? Number(r.credit)-Number(r.debit) : 0, expense: r.accountType === 'Expense' ? Number(r.debit)-Number(r.credit) : 0 }))
+  if (slug.value === 'trial-balance') { const map = new Map<string,FreightRecord>(); for (const line of postedLines.value) { const key=String(line.accountCode), row=map.get(key)||{id:key,accountCode:key,accountName:line.accountName,openingDebit:0,openingCredit:0,periodDebit:0,periodCredit:0,closingDebit:0,closingCredit:0}; row.periodDebit=Number(row.periodDebit)+Number(line.debit); row.periodCredit=Number(row.periodCredit)+Number(line.credit); const balance=Number(row.periodDebit)-Number(row.periodCredit); row.closingDebit=Math.max(balance,0); row.closingCredit=Math.max(-balance,0); map.set(key,row) } return [...map.values()] }
+  if (slug.value === 'cash-flow') { let balance=0; const codes=new Set(store.list('financialAccounts').map(r=>String(r.ledgerCode))); return postedLines.value.filter(r=>codes.has(String(r.accountCode))).map(r=>{const cashIn=Number(r.debit),cashOut=Number(r.credit);balance+=cashIn-cashOut;return{...r,cashIn,cashOut,runningBalance:balance}}) }
+  return postedLines.value
 })
-
-function rowDate(row: FreightRecord) { return String(row.postingDate || row.documentDate || row.date || row.createdAt || '').slice(0, 10) }
-const filtered = computed(() => allRows.value.filter((row) => {
-  const haystack = Object.values(row).map(value => String(value || '')).join(' ').toLowerCase()
-  const date = rowDate(row)
-  return (!q.value || haystack.includes(q.value.toLowerCase())) && (!status.value || String(row.status || row.workflowStatus) === status.value) && (!currency.value || String(row.currency) === currency.value) && (!dateFrom.value || date >= dateFrom.value) && (!dateTo.value || date <= dateTo.value)
+const filtered = computed(() => rows.value.filter((row) => {
+  const text = Object.values(row).join(' ').toLowerCase()
+  const day = reportRowDate(row)
+  const rowParty = String(row.customer || row.supplier || row.party || '')
+  return (!q.value || text.includes(q.value.toLowerCase()))
+    && matchesFilter(row.branchName, branch.value)
+    && matchesFilter(rowParty, party.value)
+    && matchesFilter(row.status || row.workflowStatus, status.value)
+    && matchesFilter(row.currency, currency.value)
+    && (!dateFrom.value || day >= dateFrom.value)
+    && (!dateTo.value || day <= dateTo.value)
 }))
-const selectItems = (key: string) => computed(() => [...new Set(allRows.value.map(row => String(row[key] || '')).filter(Boolean))].sort().map(value => ({ label: value, value })))
-const statusItems = computed(() => selectItems('status').value.map(item => ({ ...item, label: t(`freight.reportCatalog.statuses.${item.value.toLowerCase().replaceAll(' ', '_')}`) })))
-const currencyItems = selectItems('currency')
-const numericKey = (key: string) => /amount|total|debit|credit|balance|outstanding|revenue|cost|profit|margin/i.test(key)
-const UBadge = resolveComponent('UBadge')
-const columns = computed<TableColumn<FreightRecord>[]>(() => report.value.columns.map(([key, labelKey]) => ({
-  accessorKey: key, header: numericKey(key) ? () => h('span', { class: 'block w-full text-right' }, t(`freight.reportCatalog.columns.${labelKey}`)) : t(`freight.reportCatalog.columns.${labelKey}`), enableSorting: false,
-  meta: numericKey(key) ? { class: { th: 'text-right', td: 'text-right tabular-nums' } } : undefined,
-  cell: ({ row }) => key.toLowerCase().includes('status') ? h(UBadge, { color: statusColor(String(row.original[key] || '')), variant: 'subtle' }, () => formatFreightCell(row.original[key], key)) : formatFreightCell(row.original[key], key),
-})))
-watch([q, status, currency, dateFrom, dateTo, reportSlug], () => { pagination.value.pageIndex = 0 })
-function setPageSize(value: unknown) { pagination.value = { pageIndex: 0, pageSize: parsePageLimit(value, 50) } }
-function setPage(page: number) { pagination.value = { ...pagination.value, pageIndex: Math.max(0, page - 1) } }
-function clearFilters() { q.value = ''; status.value = ''; currency.value = ''; dateFrom.value = ''; dateTo.value = '' }
+watch([q, branch, party, status, currency, dateFrom, dateTo, slug], () => {
+  rowSelection.value = {}
+  pagination.value = { ...pagination.value, pageIndex: 0 }
+})
+const choices = (getter:(r:FreightRecord)=>unknown) => computed(() => [...new Set(rows.value.map(r=>String(getter(r)||'')).filter(Boolean))].sort().map(value=>({label:value,value})))
+const branchItems=choices(r=>r.branchName), partyItems=choices(r=>r.customer||r.supplier||r.party), currencyItems=choices(r=>r.currency)
+const statusItems=computed(()=>{
+  if (['service-orders','service-order-status'].includes(slug.value)) return labeledStatusOptions(JOB_WORKFLOW_STATUS, t, te)
+  if (slug.value==='containers') return labeledStatusOptions(CONTAINER_STATUSES, t, te)
+  return [...new Set(rows.value.map(r=>String(r.status||r.workflowStatus||'')).filter(Boolean))].sort().map(value=>({label:value,value}))
+})
+const statementGroups=computed(()=>buildStatementGroups(postedLines.value, slug.value==='profit-loss'?['Revenue','Expense']:['Asset','Liability','Equity']))
+const statementDifference=computed(()=>statementDifferenceOf(statementGroups.value, slug.value==='balance-sheet'))
+function actions(row:FreightRecord):DropdownMenuItem[][]{const job=jobByNo(row.jobNo);return job?[[{label:t('freight.ui.open'),icon:'i-lucide-eye',onSelect:()=>navigateTo(`/service-orders/${job.id}`)},{label:t('freight.jobSections.charges'),icon:'i-lucide-receipt-text',onSelect:()=>navigateTo(`/service-charges?jobNo=${encodeURIComponent(String(row.jobNo))}`)},{label:t('freight.jobSections.finance'),icon:'i-lucide-banknote',onSelect:()=>navigateTo(`/finance/documents?jobNo=${encodeURIComponent(String(row.jobNo))}`)}]]:[]}
+const columns=computed<TableColumn<FreightRecord>[]>(()=>{
+  const list=report.value.columns.map(column=>({accessorKey:column.key,header:column.numeric?()=>h('span',{class:'block text-right'},column.label):column.label,enableSorting:false,meta:column.numeric?{class:{th:'text-right',td:'text-right tabular-nums whitespace-nowrap'}}:undefined,cell:({row}:{row:{original:FreightRecord}})=>{if(column.status)return freightStatusBadge(row.original[column.key],column.key);if(column.key==='jobNo'&&report.value.group==='operations'){const job=jobByNo(row.original.jobNo);if(job)return h(ULink,{to:`/service-orders/${job.id}`,class:'font-medium text-highlighted hover:text-primary hover:underline'},()=>String(row.original.jobNo||'—'))}return formatFreightCell(row.original[column.key],column.key)}}))
+  return [
+    listTableSelectColumn<FreightRecord>(t),
+    ...list,
+    listTableRowMetaColumn<FreightRecord>({
+      summary: listTablePageSummary(t, filtered.value.length, pagination.value),
+      items: actions,
+    }),
+  ]
+})
+const hasActiveFilters = computed(() => Boolean(
+  q.value
+  || isFilterValueActive(branch.value)
+  || isFilterValueActive(party.value)
+  || isFilterValueActive(status.value)
+  || isFilterValueActive(currency.value)
+  || dateFrom.value
+  || dateTo.value,
+))
+function clearFilters() {
+  q.value = ''
+  branch.value = []
+  party.value = []
+  status.value = []
+  currency.value = []
+  dateFrom.value = ''
+  dateTo.value = ''
+}
+const exportFields=computed(()=>report.value.statement?[{label:'Section',value:'section'},{label:'Account',value:'account'},{label:'Amount',value:'amount'}]:report.value.columns.map(column=>({label:column.label,value:column.key})))
+function exportCsv(request:{fieldCodes:string[]}){const statementRows=statementGroups.value.flatMap(group=>group.rows.map(row=>({section:group.type,account:row.name,amount:row.amount}))),source=(report.value.statement?statementRows:filtered.value) as Array<Record<string,unknown>>,codes=request.fieldCodes.length?request.fieldCodes:exportFields.value.map(field=>field.value);downloadCsv({filename:`${report.value.slug}-${new Date().toISOString().slice(0,10)}.csv`,fields:codes.map(key=>({label:exportFields.value.find(field=>field.value===key)?.label||key,value:key})),rows:source})}
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted/20">
-    <LayoutAppHeaderPageActions :can-create="false" @refresh="store.reload()" />
-    <div class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-1.5 pt-1.5 pb-0">
-      <div class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-sm border border-default bg-default shadow-xs">
-        <div class="flex items-center gap-2 border-b border-default px-2 py-2">
-          <USelect :model-value="report.slug" :items="reports.map(item => ({ label: `${t(`freight.reportCatalog.groups.${item.groupKey}`)} · ${t(`freight.reportCatalog.titles.${item.titleKey}`)}`, value: item.slug }))" size="sm" class="w-72 shrink-0" @update:model-value="navigateTo(`/reports/${String($event)}`)" />
-          <CommonAppLiveSearch v-model="q" class="w-56 shrink-0 sm:w-64" :placeholder="t('freight.reportCatalog.search')" />
-          <div class="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto">
-            <USelect :model-value="status || undefined" :items="statusItems" :placeholder="t('freight.reportCatalog.columns.status')" size="sm" class="w-36 shrink-0" @update:model-value="status = String($event || '')" />
-            <USelect :model-value="currency || undefined" :items="currencyItems" :placeholder="t('freight.reportCatalog.columns.currency')" size="sm" class="w-28 shrink-0" @update:model-value="currency = String($event || '')" />
-            <CommonAppDateRangeFilter v-model:start="dateFrom" v-model:end="dateTo" granularity="day" class="shrink-0" :label="t('freight.reportCatalog.columns.date')" />
-            <UButton v-if="q || status || currency || dateFrom || dateTo" color="neutral" variant="ghost" size="sm" :label="t('freight.ui.clear')" @click="clearFilters" />
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-muted/20">
+    <LayoutAppHeaderPageActions
+      :can-create="false"
+      :export-fields="exportFields"
+      @refresh="store.reload()"
+      @export="exportCsv"
+    />
+    <template v-if="!report.statement">
+      <TableAppListTable
+        v-model:search="q"
+        v-model:date-start="dateFrom"
+        v-model:date-end="dateTo"
+        v-model:row-selection="rowSelection"
+        v-model:pagination="pagination"
+        :data="filtered"
+        :columns="columns"
+        :show-date-range="report.filters.includes('date')"
+      >
+        <template #filters>
+          <CommonAppFilterSelect
+            v-if="report.filters.includes('branch')"
+            v-model="branch"
+            :items="branchItems"
+            :placeholder="t('freight.ui.branchCol')"
+            class="w-36"
+          />
+          <CommonAppFilterSelect
+            v-if="report.filters.includes('party')"
+            v-model="party"
+            :items="partyItems"
+            :placeholder="t('freight.fields.party')"
+            class="w-44"
+          />
+          <CommonAppFilterSelect
+            v-if="report.filters.includes('status')"
+            v-model="status"
+            :items="statusItems"
+            :placeholder="t('freight.ui.status')"
+            class="w-36"
+          />
+          <CommonAppFilterSelect
+            v-if="report.filters.includes('currency')"
+            v-model="currency"
+            :items="currencyItems"
+            :placeholder="t('freight.ui.cols.currency')"
+            class="w-28"
+          />
+        </template>
+        <template #actions>
+          <UButton
+            v-if="hasActiveFilters"
+            :label="t('freight.ui.clear')"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="clearFilters"
+          />
+        </template>
+      </TableAppListTable>
+    </template>
+    <template v-else>
+      <div class="flex min-h-0 flex-1 flex-col overflow-hidden px-1.5 pt-1.5 pb-0">
+        <div class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-sm border border-default bg-default shadow-xs">
+          <div class="flex items-center gap-3 border-b border-default px-2 py-2">
+            <CommonAppLiveSearch v-model="q" class="w-56 shrink-0 sm:w-64" :placeholder="t('freight.ui.search')" />
+            <div class="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto">
+              <CommonAppFilterSelect
+                v-if="report.filters.includes('branch')"
+                v-model="branch"
+                :items="branchItems"
+                :placeholder="t('freight.ui.branchCol')"
+                class="w-36"
+              />
+              <CommonAppFilterSelect
+                v-if="report.filters.includes('currency')"
+                v-model="currency"
+                :items="currencyItems"
+                :placeholder="t('freight.ui.cols.currency')"
+                class="w-28"
+              />
+              <CommonAppDateRangeFilter
+                v-if="report.filters.includes('date')"
+                v-model:start="dateFrom"
+                v-model:end="dateTo"
+                granularity="day"
+                class="shrink-0"
+                :label="t('freight.ui.date')"
+              />
+              <UButton
+                v-if="hasActiveFilters"
+                :label="t('freight.ui.clear')"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                @click="clearFilters"
+              />
+            </div>
           </div>
-        </div>
-        <div class="min-h-0 flex-1 overflow-hidden">
-          <UTable v-model:pagination="pagination" :data="filtered" :columns="columns" :get-row-id="(row: FreightRecord) => String(row.id)" :pagination-options="paginationOptions" sticky="header" class="freight-table h-full min-h-0" :ui="freightTableFillUiReadonly" />
-        </div>
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-default px-3 py-2">
-          <USelect :model-value="String(pagination.pageSize)" :items="TABLE_PAGE_SIZES.map(value => ({ label: String(value), value: String(value) }))" size="xs" class="w-20" @update:model-value="setPageSize" />
-          <span class="text-xs text-muted">{{ t('freight.reportCatalog.rowCount', { count: filtered.length }) }} · {{ reportTitle }}</span>
-          <UPagination :page="pagination.pageIndex + 1" :items-per-page="pagination.pageSize" :total="filtered.length" @update:page="setPage" />
+          <section class="min-h-0 flex-1 overflow-auto p-5">
+            <div class="mx-auto max-w-3xl space-y-5">
+              <div v-for="group in statementGroups" :key="group.type">
+                <h2 class="border-b border-default pb-1.5 text-sm font-semibold">{{ group.type }}</h2>
+                <div v-for="row in group.rows" :key="row.name" class="flex justify-between px-3 py-1.5 text-sm">
+                  <span>{{ row.name }}</span>
+                  <span class="tabular-nums">{{ formatMoney(row.amount) }}</span>
+                </div>
+                <div class="flex justify-between border-t border-default px-3 pt-2 text-sm font-semibold">
+                  <span>Total {{ group.type }}</span>
+                  <span>{{ formatMoney(group.total) }}</span>
+                </div>
+              </div>
+              <div class="flex justify-between border-t-2 border-default px-3 pt-3 font-semibold">
+                <span>{{ report.slug === 'profit-loss' ? 'Net Profit' : 'Difference' }}</span>
+                <span>{{ formatMoney(statementDifference) }}</span>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
+

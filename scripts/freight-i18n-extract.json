@@ -121,7 +121,7 @@
       "description": "Description",
       "destination": "Destination",
       "device": "Device",
-      "direction": "Default Import / Export Type",
+      "direction": "Default Direction",
       "discount": "Discount",
       "discountAmount": "Discount Amount",
       "discountPercent": "Discount %",

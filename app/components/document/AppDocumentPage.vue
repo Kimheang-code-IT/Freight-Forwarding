@@ -55,8 +55,6 @@ const props = withDefaults(defineProps<{
   metaTags?: string[]
   metaCreatedAt?: string
   metaUpdatedAt?: string
-  metaFavorite?: boolean
-  togglingFavorite?: boolean
   moreItems?: DropdownMenuItem[][]
   exporting?: boolean
   canExport?: boolean
@@ -109,7 +107,6 @@ const emit = defineEmits<{
   loadMoreFeed: []
   navigatePrevious: []
   navigateNext: []
-  toggleFavorite: []
   export: [request: ExportRequest]
 }>()
 
@@ -119,8 +116,14 @@ const exportFields = computed(() => {
   if (!props.canExport) return []
   const fields = props.tabs.flatMap(tab =>
     tab.sections.flatMap(section =>
-      section.fields
-        .filter(field => field.type !== 'secret' && field.type !== 'alert')
+          section.fields
+            .filter(field =>
+              field.type !== 'secret'
+              && field.type !== 'alert'
+              && field.type !== 'line-table'
+              && field.type !== 'related-records'
+              && field.type !== 'permission-matrix',
+            )
         .map(field => ({
           label: field.label || t(field.labelKey),
           value: field.key,
@@ -128,11 +131,6 @@ const exportFields = computed(() => {
     ),
   )
   return [...new Map(fields.map(field => [field.value, field])).values()]
-})
-
-const localAttachments = computed({
-  get: () => props.attachments || [],
-  set: (value: AttachmentMeta[]) => emit('update:attachments', value),
 })
 
 const showForm = computed(() =>
@@ -178,77 +176,31 @@ async function onSaveClick() {
       :more-items="moreItems"
       :export-fields="exportFields"
       :exporting="exporting"
+      :show-list-nav="showListNav"
+      :list-to="listTo"
+      :can-navigate-previous="canNavigatePrevious"
+      :can-navigate-next="canNavigateNext"
+      :loading-list-navigation="loadingListNavigation"
+      :list-navigation-direction="listNavigationDirection"
+      :is-create="isCreate"
+      :show-save="showSave && canSave && !readOnly"
+      :save-label="saveLabel"
+      :saving="saving"
+      :show-cancel="showCancel && Boolean(listTo)"
+      :cancel-to="listTo"
+      :show-meta-rail-toggle="showMetaRail && !notFound && !error && showForm"
+      :meta-rail-open="metaRailOpen"
       @refresh="emit('refresh')"
       @export="emit('export', $event)"
+      @navigate-previous="emit('navigatePrevious')"
+      @navigate-next="emit('navigateNext')"
+      @save="onSaveClick"
+      @toggle-meta-rail="metaRailOpen = !metaRailOpen"
     >
-      <template v-if="showListNav || $slots.leading" #leading>
-        <slot name="leading">
-          <UButton
-            v-if="showListNav && listTo"
-            color="neutral"
-            variant="soft"
-            icon="i-lucide-list"
-            :to="listTo"
-            :label="t('docetra.document.listView')"
-            class="hidden rounded-md sm:inline-flex"
-          />
-          <UButton
-            v-if="showListNav"
-            color="neutral"
-            variant="soft"
-            icon="i-lucide-chevron-left"
-            square
-            class="rounded-md"
-            :loading="listNavigationDirection === 'previous'"
-            :disabled="isCreate || !canNavigatePrevious || loadingListNavigation || Boolean(listNavigationDirection)"
-            :aria-label="t('docetra.document.previous')"
-            @click="emit('navigatePrevious')"
-          />
-          <UButton
-            v-if="showListNav"
-            color="neutral"
-            variant="soft"
-            icon="i-lucide-chevron-right"
-            square
-            class="rounded-md"
-            :loading="listNavigationDirection === 'next'"
-            :disabled="isCreate || !canNavigateNext || loadingListNavigation || Boolean(listNavigationDirection)"
-            :aria-label="t('docetra.document.next')"
-            @click="emit('navigateNext')"
-          />
-        </slot>
+      <template v-if="$slots.leading" #leading>
+        <slot name="leading" />
       </template>
-
       <slot name="actions" />
-
-      <UButton
-        v-if="showMetaRail && !notFound && !error && showForm"
-        icon="i-lucide-menu"
-        color="neutral"
-        variant="soft"
-        square
-        class="rounded-md lg:hidden"
-        :aria-label="t('docetra.tabs.details')"
-        :aria-expanded="metaRailOpen"
-        @click="metaRailOpen = !metaRailOpen"
-      />
-
-      <UButton
-        v-if="showCancel && listTo"
-        color="neutral"
-        variant="ghost"
-        :to="listTo"
-        :label="t('actions.cancel')"
-        class="rounded-md"
-      />
-      <UButton
-        v-if="showSave && canSave && !readOnly"
-        :loading="saving"
-        icon="i-lucide-save"
-        :label="saveLabel || t('docetra.common.save')"
-        class="rounded-md"
-        @click="onSaveClick"
-      />
     </LayoutAppHeaderPageActions>
 
     <div class="relative flex min-h-0 w-full min-w-0 flex-1 overflow-hidden p-0">
@@ -393,22 +345,10 @@ async function onSaveClick() {
             class="h-full min-h-0 overflow-y-auto"
             :title="metaTitle"
             :subtitle="metaSubtitle"
-            :status="metaStatus"
-            :stage="metaStage"
             :owner="metaOwner || undefined"
-            :assignee="metaAssignee || undefined"
-            :attachments="localAttachments"
-            :tags="metaTags"
+            :activity="activity"
             :created-at="metaCreatedAt"
             :updated-at="metaUpdatedAt"
-            :read-only="readOnly"
-            :is-favorite="metaFavorite"
-            :toggling-favorite="togglingFavorite"
-            :favorite-enabled="!isCreate"
-            @update:tags="setFieldValue('tags', $event)"
-            @update:attachments="localAttachments = $event"
-            @update:assignees="setFieldValue('assignee', $event[0] || null)"
-            @toggle-favorite="emit('toggleFavorite')"
           />
         </aside>
       </div>

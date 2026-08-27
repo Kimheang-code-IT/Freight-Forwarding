@@ -52,7 +52,7 @@ function patch(partial: Partial<VisibilityRule>) {
     />
 
     <div v-if="model" class="grid gap-3 md:grid-cols-3">
-      <UFormField :label="t('docetra.config.whenField')">
+      <UFormField :label="t('docetra.config.whenField')" :help="t('docetra.config.whenFieldHelp')">
         <USelect
           :model-value="model.fieldCode || undefined"
           :items="fieldOptions.filter(option => String(option.value || '').trim())"
@@ -63,7 +63,7 @@ function patch(partial: Partial<VisibilityRule>) {
         />
       </UFormField>
 
-      <UFormField :label="t('docetra.config.operatorLabel')">
+      <UFormField :label="t('docetra.config.operatorLabel')" :help="t('docetra.config.operatorHelp')">
         <USelect
           :model-value="model.operator"
           :items="operatorItems"
@@ -74,7 +74,7 @@ function patch(partial: Partial<VisibilityRule>) {
         />
       </UFormField>
 
-      <UFormField v-if="needsValue" :label="t('docetra.fields.value')">
+      <UFormField v-if="needsValue" :label="t('docetra.fields.value')" :help="t('docetra.config.visibilityValueHelp')">
         <UInput
           :model-value="model.value == null ? '' : String(model.value)"
           @update:model-value="patch({ value: String($event) })"

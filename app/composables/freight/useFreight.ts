@@ -1,9 +1,14 @@
+import { h } from 'vue'
+import { UBadge } from '#components'
 import type { AppHeaderBadge } from '~/composables/layout/useAppHeader'
 import type { FreightAction, FreightField, FreightModule, FreightRelated, FreightTable } from '~/config/freight-modules'
 import { getFreightModule } from '~/config/freight-modules'
 import { JOB_CHECKLIST_TYPES } from '~/config/freight-options'
-import { isMoneyKey } from '~/utils/freight/job-workspace'
+import { defaultJobRoutePlaces, isMoneyKey } from '~/utils/freight/job-workspace'
 import { documentSequenceTypeLabel } from '~/utils/document-sequences'
+import { codeTitle, labeledStatusOptions, shortDay } from '~/utils/freight/format'
+
+export { codeTitle, labeledStatusOptions, shortDay }
 
 export function i18nSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'general'
@@ -18,16 +23,20 @@ export function useFreightLabel() {
     return te(key) ? String(t(key)) : fallback
   }
 
-  function fieldLabel(field: Pick<FreightField, 'key' | 'label'>) {
+  function fieldLabel(field: Pick<FreightField, 'key' | 'label' | 'labelKm' | 'labelKey'>) {
+    if (field.labelKey && te(field.labelKey)) return String(t(field.labelKey))
     const collection = getFreightModule(route.path)?.collection
     if (collection) {
       const scoped = `freight.modules.${collection}.fields.${field.key}`
       if (te(scoped)) return String(t(scoped))
     }
-    return tx(`freight.fields.${field.key}`, field.label)
+    const generic = `freight.fields.${field.key}`
+    if (te(generic)) return String(t(generic))
+    return km.value && field.labelKm ? field.labelKm : field.label
   }
 
   function moduleTitle(module: FreightModule) {
+    if (module.titleKey && te(module.titleKey)) return String(t(module.titleKey))
     return tx(`freight.modules.${module.collection}.title`, module.title)
   }
 
@@ -108,6 +117,15 @@ export function emptyFreightRecord(module: FreightModule) {
   if (module.kind === 'job') {
     record.checklist = JOB_CHECKLIST_TYPES.map(type => ({ type, required: true, status: 'Missing', remark: '' }))
     record.activity = []
+    record.places = defaultJobRoutePlaces()
+    record.containerRequirements = []
+    record.actualContainers = []
+    record.containerPayments = []
+    record.attachments = []
+  }
+  if (module.kind === 'job-charges' || module.collection === 'jobCharges') {
+    record.feeLines = Array.isArray(record.feeLines) ? record.feeLines : []
+    record.status = 'Draft'
   }
   return record
 }
@@ -152,4 +170,14 @@ export function formatFreightCell(value: unknown, key: string) {
   if (Array.isArray(value)) return value.map(item => String(item ?? '').trim()).filter(Boolean).join(', ') || '—'
   const text = String(value ?? '').trim()
   return text || '—'
+}
+
+/** Compact status badge used by list/table cells. Color comes from `statusColor`. */
+export function freightStatusBadge(value: unknown, key = 'status', label?: string) {
+  const raw = String(value ?? '')
+  return h(UBadge, {
+    color: statusColor(raw),
+    variant: 'subtle',
+    size: 'sm',
+  }, () => label ?? formatFreightCell(value, key))
 }

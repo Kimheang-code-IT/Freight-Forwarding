@@ -32,6 +32,7 @@ const fields = computed(() => [
     size: 'lg' as const,
     label: t('pages.auth.email'),
     placeholder: t('pages.auth.emailPlaceholder'),
+    description: t('pages.forgetPassword.emailHelp'),
     required: true,
     autocomplete: 'email',
   },

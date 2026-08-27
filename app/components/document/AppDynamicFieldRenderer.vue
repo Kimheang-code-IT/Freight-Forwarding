@@ -16,11 +16,18 @@ import type {
   WorkflowTransition,
 } from '~/types/docetra/configuration'
 import type { ConnectionStatus, NotificationRule, TelegramDestination } from '~/types/docetra/settings'
-import type { CardDisplayEntityKey } from '~/types/docetra/settings'
 import { TELEGRAM_TEMPLATE_VARIABLES } from '~/types/docetra/settings'
 import { createClientId } from '~/utils/client-id'
+import { TELEGRAM_DESTINATION_TYPE_OPTIONS } from '~/utils/constants/select-options'
 import { resolveFieldHelp } from '~/utils/field-help'
 import { useReferenceOptions } from '~/composables/common/useReferenceOptions'
+import type { FreightRelated, FreightTable } from '~/config/freight-modules'
+import type { FreightRecord } from '~/config/freight-seed'
+import { asNumber } from '~/composables/freight/useFreight'
+import {
+  freightDocumentLineActionKey,
+  freightDocumentRecordKey,
+} from '~/utils/freight/document-tabs'
 
 const props = defineProps<{
   field: DocumentFieldSchema
@@ -37,12 +44,7 @@ const { loadReferenceOptions } = useReferenceOptions()
 
 const hintOpen = ref(false)
 
-const destinationTypeItems = [
-  { label: 'Chat', value: 'chat' },
-  { label: 'Channel', value: 'channel' },
-  { label: 'Group', value: 'group' },
-  { label: 'Organization', value: 'organization' },
-]
+const destinationTypeItems = TELEGRAM_DESTINATION_TYPE_OPTIONS
 
 const stringValue = computed({
   get: () => String(props.modelValue ?? ''),
@@ -63,8 +65,26 @@ const numberValue = computed({
 })
 
 const boolValue = computed({
-  get: () => Boolean(props.modelValue),
-  set: (v: boolean | 'indeterminate') => emit('update:modelValue', v === true),
+  get: () => {
+    const trueValue = props.field.meta?.trueValue
+    if (trueValue !== undefined) return props.modelValue === trueValue || props.modelValue === true
+    if (typeof props.modelValue === 'string') {
+      const value = props.modelValue.trim().toLowerCase()
+      if (['no', 'false', '0', ''].includes(value)) return false
+      if (['yes', 'true', '1'].includes(value)) return true
+    }
+    return Boolean(props.modelValue)
+  },
+  set: (v: boolean | 'indeterminate') => {
+    const checked = v === true
+    const trueValue = props.field.meta?.trueValue
+    const falseValue = props.field.meta?.falseValue
+    if (trueValue !== undefined) {
+      emit('update:modelValue', checked ? trueValue : (falseValue ?? ''))
+      return
+    }
+    emit('update:modelValue', checked)
+  },
 })
 
 const multiValue = computed({
@@ -169,8 +189,8 @@ const selectItems = computed(() =>
 )
 
 const labelText = computed(() => {
-  if (props.field.label) return props.field.label
   if (props.field.labelKey && te(props.field.labelKey)) return t(props.field.labelKey)
+  if (props.field.label) return props.field.label
   return props.field.labelKey || ''
 })
 
@@ -208,37 +228,40 @@ const isNumberingPreview = computed(() => props.field.type === 'numbering-previe
 const isValidationBuilder = computed(() => props.field.type === 'validation-builder')
 const isOptionsBuilder = computed(() => props.field.type === 'options-builder')
 const isVisibilityBuilder = computed(() => props.field.type === 'visibility-builder')
-const isCardFieldsEditor = computed(() => props.field.type === 'card-fields-editor')
+const isLineTable = computed(() => props.field.type === 'line-table')
+const isRelatedRecords = computed(() => props.field.type === 'related-records')
+const isFile = computed(() => props.field.type === 'file')
 
-const cardFieldsValue = computed({
-  get: () => {
-    const raw = props.modelValue
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-      const display = raw as {
-        cardFields?: Partial<Record<CardDisplayEntityKey, string[]>>
-        cardFooterAlign?: Partial<Record<CardDisplayEntityKey, Partial<Record<string, 'left' | 'right'>>>>
-      }
-      return {
-        cardFields: display.cardFields || {},
-        cardFooterAlign: display.cardFooterAlign || {},
-      }
-    }
-    return { cardFields: {}, cardFooterAlign: {} }
-  },
-  set: (v: {
-    cardFields?: Partial<Record<CardDisplayEntityKey, string[]>>
-    cardFooterAlign?: Partial<Record<CardDisplayEntityKey, Partial<Record<string, 'left' | 'right'>>>>
-  }) => {
-    const prev = (props.modelValue && typeof props.modelValue === 'object' && !Array.isArray(props.modelValue))
-      ? props.modelValue as Record<string, unknown>
-      : {}
-    emit('update:modelValue', {
-      ...prev,
-      cardFields: v.cardFields || {},
-      cardFooterAlign: v.cardFooterAlign || {},
-    })
-  },
+const lineAction = inject(freightDocumentLineActionKey, undefined)
+const recordAccess = inject(freightDocumentRecordKey, null)
+
+const lineTable = computed(() => props.field.meta?.table as FreightTable | undefined)
+const lineRows = computed({
+  get: () => (Array.isArray(props.modelValue) ? props.modelValue as Array<Record<string, unknown>> : []),
+  set: (rows: Array<Record<string, unknown>>) => emit('update:modelValue', rows),
 })
+const relatedGroups = computed(() =>
+  Array.isArray(props.modelValue)
+    ? props.modelValue as Array<FreightRelated & { rows: FreightRecord[] }>
+    : [],
+)
+const showPricingTotals = computed(() => Boolean(props.field.meta?.showPricingTotals))
+const includeTaxTotal = computed(() => Boolean(props.field.meta?.includeTax))
+const lineCompact = computed(() => Boolean(props.field.meta?.compact))
+const lineViewOnly = computed(() => Boolean(props.field.meta?.viewOnly || props.field.readOnly))
+
+function moneyAmount(key: string) {
+  return asNumber(recordAccess?.get(key))
+}
+
+function moneyLabel(value: unknown) {
+  return Number(asNumber(value)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function onFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  emit('update:modelValue', file?.name || props.modelValue)
+}
 
 const iconValue = computed({
   get: () => String(props.modelValue ?? ''),
@@ -440,10 +463,49 @@ function removeDestination(id: string) {
     :disabled="disabled || field.readOnly"
   />
 
-  <SettingsAppCardFieldsEditor
-    v-else-if="isCardFieldsEditor"
-    v-model="cardFieldsValue"
-    :disabled="disabled || field.readOnly"
+  <div
+    v-else-if="isLineTable && lineTable"
+    class="space-y-6 md:col-span-2"
+  >
+    <TableAppLineTable
+      :table="lineTable"
+      :model-value="lineRows"
+      :disabled="disabled || lineViewOnly"
+      :compact="lineCompact"
+      :view-only-actions="lineViewOnly"
+      @update:model-value="lineRows = $event"
+      @row-action="(action, row) => lineAction?.(action, row)"
+    />
+    <div
+      v-if="showPricingTotals"
+      class="ms-auto grid w-full max-w-sm gap-1 px-1 py-1.5 text-xs"
+    >
+      <div class="flex items-center justify-between gap-4">
+        <span class="text-muted">{{ $t('freight.fields.subtotal') }}</span>
+        <span class="font-medium text-highlighted">{{ String(recordAccess?.get('currency') || 'USD') }} {{ moneyLabel(moneyAmount('subtotal')) }}</span>
+      </div>
+      <div class="flex items-center justify-between gap-4">
+        <span class="text-muted">{{ $t('freight.fields.discount') }}</span>
+        <span class="font-medium text-highlighted">− {{ String(recordAccess?.get('currency') || 'USD') }} {{ moneyLabel(moneyAmount('discount')) }}</span>
+      </div>
+      <div
+        v-if="includeTaxTotal"
+        class="flex items-center justify-between gap-4"
+      >
+        <span class="text-muted">{{ $t('freight.fields.tax') }}</span>
+        <span class="font-medium text-highlighted">{{ String(recordAccess?.get('currency') || 'USD') }} {{ moneyLabel(moneyAmount('tax')) }}</span>
+      </div>
+      <div class="mt-1 flex items-center justify-between gap-4 border-t border-default pt-2 text-base">
+        <span class="font-semibold text-highlighted">{{ $t('freight.fields.total') }}</span>
+        <span class="font-bold text-primary">{{ String(recordAccess?.get('currency') || 'USD') }} {{ moneyLabel(moneyAmount('total')) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <TableAppRelatedRecords
+    v-else-if="isRelatedRecords"
+    class="md:col-span-2"
+    :groups="relatedGroups"
   />
 
   <UAlert
@@ -525,7 +587,7 @@ function removeDestination(id: string) {
     class="space-y-4 md:col-span-2"
   >
     <div class="flex flex-wrap items-end gap-2">
-      <UFormField :label="t('docetra.config.assignAttribute')" class="min-w-64 flex-1">
+      <UFormField :label="t('docetra.config.assignAttribute')" class="min-w-64 flex-1" :help="t('docetra.fieldHelp.assignAttribute')">
         <UInputMenu
           v-model="selectedAttributeId"
           :items="selectItems"
@@ -633,7 +695,7 @@ function removeDestination(id: string) {
             :disabled="disabled || field.readOnly"
             @update:model-value="updateAssigned(item.attributeId, { section: String($event) })"
           />
-          <UFormField :label="t('docetra.config.assignedStage')">
+          <UFormField :label="t('docetra.config.assignedStage')" :help="t('docetra.fieldHelp.assignedStage')">
             <USelect
               :model-value="item.stageCode || '__all_stages__'"
               :items="assignmentStageItems"
@@ -744,7 +806,7 @@ function removeDestination(id: string) {
         v-model="boolValue"
         :disabled="disabled || field.readOnly"
         :required="field.required"
-        size="lg"
+        size="md"
         :ui="{ label: 'text-base text-highlighted' }"
       >
         <template #label>
@@ -800,7 +862,7 @@ function removeDestination(id: string) {
           :rows="textareaRows"
           :maxrows="TEXTAREA_MAX_ROWS"
           autoresize
-          size="lg"
+          size="md"
           class="w-full"
           :class="field.key === 'telegram.messageTemplate' ? 'font-mono text-sm' : ''"
         />
@@ -808,7 +870,9 @@ function removeDestination(id: string) {
           v-else-if="field.type === 'number'"
           v-model="numberValue"
           :disabled="disabled || field.readOnly"
-          size="lg"
+          :increment="false"
+          :decrement="false"
+          size="md"
           class="w-full"
         />
         <CommonAppInputDate
@@ -816,7 +880,7 @@ function removeDestination(id: string) {
           v-model="stringValue"
           :disabled="disabled || field.readOnly"
           :required="field.required"
-          size="lg"
+          size="md"
           class="w-full"
         />
         <CommonAppInputDate
@@ -825,7 +889,7 @@ function removeDestination(id: string) {
           granularity="minute"
           :disabled="disabled || field.readOnly"
           :required="field.required"
-          size="lg"
+          size="md"
           class="w-full"
         />
         <UInputMenu
@@ -836,7 +900,7 @@ function removeDestination(id: string) {
           :placeholder="placeholderText"
           :disabled="disabled || field.readOnly"
           :loading="optionsPending"
-          size="lg"
+          size="md"
           class="w-full"
           @update:search-term="searchRemoteOptions"
         />
@@ -848,7 +912,7 @@ function removeDestination(id: string) {
           :placeholder="placeholderText"
           :disabled="disabled || field.readOnly"
           :loading="optionsPending"
-          size="lg"
+          size="md"
           class="w-full"
         />
         <CommonAppMentionMultiInput
@@ -865,8 +929,16 @@ function removeDestination(id: string) {
           v-model="csvValue"
           :placeholder="placeholderText"
           :disabled="disabled || field.readOnly"
-          size="lg"
+          size="md"
           class="w-full"
+        />
+        <UInput
+          v-else-if="isFile"
+          type="file"
+          :disabled="disabled || field.readOnly"
+          size="md"
+          class="w-full"
+          @change="onFileChange"
         />
         <UInput
           v-else
@@ -874,7 +946,7 @@ function removeDestination(id: string) {
           :type="field.type === 'url' ? 'url' : 'text'"
           :placeholder="placeholderText"
           :disabled="disabled || field.readOnly"
-          size="lg"
+          size="md"
           class="w-full"
         />
       </div>

@@ -79,6 +79,7 @@ function submit() {
       <div class="space-y-5">
         <UFormField
           :label="$t('docetra.exportDialog.dateRange')"
+          :help="$t('docetra.exportDialog.dateRangeHelp')"
           :error="invalidRange ? $t('docetra.exportDialog.invalidRange') : undefined"
         >
           <CommonAppDateRangeFilter
@@ -89,7 +90,7 @@ function submit() {
           />
         </UFormField>
 
-        <UFormField :label="$t('docetra.exportDialog.scope')">
+        <UFormField :label="$t('docetra.exportDialog.scope')" :help="$t('docetra.exportDialog.scopeHelp')">
           <USelect
             v-model="scope"
             :items="scopeItems"

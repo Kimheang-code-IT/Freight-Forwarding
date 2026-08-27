@@ -75,8 +75,13 @@ export function useFreightRecordChrome(options: {
     const title = options.module.value
       ? String(options.model.value[options.module.value.titleField] || '')
       : ''
+    const recordNos = new Set([
+      title,
+      entityId,
+      String(options.model.value.jobNo || ''),
+    ].filter(Boolean))
     const fromAudit = store.list('auditLogs')
-      .filter(row => String(row.recordNo || '') === title || String(row.recordNo || '') === entityId)
+      .filter(row => recordNos.has(String(row.recordNo || row.entity || '')))
       .map(row => ({
         id: String(row.id),
         entityType,
@@ -85,6 +90,11 @@ export function useFreightRecordChrome(options: {
         summary: String(row.action || 'updated'),
         occurredAt: String(row.occurredAt || row.createdAt || new Date().toISOString()),
         actor: { id: 'user', name: String(row.user || currentUser.value.name) } as PersonSummary,
+        metadata: {
+          result: row.result ? String(row.result) : undefined,
+          remark: row.remark ? String(row.remark) : undefined,
+          module: row.module ? String(row.module) : undefined,
+        },
       }))
     return [...fromRecord, ...fromAudit].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   })
@@ -153,10 +163,6 @@ export function useFreightRecordChrome(options: {
     patch({ comments: comments.value.filter(item => item.id !== id) })
   }
 
-  function toggleFavorite() {
-    patch({ favorite: !options.model.value.favorite })
-  }
-
   function emptyFieldValue() {
     return undefined as unknown
   }
@@ -183,7 +189,6 @@ export function useFreightRecordChrome(options: {
     submitComment,
     updateComment,
     deleteComment,
-    toggleFavorite,
     emptyFieldValue,
     noopSetField,
   }

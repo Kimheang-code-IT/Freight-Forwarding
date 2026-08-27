@@ -41,7 +41,7 @@ export const appInfoTabs: DocumentTabSchema[] = [
   },
 ]
 
-/** App Config — 7 tabs matching the previous UI. */
+/** App Config tabs. */
 export const appConfigTabs: DocumentTabSchema[] = [
   {
     id: 'general',
@@ -300,23 +300,6 @@ export const appConfigTabs: DocumentTabSchema[] = [
           { key: 'system.environment', labelKey: 'docetra.settings.environment', type: 'text', readOnly: true },
           { key: 'system.cacheStatus', labelKey: 'docetra.settings.cacheStatus', type: 'text', readOnly: true },
           { key: 'system.backgroundJobStatus', labelKey: 'docetra.settings.jobStatus', type: 'text', readOnly: true },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'display',
-    labelKey: 'docetra.settings.tabs.display',
-    sections: [
-      {
-        id: 'cardFields',
-        fields: [
-          {
-            key: 'display',
-            labelKey: 'docetra.settings.cardFieldsSection',
-            type: 'card-fields-editor',
-            colSpan: 2,
-          },
         ],
       },
     ],

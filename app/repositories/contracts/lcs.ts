@@ -26,10 +26,24 @@ export interface JobRepository {
   addActualContainer: (serviceOrderId: string, payload: Record<string, unknown>) => Promise<FreightRecord>
 }
 
+export type EnsureServiceComponentPayload = {
+  jobNo: string
+  serviceOrderId?: string
+  groupCode: string
+  templateCode: string
+  templateVersion?: string
+  latestTemplateVersion?: string
+  required?: boolean
+  repeatable?: boolean
+  values?: unknown[]
+  forceNew?: boolean
+}
+
 export interface ComponentRepository {
   listForJob: (jobNo: string) => Promise<FreightRecord[]>
   complete: (componentId: string, idempotencyKey: string) => Promise<FreightRecord>
   saveValues: (componentId: string, values: unknown[]) => Promise<FreightRecord>
+  ensureForJob: (jobNo: string, payload: EnsureServiceComponentPayload) => Promise<FreightRecord>
 }
 
 export interface ServiceChargeRepository {

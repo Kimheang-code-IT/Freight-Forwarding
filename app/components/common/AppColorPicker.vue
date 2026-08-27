@@ -45,7 +45,7 @@ const PRESETS = [
       <UInput
         v-model="model"
         class="w-32"
-        size="lg"
+        size="md"
         :disabled="props.disabled"
         placeholder="#2563eb"
       />

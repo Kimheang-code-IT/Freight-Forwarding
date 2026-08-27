@@ -5,6 +5,7 @@ const props = defineProps<{
   fields: FreightField[]
   model: Record<string, unknown>
   disabled?: boolean
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -16,7 +17,10 @@ const blockFields = computed(() => props.fields.filter(field => field.type !== '
 </script>
 
 <template>
-  <div class="grid min-w-0 grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2">
+  <div
+    class="grid min-w-0 grid-cols-1 sm:grid-cols-2"
+    :class="compact ? 'gap-x-4 gap-y-3' : 'gap-x-5 gap-y-5'"
+  >
     <div
       v-if="checkboxFields.length && blockFields[0]"
       class="flex flex-col gap-4 sm:col-span-2 sm:flex-row sm:items-end"
@@ -25,6 +29,7 @@ const blockFields = computed(() => props.fields.filter(field => field.type !== '
         :field="blockFields[0]"
         :model-value="model[blockFields[0].key]"
         :disabled="disabled || blockFields[0].computed"
+        :compact="compact"
         class="min-w-0 flex-1"
         @update:model-value="emit('update', blockFields[0].key, $event)"
       />
@@ -35,6 +40,7 @@ const blockFields = computed(() => props.fields.filter(field => field.type !== '
           :field="field"
           :model-value="model[field.key]"
           :disabled="disabled || field.computed"
+          :compact="compact"
           @update:model-value="emit('update', field.key, $event)"
         />
       </div>
@@ -45,6 +51,7 @@ const blockFields = computed(() => props.fields.filter(field => field.type !== '
       :field="field"
       :model-value="model[field.key]"
       :disabled="disabled || field.computed"
+      :compact="compact"
       :class="field.colSpan === 2 || field.type === 'textarea' ? 'sm:col-span-2' : ''"
       @update:model-value="emit('update', field.key, $event)"
     />

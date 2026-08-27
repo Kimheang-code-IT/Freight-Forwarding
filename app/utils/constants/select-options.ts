@@ -103,6 +103,13 @@ export const AWS_REGION_OPTIONS: FieldOption[] = [
   { label: 'Europe (Ireland) eu-west-1', value: 'eu-west-1' },
 ]
 
+export const TELEGRAM_DESTINATION_TYPE_OPTIONS: FieldOption[] = [
+  { label: 'Chat', value: 'chat' },
+  { label: 'Channel', value: 'channel' },
+  { label: 'Group', value: 'group' },
+  { label: 'Organization', value: 'organization' },
+]
+
 export const SYNC_SCHEDULE_OPTIONS: FieldOption[] = [
   { label: 'Every hour', value: '0 * * * *' },
   { label: 'Every 6 hours', value: '0 */6 * * *' },

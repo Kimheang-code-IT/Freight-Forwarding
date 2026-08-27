@@ -6,29 +6,34 @@ import { usePageSeo } from '~/composables/usePageSeo'
 import {
   asNumber,
   emptyFreightRecord,
-  groupedFields,
+  formatMoney,
   statusColor,
   useFreightLabel,
   useFreightRouteModule,
 } from '~/composables/freight/useFreight'
-import type { DocumentTabSchema } from '~/types/docetra/common'
-import type { FreightField } from '~/config/freight-modules'
+import { FINANCE_REVERSE_FORM_FIELDS } from '~/config/job-workspace-forms'
 import type { FreightRecord } from '~/config/freight-seed'
 import { useFreightRecordChrome } from '~/composables/freight/useFreightRecordChrome'
-import { roleMainFields } from '~/config/role-form'
 import { useLcs } from '~/composables/lcs/useLcs'
 import { isLcsDomainError } from '~/utils/lcs/errors'
-import { financeDomainStatus, isRecordReadOnly, quotationDomainStatus } from '~/utils/lcs/states'
+import { canConvertQuotation, financeDomainStatus, isRecordReadOnly, quotationDomainStatus } from '~/utils/lcs/states'
 import { normalizePermissionRows, permissionRowsToFlatKeys } from '~/utils/role/permissions'
 import type { AppRolePermissionRow } from '~/types/docetra/entities'
 import { documentSequencePreview, documentSequenceTypeLabel } from '~/utils/document-sequences'
+import { jobForQuotation } from '~/utils/freight/job-workspace'
+import {
+  freightDocumentLineActionKey,
+  moduleDocumentTabs,
+  RELATED_FIELD_KEY,
+} from '~/utils/freight/document-tabs'
+import { resolveDocumentTraceability } from '~/utils/freight/traceability'
 
 const { module, isCreate, recordId, route } = useFreightRouteModule()
 const store = useFreightStore()
 const auth = useAuthStore()
 const { t } = useI18n()
 const toast = useToast()
-const { moduleTitle, moduleSingular, fieldLabel, groupTitle, tableTitle, actionLabel } = useFreightLabel()
+const { moduleTitle, moduleSingular, fieldLabel, actionLabel } = useFreightLabel()
 const { setBreadcrumbs, setBadges, clear } = useAppHeader()
 const { confirm } = useConfirm()
 const lcs = useLcs()
@@ -58,7 +63,6 @@ const {
   submitComment,
   updateComment,
   deleteComment,
-  toggleFavorite,
 } = useFreightRecordChrome({ module, isCreate, recordId, model })
 
 function applyRoleMatrix() {
@@ -95,7 +99,11 @@ function load() {
   applyRoleMatrix()
 }
 
-watch([() => module.value?.path, recordId, isCreate], load, { immediate: true })
+watch(
+  [() => module.value?.path, recordId, isCreate, () => Boolean(module.value && store.get(module.value.collection, recordId.value))],
+  load,
+  { immediate: true },
+)
 
 const title = computed(() => {
   if (!module.value) return ''
@@ -118,20 +126,8 @@ watch([title, () => module.value, () => model.value.status], () => {
 onBeforeUnmount(clear)
 usePageSeo({ title: () => title.value })
 
-const sections = computed(() => {
-  if (!module.value) return []
-  const groups = groupedFields(module.value)
-  if (module.value.collection !== 'documentSequences' || isCreate.value) return groups
-  return groups.map(group => ({
-    ...group,
-    fields: group.fields.map(field => ['documentType', 'year'].includes(field.key) ? { ...field, computed: true } : field),
-  }))
-})
-const compactAdminForm = computed(() =>
-  module.value?.collection === 'organizations' || module.value?.collection === 'branches',
-)
-const stackedDocumentForm = computed(() => module.value?.collection === 'users')
-const roleDocumentForm = computed(() => module.value?.collection === 'roles')
+const compactBusinessDocument = computed(() => ['quotations', 'debitNotes', 'journals', 'jobCharges'].includes(module.value?.collection || ''))
+const chargeLinkedToJob = computed(() => module.value?.collection === 'jobCharges' && Boolean(String(model.value.jobNo || '').trim()))
 const related = computed(() => module.value && !isCreate.value ? store.related(module.value, model.value) : [])
 const readOnly = computed(() => {
   if (!module.value) return true
@@ -161,18 +157,48 @@ const postingPreview = computed(() => {
   const period = store.list('accountingPeriods').find(row => row.id === model.value.periodId)
   const total = asNumber(model.value.total || model.value.amount)
   const type = String(model.value.documentType || 'CUSTOMER_INVOICE')
-  const debitAccount = type === 'SUPPLIER_BILL' ? 'Expense / Cost Account' : type === 'CUSTOMER_RECEIPT' ? 'Cash / Bank' : 'Accounts Receivable (1100)'
-  const creditAccount = type === 'SUPPLIER_BILL' ? 'Accounts Payable (2010)' : type === 'CUSTOMER_RECEIPT' ? 'Accounts Receivable (1100)' : 'Service Revenue (4010)'
-  return { period: String(period?.name || period?.code || model.value.periodId || 'Current open period'), total, debitAccount, creditAccount, difference: 0 }
+  return {
+    periodName: String(period?.name || period?.code || model.value.periodId || ''),
+    total,
+    type,
+    difference: 0,
+  }
 })
+
+function postingAccountLabels(type: string) {
+  if (type === 'SUPPLIER_BILL') {
+    return { debit: t('lcs.finance.accounts.expense'), credit: t('lcs.finance.accounts.ap') }
+  }
+  if (type === 'CUSTOMER_RECEIPT') {
+    return { debit: t('lcs.finance.accounts.cashBank'), credit: t('lcs.finance.accounts.ar') }
+  }
+  return { debit: t('lcs.finance.accounts.ar'), credit: t('lcs.finance.accounts.revenue') }
+}
+
+const postingPreviewItems = computed(() => {
+  const preview = postingPreview.value
+  if (!preview) return []
+  const accounts = postingAccountLabels(preview.type)
+  return [
+    { label: t('lcs.finance.documentTotal'), value: formatMoney(preview.total), strong: false },
+    { label: t('freight.fields.debitAccount'), value: accounts.debit, strong: false },
+    { label: t('freight.fields.creditAccount'), value: accounts.credit, strong: false },
+    { label: t('lcs.finance.branchDimension'), value: String(model.value.branchName || '') || t('lcs.finance.activeBranch'), strong: false },
+    { label: t('freight.fields.balanceDifference'), value: preview.difference.toFixed(2), strong: true },
+  ]
+})
+
+const reverseOpen = ref(false)
+const reverseDraft = reactive<Record<string, unknown>>({ reason: '' })
+const reversing = ref(false)
 const canMutateRecord = computed(() => Boolean(module.value) && !readOnly.value && !isCreate.value && Boolean(model.value.id))
 const deactivationOnly = computed(() => module.value?.group === 'master' || module.value?.collection === 'documentSequences')
-const hasDuplicateAction = computed(() => Boolean(module.value?.actions?.some(action => action.key === 'duplicate')))
+const quotationOverflowKeys = new Set(['convertJob', 'createRevision', 'reject', 'cancel'])
 const headerActions = computed(() => {
   const collection = module.value?.collection
   const status = String(model.value.status || '')
   return (module.value?.actions || []).filter((action) => {
-    if (['save', 'delete', 'duplicate'].includes(action.key)) return false
+    if (['save', 'delete'].includes(action.key)) return false
     if (collection === 'quotations') {
       const domain = quotationDomainStatus(status)
       if (action.key === 'saveDraft') return domain === 'DRAFT' && lcs.can('quotation.update_draft')
@@ -192,9 +218,10 @@ const headerActions = computed(() => {
       if (action.key === 'recordPayment') return domain === 'POSTED'
     }
     if (collection === 'jobCharges') {
-      if (action.key === 'saveDraft') return status === 'Draft' && lcs.can('service_charge.create')
-      if (action.key === 'issue') return status === 'Draft' && lcs.can('service_charge.issue')
-      if (action.key === 'createInvoice') return status === 'Issued' && !model.value.financialDocumentId && lcs.can('service_charge.convert_to_invoice')
+      if (action.key === 'saveDraft') return (status === 'Draft' || isCreate.value) && lcs.can('service_charge.create')
+      if (action.key === 'issue') return !isCreate.value && Boolean(model.value.id) && status === 'Draft' && lcs.can('service_charge.issue')
+      if (action.key === 'createInvoice') return !isCreate.value && status === 'Issued' && !model.value.financialDocumentId && lcs.can('service_charge.convert_to_invoice')
+      if (action.key === 'print') return !isCreate.value
     }
     if (collection === 'journals') {
       if (action.key === 'postJournal') {
@@ -206,64 +233,112 @@ const headerActions = computed(() => {
   })
 })
 
-type FreightDocTab = DocumentTabSchema & { fields: FreightField[], kind?: 'fields' | 'lines' | 'related', tableKey?: string }
+const primaryHeaderActions = computed(() => {
+  if (module.value?.collection !== 'quotations') return headerActions.value
+  return headerActions.value.filter(action => !quotationOverflowKeys.has(action.key))
+})
 
-function tabId(title: string, index: number) {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `section-${index}`
-}
-
-const tabs = computed<FreightDocTab[]>(() => {
+const tabs = computed(() => {
   if (!module.value) return []
-  if (stackedDocumentForm.value || roleDocumentForm.value) {
-    return [{
-      id: 'general',
-      labelKey: 'freight.sections.general',
-      label: t('freight.sections.general'),
-      sections: [{ id: 'general', title: t('freight.sections.general'), fields: [] }],
-      fields: module.value.fields,
-      kind: 'fields',
-    }]
-  }
-  const items: FreightDocTab[] = sections.value.map((group, index) => ({
-    id: tabId(group.title, index),
-    labelKey: group.title,
-    label: groupTitle(group.title),
-    sections: [{
-      id: tabId(group.title, index),
-      title: groupTitle(group.title),
-      fields: [],
-    }],
-    fields: group.fields,
-    kind: 'fields',
-  }))
-  if (module.value.tables?.length) {
-    for (const [index, table] of module.value.tables.entries()) {
-      const id = tabId(table.title, index + sections.value.length)
-      items.push({ id, labelKey: table.title, label: tableTitle(table), sections: [{ id, title: tableTitle(table), fields: [] }], fields: [], kind: 'lines', tableKey: table.key })
-    }
-  }
-  if (!isCreate.value && related.value.length) {
-    items.push({
-      id: 'related',
-      labelKey: 'Related',
-      label: t('freight.ui.related'),
-      sections: [{ id: 'related', title: t('freight.ui.related'), fields: [] }],
-      fields: [],
-      kind: 'related',
-    })
-  }
-  return items
+  return moduleDocumentTabs(module.value, {
+    isCreate: isCreate.value,
+    includeRelated: related.value.length > 0,
+    compact: compactBusinessDocument.value,
+    chargeLinkedToJob: chargeLinkedToJob.value,
+    readOnlyKeys: module.value.collection === 'documentSequences' && !isCreate.value
+      ? ['documentType', 'year']
+      : [],
+  })
 })
 
 watch(tabs, (value) => {
   if (!value.some(tab => tab.id === activeTab.value)) activeTab.value = value[0]?.id || 'general'
 }, { immediate: true })
 
-const currentTab = computed(() => tabs.value.find(tab => tab.id === activeTab.value) || tabs.value[0])
+provide(freightDocumentLineActionKey, (action, row) => {
+  void onLineRowAction(action, row)
+})
+
+function traceLookups() {
+  return {
+    jobs: store.list('jobs'),
+    quotations: store.list('quotations'),
+    charges: store.list('jobCharges'),
+    documents: store.list('debitNotes'),
+    journals: store.list('journals'),
+  }
+}
+
+function documentTrace() {
+  const collection = module.value?.collection
+  if (collection === 'jobCharges') return resolveDocumentTraceability(model.value, 'charge', traceLookups())
+  if (collection === 'debitNotes') return resolveDocumentTraceability(model.value, 'finance', traceLookups())
+  return null
+}
+
+function labeledTraceRows() {
+  const trace = documentTrace()
+  if (!trace) return []
+  return trace.links.map(row => ({
+    ...row,
+    sourceType: t(`freight.traceability.${row.sourceTypeKey}`),
+  }))
+}
+
+function tableRows(tableKey: string) {
+  if (tableKey === 'sourceRelationships' && documentTrace()) return labeledTraceRows()
+  if (module.value?.collection !== 'quotations' || tableKey !== 'revisionHistory') {
+    return Array.isArray(model.value[tableKey])
+      ? model.value[tableKey] as Array<Record<string, unknown>>
+      : []
+  }
+  const quotationId = String(model.value.quotationId || model.value.id || '')
+  const revisions = store.list('quotations')
+    .filter(row => String(row.quotationId || row.id) === quotationId)
+    .map(row => String(row.id) === String(model.value.id) ? { ...row, ...model.value } : row)
+    .sort((a, b) => Number(b.revisionNo || 0) - Number(a.revisionNo || 0))
+  if (!revisions.some(row => String(row.id) === String(model.value.id))) revisions.unshift(model.value)
+  return revisions.map(row => ({
+    id: row.id,
+    revisionNo: row.revisionNo,
+    status: row.status,
+    quotationDate: row.date,
+    validUntil: row.validUntil,
+    currency: row.currency,
+    total: row.total,
+    createdBy: row.createdBy,
+    createdAt: row.createdAt,
+    sentAt: row.sentAt,
+    acceptedAt: row.acceptedAt,
+  }))
+}
+
+async function onLineRowAction(action: 'view', row: Record<string, unknown>) {
+  if (action !== 'view' || !row.id) return
+  const path = String(row.path || '').replace(/\/$/, '')
+  if (path) {
+    await navigateTo(`${path}/${String(row.id)}`)
+    return
+  }
+  if (module.value?.collection === 'quotations') await navigateTo(`/quotations/${String(row.id)}`)
+}
+
+function relatedServiceOrder() {
+  return jobForQuotation(store.list('jobs'), model.value)
+}
+
+async function openRelatedServiceOrder() {
+  const job = relatedServiceOrder()
+  if (!job?.id) {
+    toast.add({ title: t('docetra.states.notFound'), color: 'warning' })
+    return
+  }
+  await navigateTo(`/service-orders/${String(job.id)}`)
+}
 
 const moreItems = computed<DropdownMenuItem[][]>(() => {
-  if (!canMutateRecord.value) return []
   if (module.value?.collection === 'documentSequences') {
+    if (!canMutateRecord.value) return []
     const active = String(model.value.status || '').toUpperCase() === 'ACTIVE'
     return [[{
       label: t(active ? 'docetra.rowActions.deactivate' : 'docetra.rowActions.activate'),
@@ -272,19 +347,49 @@ const moreItems = computed<DropdownMenuItem[][]>(() => {
       onSelect: () => { void setDocumentSequenceStatus(active ? 'INACTIVE' : 'ACTIVE') },
     }]]
   }
-  return [[
-    ...(!hasDuplicateAction.value ? [{
-      label: t('freight.ui.duplicate'),
-      icon: 'i-lucide-copy',
-      onSelect: () => { void runAction('duplicate') },
-    }] : []),
-    {
-      label: t(deactivationOnly.value ? 'freight.ui.deactivate' : 'freight.ui.delete'),
-      icon: deactivationOnly.value ? 'i-lucide-circle-off' : 'i-lucide-trash-2',
-      color: deactivationOnly.value ? 'warning' as const : 'error' as const,
-      onSelect: () => { void deleteRecord() },
-    },
-  ]]
+
+  const items: DropdownMenuItem[] = []
+  if (module.value?.collection === 'quotations' && !isCreate.value && model.value.id) {
+    const domain = quotationDomainStatus(model.value.status)
+    const convertClosed = ['CONVERTED', 'CANCELLED', 'REJECTED', 'SUPERSEDED'].includes(domain)
+    const relatedJob = relatedServiceOrder()
+    if (relatedJob) {
+      items.push({
+        label: t('freight.ui.openServiceOrder'),
+        icon: 'i-lucide-briefcase',
+        onSelect: () => { void openRelatedServiceOrder() },
+      })
+    }
+    else if (lcs.can('quotation.convert') && !convertClosed) {
+      items.push({
+        label: t('freight.ui.convertServiceOrder'),
+        icon: 'i-lucide-arrow-right',
+        onSelect: () => { void runAction('convertJob') },
+      })
+    }
+    for (const action of headerActions.value) {
+      if (action.key === 'convertJob' || !quotationOverflowKeys.has(action.key)) continue
+      items.push({
+        label: actionLabel(action),
+        icon: action.icon,
+        ...(action.color ? { color: action.color } : {}),
+        onSelect: () => { void runAction(action.key) },
+      })
+    }
+  }
+
+  if (canMutateRecord.value || (module.value?.collection === 'quotations' && !isCreate.value && Boolean(model.value.id))) {
+    if (canMutateRecord.value) {
+      items.push({
+        label: t(deactivationOnly.value ? 'freight.ui.deactivate' : 'freight.ui.delete'),
+        icon: deactivationOnly.value ? 'i-lucide-circle-off' : 'i-lucide-trash-2',
+        color: deactivationOnly.value ? 'warning' as const : 'error' as const,
+        onSelect: () => { void deleteRecord() },
+      })
+    }
+  }
+
+  return items.length ? [items] : []
 })
 
 function setRolePermissions(rows: AppRolePermissionRow[]) {
@@ -296,23 +401,47 @@ function setRolePermissions(rows: AppRolePermissionRow[]) {
   }
 }
 
-const rolePermissionRows = computed({
-  get: () => (Array.isArray(model.value.permissionRows) ? model.value.permissionRows as AppRolePermissionRow[] : []),
-  set: (rows: AppRolePermissionRow[]) => setRolePermissions(rows),
-})
-
 function setField(key: string, value: unknown) {
-  model.value = { ...model.value, [key]: value }
+  const next: Record<string, unknown> = { ...model.value, [key]: value }
+  if (module.value?.collection === 'jobCharges' && key === 'jobNo') {
+    const jobNo = String(value || '').trim()
+    const job = jobNo
+      ? store.list('jobs').find(row => String(row.jobNo || '') === jobNo)
+      : null
+    if (job) {
+      next.customer = job.customer || next.customer
+      next.branchName = job.branchName || next.branchName
+      next.currency = job.currency || next.currency || 'USD'
+    }
+  }
+  model.value = next as FreightRecord
   recalculate()
 }
 
 function fieldValue(key: string) {
+  if (key === RELATED_FIELD_KEY) return related.value
+  const trace = documentTrace()
+  if (trace) {
+    if (key === 'invoiceNo' && trace.invoiceNo) return trace.invoiceNo
+    if (key === 'journalId' && trace.journalNo) return trace.journalNo
+    if (key === 'sourceChargeId' && trace.sourceChargeNo) return trace.sourceChargeNo
+  }
+  if (module.value?.tables?.some(table => table.key === key)) return tableRows(key)
   return model.value[key]
 }
 
 function setFieldValue(key: string, value: unknown) {
+  if (key === RELATED_FIELD_KEY) return
+  if (key === 'permissionRows') {
+    setRolePermissions(value as AppRolePermissionRow[])
+    return
+  }
   if (key === 'tags' || key === 'assignee' || key === 'attachments' || key === 'favorite') {
     setChromeField(key, value)
+    return
+  }
+  if (module.value?.tables?.some(table => table.key === key) && Array.isArray(value)) {
+    setTable(key, value as Array<Record<string, unknown>>)
     return
   }
   setField(key, value)
@@ -345,16 +474,19 @@ function recalculate() {
     const pricingLines = Array.isArray(model.value.pricingLines) ? model.value.pricingLines as Array<Record<string, unknown>> : []
     if (pricingLines.length) {
       const normalized = pricingLines.map((row) => {
-        const rowSubtotal = asNumber(row.subtotal || asNumber(row.quantity) * asNumber(row.unitPrice))
-        const rowDiscount = asNumber(row.discountAmount || rowSubtotal * asNumber(row.discountPercent) / 100)
+        const rowSubtotal = asNumber(row.quantity) * asNumber(row.unitPrice)
+        const rowDiscount = asNumber(row.discountAmount)
         const taxable = Math.max(0, rowSubtotal - rowDiscount)
-        const rowTax = asNumber(row.taxAmount || taxable * asNumber(row.taxPercent) / 100)
+        const rowTax = asNumber(row.taxAmount)
         return { ...row, subtotal: Number(rowSubtotal.toFixed(2)), discountAmount: Number(rowDiscount.toFixed(2)), taxAmount: Number(rowTax.toFixed(2)), lineTotal: Number((taxable + rowTax).toFixed(2)) }
       })
       const subtotal = normalized.reduce((sum, row) => sum + asNumber(row.subtotal), 0)
       const discount = normalized.reduce((sum, row) => sum + asNumber(row.discountAmount), 0)
       const tax = normalized.reduce((sum, row) => sum + asNumber(row.taxAmount), 0)
       model.value = { ...model.value, pricingLines: normalized, subtotal: Number(subtotal.toFixed(2)), discount: Number(discount.toFixed(2)), tax: Number(tax.toFixed(2)), total: Number((subtotal - discount + tax).toFixed(2)), amount: Number((subtotal - discount + tax).toFixed(2)) }
+    }
+    else {
+      model.value = { ...model.value, subtotal: 0, discount: 0, tax: 0, total: 0, amount: 0 }
     }
     const charges = Array.isArray(model.value.otherCharges) ? model.value.otherCharges as Array<Record<string, unknown>> : []
     const chargeBuy = charges.reduce((sum, row) => sum + asNumber(row.quantity) * asNumber(row.buyingRate), 0)
@@ -552,17 +684,6 @@ async function runAction(key: string) {
     window.print()
     return
   }
-  if (key === 'duplicate') {
-    const copy = store.duplicate(module.value.collection, String(model.value.id), {
-      status: 'Draft',
-      [module.value.titleField]: `${model.value[module.value.titleField]}-COPY`,
-    })
-    if (copy) {
-      toast.add({ title: t('freight.ui.duplicated'), color: 'success' })
-      await navigateTo(`${module.value.path}/${copy.id}`)
-    }
-    return
-  }
   if (key === 'send' && module.value.collection === 'quotations') {
     const saved = await lcs.runCommand('quotation.send', String(model.value.id), keyValue =>
       lcs.quotations.send(String(model.value.id), keyValue),
@@ -594,6 +715,15 @@ async function runAction(key: string) {
     return
   }
   if (key === 'convertJob') {
+    const existing = relatedServiceOrder()
+    if (existing?.id) {
+      await navigateTo(`/service-orders/${String(existing.id)}`)
+      return
+    }
+    if (!canConvertQuotation(model.value.status)) {
+      toast.add({ title: t('freight.ui.convertRequiresAccepted'), color: 'warning' })
+      return
+    }
     const job = await lcs.runCommand('quotation.convert', String(model.value.id), keyValue =>
       lcs.quotations.convert(String(model.value.id), keyValue),
     )
@@ -606,7 +736,7 @@ async function runAction(key: string) {
       lcs.charges.issue(String(model.value.id), keyValue),
     )
     model.value = saved
-    toast.add({ title: t('freight.ui.chargeIssued'), description: t('lcs.finance.chargeNoPost'), color: 'success' })
+    toast.add({ title: t('freight.ui.chargeIssued'), color: 'success' })
     return
   }
   if (key === 'createInvoice' && module.value.collection === 'jobCharges') {
@@ -642,12 +772,8 @@ async function runAction(key: string) {
     return
   }
   if (key === 'reverse' && module.value.collection === 'debitNotes') {
-    const reason = window.prompt(t('lcs.finance.reverseReason')) || ''
-    const saved = await lcs.runCommand('finance.reverse', String(model.value.id), keyValue =>
-      lcs.finance.reverse(String(model.value.id), reason, keyValue),
-    )
-    model.value = saved
-    toast.add({ title: t('freight.ui.documentReversed'), color: 'success' })
+    reverseDraft.reason = ''
+    reverseOpen.value = true
     return
   }
   if (key === 'delete') return deleteRecord()
@@ -684,23 +810,47 @@ async function deleteRecord() {
   toast.add({ title: t('docetra.actions.deletedItems', { n: 1 }), color: 'success' })
   await navigateTo(module.value.path)
 }
+
+async function confirmReverse() {
+  if (!module.value) return
+  const reason = String(reverseDraft.reason || '').trim()
+  if (!reason) {
+    toast.add({ title: t('freight.ui.missingRequired'), color: 'error' })
+    return
+  }
+  reversing.value = true
+  try {
+    const saved = await lcs.runCommand('finance.reverse', String(model.value.id), keyValue =>
+      lcs.finance.reverse(String(model.value.id), reason, keyValue),
+    )
+    model.value = saved
+    reverseOpen.value = false
+    toast.add({ title: t('freight.ui.documentReversed'), color: 'success' })
+  }
+  catch (error) {
+    lcs.reportError(error)
+  }
+  finally {
+    reversing.value = false
+  }
+}
 </script>
 
 <template>
+  <template v-if="module && !notFound">
   <DocumentAppDocumentPage
-    v-if="module && !notFound"
     :tabs="tabs"
     :active-tab="activeTab"
     :field-value="fieldValue"
     :set-field-value="setFieldValue"
     :saving="saving"
     :read-only="readOnly"
-    :can-save="!readOnly"
+    :can-save="!readOnly && module.collection !== 'quotations'"
     :save-label="t('docetra.common.save')"
     :confirm-save="false"
-    show-cancel
+    :show-cancel="false"
     show-comments
-    :show-tabs="stackedDocumentForm || (!compactAdminForm && !roleDocumentForm && tabs.length > 1)"
+    :show-tabs="tabs.length > 1"
     show-list-nav
     content-wide
     :can-navigate-previous="canNavigatePrevious"
@@ -715,14 +865,15 @@ async function deleteRecord() {
     :submitting-comment="submittingComment"
     :current-user="currentUser"
     :meta-title="title"
-    :meta-subtitle="moduleSingular(module)"
+    :meta-subtitle="module.collection === 'quotations'
+      ? [model.customer, model.direction, model.currency].filter(Boolean).join(' · ')
+      : moduleSingular(module)"
     :meta-status="String(model.status || '')"
     :meta-owner="metaOwner"
     :meta-assignee="metaAssignee"
     :meta-tags="tags"
     :meta-created-at="String(model.createdAt || '')"
     :meta-updated-at="String(model.updatedAt || '')"
-    :meta-favorite="Boolean(model.favorite)"
     :more-items="moreItems"
     :can-export="false"
     @update:active-tab="activeTab = $event"
@@ -735,11 +886,10 @@ async function deleteRecord() {
     @delete-comment="deleteComment"
     @navigate-previous="navigatePrevious"
     @navigate-next="navigateNext"
-    @toggle-favorite="toggleFavorite"
   >
     <template #actions>
       <UButton
-        v-for="action in headerActions"
+        v-for="action in primaryHeaderActions"
         :key="action.key"
         :color="action.color || 'neutral'"
         variant="soft"
@@ -752,161 +902,83 @@ async function deleteRecord() {
       />
     </template>
 
-    <template #form>
-      <DocumentAppDocumentContentShell wide>
-        <div class="space-y-8 py-6">
-          <UAlert
-            v-if="module.collection === 'jobCharges'"
-            color="warning"
-            variant="subtle"
-            icon="i-lucide-info"
-            :title="$t('lcs.finance.chargeNoPost')"
-            :description="$t('lcs.finance.chargeVsInvoice')"
-          />
-          <UCard v-if="postingPreview && String(model.status) === 'Draft'" variant="subtle">
-            <template #header>
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="font-semibold text-highlighted">Posting confirmation</p>
-                  <p class="text-xs text-muted">Review the resolved accounting effect before posting.</p>
-                </div>
-                <UBadge :color="periodClosed ? 'error' : 'success'" variant="subtle">{{ periodClosed ? 'Period closed' : postingPreview.period }}</UBadge>
+    <template #before-form>
+      <DocumentAppDocumentContentShell
+        v-if="(postingPreview && String(model.status) === 'Draft')
+          || (module.collection === 'debitNotes' && (periodClosed || String(model.status) === 'Posted'))"
+        wide
+        class="space-y-4 pt-6"
+      >
+        <UCard v-if="postingPreview && String(model.status) === 'Draft'" variant="subtle">
+          <template #header>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="font-semibold text-highlighted">{{ $t('lcs.finance.postingConfirmation') }}</p>
+                <p class="text-xs text-muted">{{ $t('lcs.finance.postingConfirmationHint') }}</p>
               </div>
-            </template>
-            <div class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-5">
-              <div><p class="text-xs text-muted">Document total</p><p class="font-semibold">{{ postingPreview.total.toLocaleString(undefined, { minimumFractionDigits: 2 }) }}</p></div>
-              <div><p class="text-xs text-muted">Debit account</p><p class="font-medium">{{ postingPreview.debitAccount }}</p></div>
-              <div><p class="text-xs text-muted">Credit account</p><p class="font-medium">{{ postingPreview.creditAccount }}</p></div>
-              <div><p class="text-xs text-muted">Branch dimension</p><p class="font-medium">{{ model.branchName || 'Active branch' }}</p></div>
-              <div><p class="text-xs text-muted">Balance difference</p><p class="font-semibold text-success">{{ postingPreview.difference.toFixed(2) }}</p></div>
+              <UBadge :color="periodClosed ? 'error' : 'success'" variant="subtle">
+                {{ periodClosed ? $t('lcs.finance.periodClosed') : postingPreview.periodName }}
+              </UBadge>
             </div>
-          </UCard>
-          <UAlert
-            v-if="module.collection === 'quotations' && readOnly"
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-lock"
-            :title="$t('lcs.quotation.readOnly')"
-            :description="$t('lcs.quotation.createRevisionHint')"
-          />
-          <UAlert
-            v-if="module.collection === 'debitNotes' && periodClosed"
-            color="error"
-            variant="subtle"
-            icon="i-lucide-calendar-off"
-            :title="$t('lcs.finance.periodClosed')"
-          />
-          <UAlert
-            v-if="module.collection === 'debitNotes' && String(model.status) === 'Posted'"
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-lock"
-            :title="$t('lcs.finance.postedReadOnly')"
-          />
-          <div v-if="roleDocumentForm" class="space-y-8">
-            <section class="space-y-4">
-              <h3 class="text-sm font-medium text-highlighted">
-                {{ $t('docetra.sections.main') }}
-              </h3>
-              <div class="grid min-w-0 grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2">
-                <div
-                  v-for="field in roleMainFields"
-                  :key="field.key"
-                  class="min-w-0 max-w-full"
-                  :class="field.colSpan === 2 || field.type === 'textarea' ? 'sm:col-span-2' : ''"
-                >
-                  <DocumentAppDynamicFieldRenderer
-                    :field="field"
-                    :model-value="fieldValue(field.key)"
-                    :disabled="readOnly"
-                    @update:model-value="(value) => setField(field.key, value)"
-                  />
-                </div>
-              </div>
-            </section>
-            <section class="space-y-4">
-              <h3 class="text-sm font-medium text-highlighted">
-                {{ $t('docetra.sections.permissions') }}
-              </h3>
-              <CommonAppRolePermissionMatrix
-                v-model="rolePermissionRows"
-                :disabled="readOnly"
-              />
-            </section>
-          </div>
-
-          <div v-else-if="stackedDocumentForm" class="space-y-6">
-            <section
-              v-for="group in sections"
-              :key="group.title"
-              class="overflow-hidden rounded-lg border border-default"
-            >
-              <div class="border-b border-default bg-elevated/50 px-4 py-2.5">
-                <h3 class="text-sm font-semibold text-highlighted">
-                  {{ groupTitle(group.title) }}
-                </h3>
-              </div>
-              <div class="p-4 sm:p-5">
-                <FreightFieldGrid
-                  :fields="group.fields"
-                  :model="model"
-                  :disabled="readOnly"
-                  @update="setField"
-                />
-              </div>
-            </section>
-            <section
-              v-for="table in module.tables || []"
-              :key="table.key"
-              class="overflow-hidden rounded-lg border border-default p-4 sm:p-5"
-            >
-              <FreightLineTable
-                :table="table"
-                :model-value="(Array.isArray(model[table.key]) ? model[table.key] : []) as Array<Record<string, unknown>>"
-                :disabled="readOnly"
-                @update:model-value="setTable(table.key, $event)"
-              />
-            </section>
-          </div>
-
-          <section v-else-if="currentTab?.kind === 'fields'" class="space-y-4">
-            <h3
-              v-if="!compactAdminForm && tabs.length > 1"
-              class="text-lg font-semibold text-highlighted"
-            >
-              {{ currentTab.label }}
-            </h3>
-            <FreightFieldGrid
-              :fields="currentTab.fields"
-              :model="model"
-              :disabled="readOnly"
-              @update="setField"
-            />
-          </section>
-
-          <div v-else-if="currentTab?.kind === 'lines'" class="space-y-6">
-            <h3 class="text-lg font-semibold text-highlighted">
-              {{ currentTab.label }}
-            </h3>
-            <FreightLineTable
-              v-for="table in (module.tables || []).filter(item => !currentTab?.tableKey || item.key === currentTab?.tableKey)"
-              :key="table.key"
-              :table="table"
-              :model-value="(Array.isArray(model[table.key]) ? model[table.key] : []) as Array<Record<string, unknown>>"
-              :disabled="readOnly"
-              @update:model-value="setTable(table.key, $event)"
-            />
-          </div>
-
-          <div v-else-if="currentTab?.kind === 'related'" class="space-y-3">
-            <h3 class="text-lg font-semibold text-highlighted">
-              {{ currentTab.label }}
-            </h3>
-            <FreightRelatedRecords :groups="related" />
-          </div>
-        </div>
+          </template>
+          <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-5">
+            <div v-for="item in postingPreviewItems" :key="item.label">
+              <dt class="text-xs text-muted">{{ item.label }}</dt>
+              <dd class="font-medium text-highlighted" :class="item.strong ? 'font-semibold text-success' : ''">
+                {{ item.value }}
+              </dd>
+            </div>
+          </dl>
+        </UCard>
+        <UAlert
+          v-if="module.collection === 'debitNotes' && periodClosed"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-calendar-off"
+          :title="$t('lcs.finance.periodClosed')"
+        />
+        <UAlert
+          v-if="module.collection === 'debitNotes' && String(model.status) === 'Posted'"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-lock"
+          :title="$t('lcs.finance.postedReadOnly')"
+        />
       </DocumentAppDocumentContentShell>
     </template>
   </DocumentAppDocumentPage>
+  <UModal
+    :open="reverseOpen"
+    :title="$t('lcs.finance.reverseReason')"
+    :ui="{ content: 'w-[calc(100%-2rem)] max-w-md sm:max-w-md' }"
+    @update:open="value => !value && (reverseOpen = false)"
+  >
+    <template #body>
+      <FreightFieldGrid
+        :fields="FINANCE_REVERSE_FORM_FIELDS"
+        :model="reverseDraft"
+        @update="(key, value) => { reverseDraft[key] = value }"
+      />
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          :label="$t('actions.cancel')"
+          @click="reverseOpen = false"
+        />
+        <UButton
+          color="error"
+          size="sm"
+          :loading="reversing"
+          :label="$t('freight.ui.actions.reverse')"
+          @click="confirmReverse"
+        />
+      </div>
+    </template>
+  </UModal>
+  </template>
   <div v-else class="p-6 text-sm text-muted">{{ t('docetra.document.notFound') || 'Record not found.' }}</div>
 </template>

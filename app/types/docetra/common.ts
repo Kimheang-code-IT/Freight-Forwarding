@@ -135,7 +135,8 @@ export type FieldType =
   | 'validation-builder'
   | 'options-builder'
   | 'visibility-builder'
-  | 'card-fields-editor'
+  | 'line-table'
+  | 'related-records'
 
 export interface FieldOption {
   label: string

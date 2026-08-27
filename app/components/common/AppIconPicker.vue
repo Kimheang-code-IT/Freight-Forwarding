@@ -72,7 +72,7 @@ function clear() {
       <UButton
         color="neutral"
         variant="outline"
-        size="lg"
+        size="md"
         :disabled="disabled"
         class="min-w-40 justify-start"
         @click="open = true"

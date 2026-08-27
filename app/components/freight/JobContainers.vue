@@ -1,208 +1,273 @@
 <script setup lang="ts">
 import type { FreightRecord } from '~/config/freight-seed'
-import { useLcs } from '~/composables/lcs/useLcs'
+import type { FreightTable } from '~/config/freight-modules'
+import {
+  JOB_ACTUAL_CONTAINER_TABLE,
+  JOB_CONTAINER_PAYMENT_TABLE,
+  JOB_CONTAINER_REQUIREMENT_TABLE,
+} from '~/config/job-workspace-forms'
+import {
+  duplicateContainerNumber,
+  firstOpenRequirement,
+  invalidGrossWeight,
+  jobActualContainers,
+  jobContainerPaymentRows,
+  jobContainerPaymentTotals,
+  jobContainerRequirements,
+  missingContainerNumber,
+  newLineId,
+  persistableActuals,
+  persistablePayments,
+  persistableRequirements,
+  requirementOptionLabel,
+  withRequirementProgress,
+} from '~/utils/freight/job-containers'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   job: FreightRecord
-  shipments: FreightRecord[]
-  requirements?: FreightRecord[]
-  actual?: FreightRecord[]
+  shipments?: FreightRecord[]
+  charges?: FreightRecord[]
+  containerRequirements?: FreightRecord[]
+  actualContainers?: FreightRecord[]
   isCreate: boolean
-  mode?: 'requirements' | 'actual' | 'both'
+  editable?: boolean
+  editablePayments?: boolean
+}>(), {
+  shipments: () => [],
+  charges: () => [],
+  containerRequirements: () => [],
+  actualContainers: () => [],
+  editable: false,
+  editablePayments: undefined,
+})
+
+const emit = defineEmits<{
+  'update:job': [patch: Record<string, unknown>]
 }>()
 
 const { t } = useI18n()
-const lcs = useLcs()
+const store = useFreightStore()
 const toast = useToast()
-const showAdd = ref(false)
-const submitting = ref(false)
-const draft = reactive<{
-  containerRequirementId: string
-  containerType: string
-  containerNo: string
-  sealNo: string
-  status: string
-  netWeightKg?: number | string
-  grossWeightKg?: number | string
-}>({
-  containerRequirementId: '',
-  containerType: '',
-  containerNo: '',
-  sealNo: '',
-  status: 'Loaded',
-  netWeightKg: undefined,
-  grossWeightKg: undefined,
-})
-const visibleMode = computed(() => props.mode || 'both')
-const containerStatusItems = computed(() => ['Planned', 'Loaded', 'In Transit', 'Delivered', 'Returned'].map(value => ({
-  value,
-  label: t(`freight.reportCatalog.statuses.${value.toLowerCase().replaceAll(' ', '_')}`),
-})))
+const requirementRows = ref<Array<Record<string, unknown>>>([])
+const actualRows = ref<Array<Record<string, unknown>>>([])
+const paymentRows = ref<Array<Record<string, unknown>>>([])
 
-const planned = computed(() => {
-  if (props.requirements?.length) {
-    return props.requirements.map(row => ({
-      ...row,
-      requiredQuantity: row.requiredQuantity || row.quantity,
-      sourceQuotation: row.sourceQuotation || props.job.sourceQuotation || props.job.quotationNo,
-      actualContainersCount: (props.actual || []).filter(item => item.containerRequirementId === row.id).length,
-    }))
+const totals = computed(() => jobContainerPaymentTotals(paymentRows.value, props.job.vatRate))
+const currency = computed(() => String(props.job.currency || 'USD'))
+const canEdit = computed(() => props.editable || props.isCreate)
+const canEditPayments = computed(() =>
+  props.editablePayments !== undefined ? (props.editablePayments || props.isCreate) : canEdit.value)
+
+const quotation = computed(() => {
+  const no = String(props.job.quotationNo || '').trim()
+  if (!no) return null
+  return store.list('quotations').find(row => String(row.quotationNo || '') === no) || null
+})
+
+const requirementDisplayRows = computed(() => withRequirementProgress(requirementRows.value, actualRows.value))
+
+const feeOptions = computed(() => {
+  const rows = store.list('feeTypes').length ? store.list('feeTypes') : store.list('chargeTypes')
+  return rows.map(row => String(row.name || row.code || '').trim()).filter(Boolean)
+})
+
+const requirementTable = JOB_CONTAINER_REQUIREMENT_TABLE
+
+const actualTable = computed<FreightTable>(() => ({
+  ...JOB_ACTUAL_CONTAINER_TABLE,
+  columns: JOB_ACTUAL_CONTAINER_TABLE.columns.map((column) => {
+    if (column.key !== 'containerRequirementId') return column
+    return {
+      ...column,
+      optionItems: requirementRows.value.map(row => ({
+        label: requirementOptionLabel(row),
+        value: String(row.id || ''),
+      })).filter(item => item.value),
+    }
+  }),
+}))
+
+const paymentTable = computed<FreightTable>(() => {
+  const containers = actualRows.value
+    .map(row => String(row.containerNo || '').trim())
+    .filter(Boolean)
+  return {
+    ...JOB_CONTAINER_PAYMENT_TABLE,
+    columns: JOB_CONTAINER_PAYMENT_TABLE.columns.map((column) => {
+      if (column.key === 'feeType') {
+        return { ...column, type: feeOptions.value.length ? 'select' : 'text', options: feeOptions.value }
+      }
+      if (column.key === 'containerNo') {
+        return {
+          ...column,
+          type: containers.length ? 'select' : 'text',
+          optionItems: actualRows.value
+            .filter(row => String(row.containerNo || '').trim())
+            .map(row => ({
+              label: [String(row.containerNo || '').trim(), String(row.containerType || '').trim()].filter(Boolean).join(' · '),
+              value: String(row.containerNo || '').trim(),
+            })),
+        }
+      }
+      return column
+    }),
   }
-  const type = String(props.job.containerType || '').trim()
-  if (!type) return []
-  return [{
-    id: `planned-${props.job.id || 'new'}`,
-    containerType: type,
-    requiredQuantity: 1,
-    sourceQuotation: props.job.sourceQuotation || props.job.quotationNo,
-    description: props.job.description,
-    actualContainersCount: actualRows.value.length,
-    status: 'Required',
-  }] as FreightRecord[]
 })
 
-const actualRows = computed<FreightRecord[]>(() => {
-  if (props.actual?.length) return props.actual
-  const fromShipments = props.shipments.filter(row => String(row.containerNo || '').trim())
-  if (fromShipments.length) return fromShipments
-  if (String(props.job.containerNo || '').trim()) {
-    return [{
-      id: `job-container-${props.job.id || 'job'}`,
-      containerNo: props.job.containerNo,
-      containerType: props.job.containerType,
-      sealNo: props.job.sealNo,
-      status: props.job.status,
-    }] as FreightRecord[]
-  }
-  return []
-})
+function money(value: number) {
+  return `${currency.value} ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
 
-function resetDraft() {
-  Object.assign(draft, {
-    containerRequirementId: props.requirements?.[0]?.id || '',
-    containerType: props.requirements?.[0]?.containerType || props.job.containerType || '',
-    containerNo: '',
-    sealNo: '',
-    status: 'Loaded',
-    netWeightKg: undefined,
-    grossWeightKg: undefined,
+function withIds(rows: Array<Record<string, unknown>>, prefix: string) {
+  return rows.map(row => String(row.id || '').trim() ? row : { ...row, id: newLineId(prefix) })
+}
+
+function loadRows() {
+  requirementRows.value = jobContainerRequirements(props.job, {
+    requirements: props.containerRequirements,
+    quotation: quotation.value,
+  })
+  actualRows.value = jobActualContainers(props.job, {
+    actuals: props.actualContainers,
+    shipments: props.shipments,
+  })
+  paymentRows.value = jobContainerPaymentRows(props.job, {
+    shipments: props.shipments,
+    charges: props.charges,
+    quotation: quotation.value,
   })
 }
 
-async function addContainer() {
-  const net = Number(draft.netWeightKg || 0)
-  const gross = Number(draft.grossWeightKg || 0)
-  if (!String(draft.containerNo || '').trim()) {
-    toast.add({ title: t('freight.ui.containerNoRequired'), color: 'error' })
-    return
-  }
-  if (gross && net && gross < net) {
-    toast.add({ title: t('freight.ui.grossLessThanNet'), color: 'error' })
-    return
-  }
-  submitting.value = true
-  try {
-    await lcs.jobs.addActualContainer(String(props.job.id), { ...draft })
-    toast.add({ title: t('freight.ui.actualContainerAdded'), color: 'success' })
-    showAdd.value = false
-    resetDraft()
-  }
-  catch (error) {
-    lcs.reportError(error)
-  }
-  finally {
-    submitting.value = false
+function syncCollection(collection: string, rows: Array<Record<string, unknown>>) {
+  const jobNo = String(props.job.jobNo || '')
+  if (!jobNo) return
+  const existing = store.list(collection).filter(row => String(row.jobNo || '') === jobNo)
+  const nextIds = new Set(rows.map(row => String(row.id || '')).filter(Boolean))
+  const removeIds = existing.filter(row => !nextIds.has(row.id)).map(row => row.id)
+  if (removeIds.length) store.remove(collection, removeIds)
+  for (const row of rows) {
+    store.save(collection, {
+      ...row,
+      jobNo,
+      serviceOrderId: props.job.id,
+      id: String(row.id),
+    } as FreightRecord)
   }
 }
 
-watch(showAdd, (value) => {
-  if (value) resetDraft()
-})
+function persist() {
+  const requirements = persistableRequirements(requirementRows.value)
+  const actuals = persistableActuals(actualRows.value)
+  const payments = persistablePayments(paymentRows.value)
+  const nextTotals = jobContainerPaymentTotals(payments, props.job.vatRate)
+  const firstActual = actuals[0] || {}
+  const patch = {
+    containerRequirements: requirements,
+    actualContainers: actuals,
+    containerPayments: payments,
+    containerNo: String(firstActual.containerNo || props.job.containerNo || ''),
+    containerType: String(firstActual.containerType || requirements[0]?.containerType || props.job.containerType || ''),
+    sealNo: String(firstActual.sealNo || props.job.sealNo || ''),
+    subtotal: nextTotals.subtotal,
+    vat: nextTotals.vat,
+    total: nextTotals.total,
+    amount: nextTotals.total,
+  }
+  emit('update:job', patch)
+  if (!props.isCreate && props.job.id) {
+    store.save('jobs', {
+      ...props.job,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    })
+    syncCollection('containerRequirements', requirements)
+    syncCollection('actualContainers', actuals)
+  }
+}
 
+function setRequirements(value: Array<Record<string, unknown>>) {
+  requirementRows.value = persistableRequirements(withIds(value, 'cr'))
+  persist()
+}
+
+function setActuals(value: Array<Record<string, unknown>>) {
+  const next = withIds(value, 'ac').map((row) => {
+    if (row.containerType || row.containerRequirementId) return row
+    const open = firstOpenRequirement(requirementDisplayRows.value)
+    if (!open) return { ...row, status: row.status || 'Expected' }
+    return {
+      ...row,
+      containerType: open.containerType,
+      containerRequirementId: open.id,
+      status: row.status || 'Expected',
+    }
+  })
+  if (missingContainerNumber(next)) {
+    toast.add({ title: t('freight.ui.containerNoRequired'), color: 'error' })
+    return
+  }
+  if (invalidGrossWeight(next)) {
+    toast.add({ title: t('freight.ui.grossLessThanNet'), color: 'error' })
+    return
+  }
+  const others = store.list('actualContainers').filter(row => String(row.jobNo || '') !== String(props.job.jobNo || ''))
+  const duplicate = duplicateContainerNumber(next, others)
+  if (duplicate) {
+    toast.add({ title: t('freight.ui.duplicateContainerNo'), color: 'error' })
+    return
+  }
+  actualRows.value = next
+  persist()
+}
+
+function setPayments(value: Array<Record<string, unknown>>) {
+  paymentRows.value = withIds(value, 'cp')
+  persist()
+}
+
+watch(() => props.job.id, loadRows, { immediate: true })
 </script>
 
 <template>
-  <div class="space-y-5">
-    <FreightJobSectionHeader :title="t('freight.ui.containers')" />
-
-    <section v-if="visibleMode !== 'actual'" class="space-y-2">
-      <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-        {{ t('freight.ui.plannedRequirements') }}
-      </h4>
-      <FreightJobRelatedTable
-        :rows="planned"
-        :columns="[
-          { key: 'containerType', label: t('freight.ui.cols.containerType') },
-          { key: 'requiredQuantity', label: t('freight.ui.cols.requiredQuantity') },
-          { key: 'sourceQuotation', label: t('freight.ui.cols.sourceQuotation') },
-          { key: 'description', label: t('freight.ui.cols.description') },
-          { key: 'actualContainersCount', label: t('freight.ui.cols.actualContainers') },
-        ]"
-        :empty-title="t('freight.ui.noPlannedType')"
-        :job-link="false"
-      />
-    </section>
-
-    <section v-if="visibleMode !== 'requirements'" class="space-y-2">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-          {{ t('freight.ui.actualContainers') }}
-        </h4>
-        <UButton
-          v-if="!isCreate && lcs.can('service_order.update')"
-          size="xs"
-          color="neutral"
-          variant="soft"
-          icon="i-lucide-plus"
-          :label="t('freight.ui.addContainer')"
-          @click="showAdd = !showAdd"
-        />
+  <div class="space-y-6">
+    <TableAppLineTable
+      :table="requirementTable"
+      :model-value="requirementDisplayRows"
+      :disabled="!canEdit"
+      compact
+      @update:model-value="setRequirements"
+    />
+    <TableAppLineTable
+      :table="actualTable"
+      :model-value="actualRows"
+      :disabled="!canEdit"
+      compact
+      @update:model-value="setActuals"
+    />
+    <TableAppLineTable
+      :table="paymentTable"
+      :model-value="paymentRows"
+      :disabled="!canEditPayments"
+      compact
+      @update:model-value="setPayments"
+    />
+    <div class="ms-auto grid w-full max-w-sm gap-1 px-1 py-1.5 text-xs">
+      <div class="flex items-center justify-between gap-4">
+        <span class="text-muted">{{ t('freight.fields.subtotal') }}</span>
+        <span class="font-medium tabular-nums text-highlighted">{{ money(totals.subtotal) }}</span>
       </div>
-      <UCard v-if="showAdd" variant="subtle">
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <UFormField :label="t('freight.ui.cols.requirement')">
-            <USelect v-model="draft.containerRequirementId" :items="(requirements || []).map(row => ({ label: `${row.containerType} · ${row.quantity || 1}`, value: row.id }))" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('freight.ui.cols.containerType')" required>
-            <UInput v-model="draft.containerType" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('freight.ui.cols.containerNo')" required>
-            <UInput v-model="draft.containerNo" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('freight.ui.cols.sealNo')">
-            <UInput v-model="draft.sealNo" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('freight.ui.cols.netWeight')">
-            <UInput v-model="draft.netWeightKg" type="number" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('freight.ui.cols.grossWeight')">
-            <UInput v-model="draft.grossWeightKg" type="number" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('freight.ui.status')">
-            <USelect v-model="draft.status" :items="containerStatusItems" class="w-full" />
-          </UFormField>
-        </div>
-        <div class="mt-3 flex justify-end gap-2">
-          <UButton color="neutral" variant="ghost" :label="t('freight.ui.cancel')" @click="showAdd = false" />
-          <UButton :loading="submitting" :label="t('freight.ui.saveContainer')" @click="addContainer" />
-        </div>
-      </UCard>
-      <FreightJobRelatedTable
-        :rows="actualRows"
-        :columns="[
-          { key: 'containerNo', label: t('freight.ui.cols.containerNo') },
-          { key: 'containerType', label: t('freight.ui.cols.containerType') },
-          { key: 'containerRequirementId', label: t('freight.ui.cols.requirement') },
-          { key: 'sealNo', label: t('freight.ui.cols.sealNo') },
-          { key: 'status', label: t('freight.ui.cols.status'), status: true },
-          { key: 'netWeightKg', label: t('freight.ui.cols.netWeight') },
-          { key: 'grossWeightKg', label: t('freight.ui.cols.grossWeight') },
-          { key: 'createdAt', label: t('freight.ui.cols.createdAt') },
-        ]"
-        :empty-title="t('freight.ui.noActualContainers')"
-        :empty-description="t('freight.ui.noActualContainersHint')"
-        :job-link="false"
-      />
-    </section>
+      <div v-if="totals.discount" class="flex items-center justify-between gap-4">
+        <span class="text-muted">{{ t('freight.fields.discount') }}</span>
+        <span class="font-medium tabular-nums text-highlighted">{{ money(totals.discount) }}</span>
+      </div>
+      <div class="flex items-center justify-between gap-4">
+        <span class="text-muted">{{ t('freight.fields.tax') }}</span>
+        <span class="font-medium tabular-nums text-highlighted">{{ money(totals.vat) }}</span>
+      </div>
+      <div class="mt-1 flex items-center justify-between gap-4 border-t border-default pt-2 text-base">
+        <span class="font-semibold text-highlighted">{{ t('freight.fields.total') }}</span>
+        <span class="font-bold tabular-nums text-primary">{{ money(totals.total) }}</span>
+      </div>
+    </div>
   </div>
 </template>

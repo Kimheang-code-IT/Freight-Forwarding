@@ -61,6 +61,8 @@ export function createHttpComponentRepository(): ComponentRepository {
       unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.COMPONENT_COMPLETE(componentId), {}, withIdempotency(key))),
     saveValues: async (componentId, values) =>
       unwrapApiData(await api.put<ApiResponse<FreightRecord>>(ApiV1Endpoints.COMPONENT_VALUES(componentId), { values })),
+    ensureForJob: async (jobNo, payload) =>
+      unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.SERVICE_ORDER_COMPONENTS(jobNo), payload)),
   }
 }
 

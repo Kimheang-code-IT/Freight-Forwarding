@@ -44,21 +44,21 @@ function parseNum(value: unknown): number | undefined {
     </p>
 
     <div v-if="isText" class="grid gap-4 md:grid-cols-3">
-      <UFormField :label="t('docetra.config.minLength')">
+      <UFormField :label="t('docetra.config.minLength')" :help="t('docetra.config.minLengthHelp')">
         <UInput
           type="number"
           :model-value="numStr(model.minLength)"
           @update:model-value="patch({ minLength: parseNum($event) })"
         />
       </UFormField>
-      <UFormField :label="t('docetra.config.maxLength')">
+      <UFormField :label="t('docetra.config.maxLength')" :help="t('docetra.config.maxLengthHelp')">
         <UInput
           type="number"
           :model-value="numStr(model.maxLength)"
           @update:model-value="patch({ maxLength: parseNum($event) })"
         />
       </UFormField>
-      <UFormField :label="t('docetra.config.pattern')" :hint="t('docetra.config.patternHelp')">
+      <UFormField :label="t('docetra.config.pattern')" :help="t('docetra.config.patternHelp')">
         <UInput
           :model-value="model.pattern || ''"
           placeholder="^[A-Z].*"
@@ -68,21 +68,21 @@ function parseNum(value: unknown): number | undefined {
     </div>
 
     <div v-else-if="isNumber" class="grid gap-4 md:grid-cols-3">
-      <UFormField :label="t('docetra.config.min')">
+      <UFormField :label="t('docetra.config.min')" :help="t('docetra.config.minHelp')">
         <UInput
           type="number"
           :model-value="numStr(model.min)"
           @update:model-value="patch({ min: parseNum($event) })"
         />
       </UFormField>
-      <UFormField :label="t('docetra.config.max')">
+      <UFormField :label="t('docetra.config.max')" :help="t('docetra.config.maxHelp')">
         <UInput
           type="number"
           :model-value="numStr(model.max)"
           @update:model-value="patch({ max: parseNum($event) })"
         />
       </UFormField>
-      <UFormField v-if="dataType !== 'integer'" :label="t('docetra.config.precision')">
+      <UFormField v-if="dataType !== 'integer'" :label="t('docetra.config.precision')" :help="t('docetra.config.precisionHelp')">
         <UInput
           type="number"
           :model-value="numStr(model.precision)"
@@ -92,13 +92,13 @@ function parseNum(value: unknown): number | undefined {
     </div>
 
     <div v-else-if="isDate" class="grid gap-4 md:grid-cols-2">
-      <UFormField :label="t('docetra.config.minDate')">
+      <UFormField :label="t('docetra.config.minDate')" :help="t('docetra.config.minDateHelp')">
         <CommonAppInputDate
           :model-value="model.minDate || ''"
           @update:model-value="patch({ minDate: String($event || '') || undefined })"
         />
       </UFormField>
-      <UFormField :label="t('docetra.config.maxDate')">
+      <UFormField :label="t('docetra.config.maxDate')" :help="t('docetra.config.maxDateHelp')">
         <CommonAppInputDate
           :model-value="model.maxDate || ''"
           @update:model-value="patch({ maxDate: String($event || '') || undefined })"
@@ -117,14 +117,14 @@ function parseNum(value: unknown): number | undefined {
     </div>
 
     <div v-else-if="isFile" class="grid gap-4 md:grid-cols-2">
-      <UFormField :label="t('docetra.config.maxFileSizeMb')">
+      <UFormField :label="t('docetra.config.maxFileSizeMb')" :help="t('docetra.config.maxFileSizeHelp')">
         <UInput
           type="number"
           :model-value="numStr(model.maxFileSizeMb)"
           @update:model-value="patch({ maxFileSizeMb: parseNum($event) })"
         />
       </UFormField>
-      <UFormField :label="t('docetra.config.allowedExtensions')" :hint="t('docetra.config.extensionsHelp')">
+      <UFormField :label="t('docetra.config.allowedExtensions')" :help="t('docetra.config.extensionsHelp')">
         <UInput
           :model-value="(model.allowedExtensions || []).join(', ')"
           placeholder="pdf, docx, png"

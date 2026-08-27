@@ -143,9 +143,13 @@ export function createFreightSeed(): Record<string, FreightRecord[]> {
   ]
 
   const auditLogs: FreightRecord[] = [
-    { id: id('log', 1), occurredAt: '2026-08-20 16:20', user: 'Sokha V.', action: 'Customs cleared', module: 'Customs', recordNo: 'LCS-IM-260818', remark: '' },
-    { id: id('log', 2), occurredAt: '2026-08-20 11:40', user: 'Dara C.', action: 'Debit note sent', module: 'Debit Notes', recordNo: 'DN-2608-041', remark: '' },
-    { id: id('log', 3), occurredAt: '2026-08-19 09:00', user: 'Dara C.', action: 'Job updated', module: 'Jobs', recordNo: 'LCS-EX-260820', remark: 'Documents received' },
+    { id: id('log', 1), occurredAt: '2026-08-20 16:20', user: 'Sokha V.', action: 'Customs cleared', module: 'Customs', recordNo: 'LCS-IM-260818', result: 'SUCCESS', remark: '' },
+    { id: id('log', 2), occurredAt: '2026-08-20 11:40', user: 'Dara C.', action: 'Debit note sent', module: 'Debit Notes', recordNo: 'DN-2608-041', result: 'SUCCESS', remark: '' },
+    { id: id('log', 3), occurredAt: '2026-08-19 09:00', user: 'Dara C.', action: 'Updated service order', module: 'Service Orders', recordNo: 'LCS-EX-260820', result: 'SUCCESS', remark: 'Documents received' },
+    { id: id('log', 5), occurredAt: '2026-08-20 08:00', user: 'Sokha V.', action: 'Created service order', module: 'Service Orders', recordNo: 'LCS-IM-260821', result: 'SUCCESS', remark: '' },
+    { id: id('log', 6), occurredAt: '2026-08-20 10:12', user: 'Sokha V.', action: 'Updated service order', module: 'Service Orders', recordNo: 'LCS-IM-260821', result: 'SUCCESS', remark: 'Containers assigned' },
+    { id: id('log', 7), occurredAt: '2026-08-20 14:40', user: 'Sokha V.', action: 'Completed component', module: 'Service Orders', recordNo: 'LCS-IM-260821', result: 'SUCCESS', remark: 'Trucking' },
+    { id: id('log', 8), occurredAt: '2026-08-19 08:10', user: 'Dara C.', action: 'Created service order', module: 'Service Orders', recordNo: 'LCS-EX-260820', result: 'SUCCESS', remark: '' },
   ]
 
   return {

@@ -1,5 +1,6 @@
 const EXTERNAL_PROTOCOLS = new Set(['http:', 'https:'])
 const IMAGE_DATA_URL = /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/=\s]+$/i
+const FILE_DATA_URL = /^data:(?:application\/pdf|image\/(?:png|jpeg|webp|gif|svg\+xml)|text\/(?:plain|csv));base64,[a-z0-9+/=\s]+$/i
 
 /** Return a browser-safe external URL, or null for executable/unsupported schemes. */
 export function safeExternalUrl(value: unknown): string | null {
@@ -14,11 +15,19 @@ export function safeExternalUrl(value: unknown): string | null {
   }
 }
 
-/** Allow application-relative navigation only; rejects protocol-relative and encoded schemes. */
-export function safeInternalPath(value: unknown): string | null {
+/** Blob, previewable data URLs, or http(s) — never javascript: or other schemes. */
+export function safeFilePreviewUrl(value: unknown): string | null {
   const raw = typeof value === 'string' ? value.trim() : ''
-  if (!raw.startsWith('/') || raw.startsWith('//') || /[\u0000-\u001f]/.test(raw)) return null
-  return raw
+  if (!raw) return null
+  if (FILE_DATA_URL.test(raw)) return raw
+  try {
+    const parsed = new URL(raw)
+    if (parsed.protocol === 'blob:') return parsed.toString()
+  }
+  catch {
+    return null
+  }
+  return safeExternalUrl(raw)
 }
 
 /** Restrict editor/image sources to raster data, blob, or normal web URLs. */

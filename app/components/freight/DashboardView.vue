@@ -1,175 +1,281 @@
 <script setup lang="ts">
-import type { TableColumn, TableRow } from '@nuxt/ui'
-import { h, resolveComponent } from 'vue'
+import type { EChartsCoreOption } from 'echarts/core'
 import { useAppHeader } from '~/composables/layout/useAppHeader'
 import { usePageSeo } from '~/composables/usePageSeo'
-import { formatFreightCell, statusColor } from '~/composables/freight/useFreight'
-import { isNumericKey, jobWorkspacePath, workspaceSectionForPath } from '~/utils/freight/job-workspace'
-import { freightTableUi } from '~/utils/table/theme'
+import { formatLcsMoney } from '~/utils/lcs/format'
+import {
+  bucketDashboardRevenueExpense,
+  dashboardChartYearRange,
+  type DashboardChartPeriodFilter,
+  type DashboardChartYearFilter,
+  type DashboardSummary,
+} from '~/utils/lcs/dashboard'
+
+/**
+ * Compact ERP dashboard: KPI summary cards + line chart + bar chart.
+ * No page-level filter bar — org/branch scope comes from the signed-in session.
+ * Each chart has its own year/period filters and download menu.
+ * Accounting figures are POSTED documents and journals only.
+ */
 
 const store = useFreightStore()
-const { t } = useI18n()
+const tenant = useTenantStore()
+const { t, locale } = useI18n()
 const { setTitle, clear } = useAppHeader()
-const UBadge = resolveComponent('UBadge')
-const ULink = resolveComponent('ULink')
 
 setTitle(t('freight.pages.dashboard'))
 watch(() => t('freight.pages.dashboard'), title => setTitle(title))
 onBeforeUnmount(clear)
 usePageSeo({ title: () => t('freight.pages.dashboard') })
 
-const data = computed(() => store.dashboard)
-const summaryKpis = computed(() => data.value?.kpis || [])
+const pending = ref(true)
+const error = ref('')
+const summary = ref<DashboardSummary | null>(null)
+const revenueSummary = ref<DashboardSummary | null>(null)
+const ordersSummary = ref<DashboardSummary | null>(null)
 
-function colHeader(key: string) {
-  return t(`freight.ui.cols.${key === 'etaFactory' ? 'eta' : key}`)
+const revenueYear = ref<DashboardChartYearFilter>('thisYear')
+const revenuePeriod = ref<DashboardChartPeriodFilter>('monthly')
+const ordersYear = ref<DashboardChartYearFilter>('thisYear')
+const ordersPeriod = ref<DashboardChartPeriodFilter>('monthly')
+
+function loadChart(year: DashboardChartYearFilter) {
+  const { dateFrom, dateTo } = dashboardChartYearRange(year)
+  return store.dashboardSummary({ dateFrom, dateTo })
 }
 
-function makeColumns(keys: readonly string[], section: ReturnType<typeof workspaceSectionForPath> | 'overview' = 'overview') {
-  return computed<TableColumn<Record<string, unknown>>[]>(() =>
-    keys.map((key, index) => ({
-      accessorKey: key,
-      header: colHeader(key),
-      enableSorting: false,
-      meta: isNumericKey(key)
-        ? { class: { td: 'text-end tabular-nums whitespace-nowrap', th: 'text-end' } }
-        : undefined,
-      cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
-        const value = row.original[key]
-        const text = formatFreightCell(value, key)
-        if (key === 'status' || key === 'direction') {
-          return h(UBadge, {
-            color: key === 'status' ? statusColor(String(value || '')) : 'info',
-            variant: 'subtle',
-          }, () => text)
-        }
-        if (key === 'jobNo') {
-          const job = store.getJobByNo(String(value || ''))
-          if (job) {
-            return h(ULink, {
-              to: jobWorkspacePath(job.id, section === 'overview' ? 'overview' : section),
-              class: 'font-medium text-highlighted hover:text-primary hover:underline',
-            }, () => text)
-          }
-        }
-        if (index === 0 && row.original.id && key === 'jobNo') {
-          return text
-        }
-        return text
-      },
-    })),
-  )
-}
-
-const jobColumns = makeColumns(['jobNo', 'customer', 'direction', 'containerNo', 'etaFactory', 'status'], 'overview')
-const customsColumns = makeColumns(['jobNo', 'customsNo', 'status'], 'components')
-const receivableColumns = makeColumns(['jobNo', 'customer', 'outstanding', 'status'], 'financial-documents')
-const payableColumns = makeColumns(['jobNo', 'supplier', 'outstanding', 'status'], 'financial-documents')
-
-function openJob(section: ReturnType<typeof workspaceSectionForPath> = 'overview') {
-  return (_event: Event, row: TableRow<Record<string, unknown>>) => {
-    const job = store.getJobByNo(String(row.original.jobNo || '')) || store.get('jobs', String(row.original.id || ''))
-    if (job) navigateTo(jobWorkspacePath(job.id, section))
+async function load() {
+  pending.value = true
+  error.value = ''
+  await nextTick()
+  try {
+    summary.value = store.dashboardSummary()
+    revenueSummary.value = loadChart(revenueYear.value)
+    ordersSummary.value = loadChart(ordersYear.value)
+  }
+  catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+  finally {
+    pending.value = false
   }
 }
+
+watch(() => [tenant.organizationId, tenant.branchId], load)
+watch(revenueYear, year => { revenueSummary.value = loadChart(year) })
+watch(ordersYear, year => { ordersSummary.value = loadChart(year) })
+onMounted(load)
+
+const money = (value: number) => formatLcsMoney(value, 'USD', locale.value)
+
+interface KpiCard {
+  key: string
+  title: string
+  value: string | number
+  to?: string
+  hint?: string
+}
+
+const operationsCards = computed<KpiCard[]>(() => {
+  const data = summary.value?.summary
+  return [
+    { key: 'openOrders', title: t('freight.dashboard.kpis.openOrders'), value: data?.openOrders ?? 0, to: '/service-orders?workflowStatus=OPEN' },
+    { key: 'inProgress', title: t('freight.dashboard.kpis.inProgress'), value: data?.inProgressOrders ?? 0, to: '/service-orders?workflowStatus=IN_PROGRESS' },
+    { key: 'onHold', title: t('freight.dashboard.kpis.onHold'), value: data?.onHoldOrders ?? 0, to: '/service-orders?workflowStatus=ON_HOLD' },
+    { key: 'awaitingClosure', title: t('freight.dashboard.kpis.awaitingClosure'), value: data?.awaitingClosure ?? 0, to: '/service-orders?workflowStatus=COMPLETED' },
+  ]
+})
+
+const financeCards = computed<KpiCard[]>(() => {
+  const data = summary.value?.summary
+  const cards: KpiCard[] = [
+    { key: 'receivables', title: t('freight.dashboard.kpis.receivables'), value: money(data?.receivables ?? 0), to: '/reports/accounts-receivable' },
+    { key: 'payables', title: t('freight.dashboard.kpis.payables'), value: money(data?.payables ?? 0), to: '/reports/accounts-payable' },
+    { key: 'cashBank', title: t('freight.dashboard.kpis.cashBank'), value: money(data?.cashBankBalance ?? 0), to: '/finance/financial-accounts' },
+    { key: 'revenue', title: t('freight.dashboard.kpis.revenue'), value: money(data?.revenue ?? 0), to: '/reports/revenue-expense' },
+  ]
+  if (data?.overdueReceivableCount) cards[0]!.hint = t('freight.dashboard.overdueInvoices', { n: data.overdueReceivableCount })
+  return cards
+})
+
+const colorMode = useColorMode()
+const dark = computed(() => colorMode.value === 'dark')
+const axisColor = computed(() => (dark.value ? '#3f3f46' : '#e4e4e7'))
+const labelColor = computed(() => (dark.value ? '#a1a1aa' : '#71717a'))
+const splitColor = computed(() => (dark.value ? 'rgba(255,255,255,0.08)' : 'rgba(24,24,27,0.07)'))
+const BRAND = '#e8472a'
+const NAVY = '#3a539f'
+
+function compactNumber(value: number) {
+  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k`
+  return String(value)
+}
+
+function monthLabel(month: string) {
+  const [year, m] = month.split('-')
+  if (!year || !m) return month
+  const date = new Date(Date.UTC(Number(year), Number(m) - 1, 1))
+  const name = new Intl.DateTimeFormat(locale.value === 'km' ? 'km-KH' : 'en-US', { month: 'short', timeZone: 'UTC' }).format(date)
+  return `${name} ${year.slice(2)}`
+}
+
+function bucketLabel(key: string) {
+  if (/^\d{4}-Q[1-4]$/.test(key)) {
+    const [year, quarter] = key.split('-')
+    return t('freight.dashboard.chartFilters.quarter', { n: Number(quarter?.slice(1)), year })
+  }
+  if (/^\d{4}$/.test(key)) return key
+  return monthLabel(key)
+}
+
+const revenueYearNumber = computed(() => dashboardChartYearRange(revenueYear.value).year)
+
+const revenueExpenseSeries = computed(() => bucketDashboardRevenueExpense(
+  revenueSummary.value?.charts.revenueExpense || [],
+  revenuePeriod.value,
+  revenueYearNumber.value,
+))
+
+const sharedAxis = computed(() => ({
+  axisLine: { lineStyle: { color: axisColor.value } },
+  axisTick: { show: false },
+  axisLabel: { color: labelColor.value, fontSize: 11, hideOverlap: true },
+}))
+
+const sharedValueAxis = computed(() => ({
+  type: 'value' as const,
+  splitLine: { lineStyle: { color: splitColor.value, type: 'solid' as const } },
+  axisLabel: { color: labelColor.value, fontSize: 11, formatter: (value: number) => compactNumber(value) },
+}))
+
+const revenueExpenseOption = computed<EChartsCoreOption>(() => {
+  const points = revenueExpenseSeries.value
+  return {
+    grid: { left: 8, right: 12, top: 28, bottom: 4, containLabel: true },
+    legend: { top: 0, right: 0, itemWidth: 14, itemHeight: 2, icon: 'rect', textStyle: { color: labelColor.value, fontSize: 11 } },
+    tooltip: { trigger: 'axis', valueFormatter: (value: string | number) => money(Number(value || 0)) },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: points.map(point => bucketLabel(point.key)),
+      ...sharedAxis.value,
+    },
+    yAxis: sharedValueAxis.value,
+    series: [
+      {
+        name: t('freight.dashboard.kpis.revenue'),
+        type: 'line',
+        smooth: true,
+        showSymbol: true,
+        symbolSize: 6,
+        data: points.map(point => point.revenue),
+        lineStyle: { width: 2.5, color: BRAND },
+        itemStyle: { color: BRAND },
+        areaStyle: { color: `${BRAND}14` },
+      },
+      {
+        name: t('freight.dashboard.expense'),
+        type: 'line',
+        smooth: true,
+        showSymbol: true,
+        symbolSize: 6,
+        data: points.map(point => point.expense),
+        lineStyle: { width: 2.5, color: NAVY },
+        itemStyle: { color: NAVY },
+      },
+    ],
+  }
+})
+
+const ordersByStatusOption = computed<EChartsCoreOption>(() => {
+  const rows = ordersSummary.value?.charts.ordersByStatus || []
+  return {
+    grid: { left: 8, right: 8, top: 12, bottom: 8, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    xAxis: {
+      type: 'category',
+      data: rows.map(row => t(`freight.dashboard.status.${row.status}`)),
+      ...sharedAxis.value,
+      axisLabel: {
+        ...sharedAxis.value.axisLabel,
+        interval: 0,
+        rotate: rows.length > 5 ? 20 : 0,
+      },
+    },
+    yAxis: {
+      ...sharedValueAxis.value,
+      minInterval: 1,
+      axisLabel: { color: labelColor.value, fontSize: 11 },
+    },
+    series: [{
+      name: t('freight.dashboard.charts.ordersByStatus'),
+      type: 'bar',
+      barMaxWidth: 36,
+      barCategoryGap: '42%',
+      itemStyle: { color: BRAND, borderRadius: 0 },
+      data: rows.map(row => row.count),
+    }],
+  }
+})
+
+const revenueEmpty = computed(() => !revenueExpenseSeries.value.some(point => point.revenue || point.expense))
+const ordersEmpty = computed(() => !ordersSummary.value?.charts.ordersByStatus.some(row => row.count))
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-muted/20">
-    <LayoutAppHeaderPageActions :can-create="false" @refresh="store.reload()" />
+  <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted/20">
+    <LayoutAppHeaderPageActions :can-create="false" :refreshing="pending" @refresh="load" />
 
-    <div class="flex w-full min-w-0 flex-1 flex-col gap-3 px-1.5 pt-1.5 pb-3">
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-        <CommonAppSummaryCard
-          v-for="kpi in summaryKpis"
-          :key="kpi.id"
-          :title="t(`freight.kpis.${kpi.id}`)"
-          :value="kpi.value"
-          :to="kpi.to"
+    <div class="flex w-full min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto px-1.5 pt-1.5 pb-3 xl:overflow-hidden">
+      <div
+        v-if="error"
+        class="flex shrink-0 items-center justify-between gap-2 rounded-md border border-error/30 bg-error/5 px-3 py-2"
+      >
+        <p class="truncate text-xs text-error">{{ t('freight.dashboard.errorTitle') }} · {{ error }}</p>
+        <UButton
+          size="xs"
+          variant="soft"
+          color="error"
+          icon="i-lucide-refresh-cw"
+          :label="t('docetra.actions.retry')"
+          @click="load"
         />
       </div>
 
-      <div class="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <section class="overflow-hidden rounded-md border border-default bg-default">
-          <div class="flex items-center justify-between border-b border-default px-3 py-2">
-            <h2 class="text-sm font-semibold text-highlighted">{{ t('freight.ui.activeJobs') }}</h2>
-            <UButton size="xs" variant="ghost" to="/service-orders" trailing-icon="i-lucide-arrow-up-right">
-              {{ t('freight.ui.viewAll') }}
-            </UButton>
-          </div>
-          <div v-if="data.recentJobs.length" class="overflow-x-auto p-2">
-            <UTable
-              :data="data.recentJobs"
-              :columns="jobColumns"
-              :get-row-id="(row: Record<string, unknown>) => String(row.id || '')"
-              class="freight-table min-w-max"
-              :ui="freightTableUi"
-              @select="openJob('overview')"
-            />
-          </div>
-          <UEmpty v-else variant="naked" size="sm" icon="i-lucide-container" :title="t('freight.ui.noActiveJobs')" class="py-8" />
-        </section>
+      <DashboardAppKpiSection
+        :title="t('freight.dashboard.operations')"
+        :cards="operationsCards"
+        :loading="pending"
+        @refresh="load"
+      />
 
-        <section class="overflow-hidden rounded-md border border-default bg-default">
-          <div class="flex items-center justify-between border-b border-default px-3 py-2">
-            <h2 class="text-sm font-semibold text-highlighted">{{ t('freight.ui.customsPending') }}</h2>
-            <UButton size="xs" variant="ghost" to="/service-orders" trailing-icon="i-lucide-arrow-up-right">
-              {{ t('freight.ui.viewAll') }}
-            </UButton>
-          </div>
-          <div v-if="data.customsPending.length" class="overflow-x-auto p-2">
-            <UTable
-              :data="data.customsPending"
-              :columns="customsColumns"
-              :get-row-id="(row: Record<string, unknown>) => String(row.id || '')"
-              class="freight-table min-w-max"
-              :ui="freightTableUi"
-              @select="openJob('components')"
-            />
-          </div>
-          <UEmpty v-else variant="naked" size="sm" icon="i-lucide-stamp" :title="t('freight.ui.noPendingCustoms')" class="py-8" />
-        </section>
+      <DashboardAppKpiSection
+        :title="t('freight.dashboard.finance')"
+        :cards="financeCards"
+        :loading="pending"
+        @refresh="load"
+      />
 
-        <section class="overflow-hidden rounded-md border border-default bg-default">
-          <div class="flex items-center justify-between border-b border-default px-3 py-2">
-            <h2 class="text-sm font-semibold text-highlighted">{{ t('freight.ui.receivable') }}</h2>
-            <UButton size="xs" variant="ghost" to="/reports" trailing-icon="i-lucide-arrow-up-right">
-              {{ t('freight.ui.viewAll') }}
-            </UButton>
-          </div>
-          <div v-if="data.receivableRows.length" class="overflow-x-auto p-2">
-            <UTable
-              :data="data.receivableRows"
-              :columns="receivableColumns"
-              :get-row-id="(row: Record<string, unknown>) => String(row.id || '')"
-              class="freight-table min-w-max"
-              :ui="freightTableUi"
-              @select="openJob('financial-documents')"
-            />
-          </div>
-          <UEmpty v-else variant="naked" size="sm" icon="i-lucide-circle-dollar-sign" :title="t('freight.ui.noReceivables')" class="py-8" />
-        </section>
-
-        <section class="overflow-hidden rounded-md border border-default bg-default">
-          <div class="flex items-center justify-between border-b border-default px-3 py-2">
-            <h2 class="text-sm font-semibold text-highlighted">{{ t('freight.ui.payable') }}</h2>
-            <UButton size="xs" variant="ghost" to="/reports" trailing-icon="i-lucide-arrow-up-right">
-              {{ t('freight.ui.viewAll') }}
-            </UButton>
-          </div>
-          <div v-if="data.payableRows.length" class="overflow-x-auto p-2">
-            <UTable
-              :data="data.payableRows"
-              :columns="payableColumns"
-              :get-row-id="(row: Record<string, unknown>) => String(row.id || '')"
-              class="freight-table min-w-max"
-              :ui="freightTableUi"
-              @select="openJob('financial-documents')"
-            />
-          </div>
-          <UEmpty v-else variant="naked" size="sm" icon="i-lucide-wallet-cards" :title="t('freight.ui.noPayables')" class="py-8" />
-        </section>
-      </div>
+      <DashboardAppChartGrid>
+        <DashboardAppChartPanel
+          v-model:year="revenueYear"
+          v-model:period="revenuePeriod"
+          :title="t('freight.dashboard.charts.revenueExpense')"
+          :option="revenueExpenseOption"
+          :pending="pending"
+          :empty="revenueEmpty"
+          download-name="revenue-expense"
+        />
+        <DashboardAppChartPanel
+          v-model:year="ordersYear"
+          v-model:period="ordersPeriod"
+          :title="t('freight.dashboard.charts.ordersByStatus')"
+          :option="ordersByStatusOption"
+          :pending="pending"
+          :empty="ordersEmpty"
+          download-name="orders-by-status"
+        />
+      </DashboardAppChartGrid>
     </div>
   </div>
 </template>

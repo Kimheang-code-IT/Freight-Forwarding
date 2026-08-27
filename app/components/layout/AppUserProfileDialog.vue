@@ -338,6 +338,7 @@ async function onPasswordSubmit(event: FormSubmitEvent<PasswordSchema>) {
             :label="t('docetra.userProfile.currentPassword')"
             name="currentPassword"
             required
+            :help="t('docetra.userProfile.currentPasswordHelp')"
           >
             <UInput
               v-model="passwordState.currentPassword"
@@ -351,6 +352,7 @@ async function onPasswordSubmit(event: FormSubmitEvent<PasswordSchema>) {
             :label="t('pages.forgetPassword.newPassword')"
             name="password"
             required
+            :help="t('docetra.userProfile.newPasswordHelp')"
           >
             <UInput
               v-model="passwordState.password"
@@ -364,6 +366,7 @@ async function onPasswordSubmit(event: FormSubmitEvent<PasswordSchema>) {
             :label="t('pages.forgetPassword.confirmPassword')"
             name="passwordConfirmation"
             required
+            :help="t('docetra.userProfile.confirmPasswordHelp')"
           >
             <UInput
               v-model="passwordState.passwordConfirmation"

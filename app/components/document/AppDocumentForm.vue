@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DocumentTabSchema } from '~/types/docetra/common'
+import { freightDocumentRecordKey } from '~/utils/freight/document-tabs'
 
 const props = withDefaults(defineProps<{
   tabs: DocumentTabSchema[]
@@ -14,6 +15,22 @@ const props = withDefaults(defineProps<{
   wide: false,
 })
 
+const { t, te } = useI18n()
+
+provide(freightDocumentRecordKey, {
+  get: (key: string) => props.fieldValue(key),
+})
+
+function sectionHeading(section: DocumentTabSchema['sections'][0]) {
+  if (section.titleKey && te(section.titleKey)) return t(section.titleKey)
+  return section.title || ''
+}
+
+function sectionDescription(section: DocumentTabSchema['sections'][0]) {
+  if (section.descriptionKey && te(section.descriptionKey)) return t(section.descriptionKey)
+  return section.description || ''
+}
+
 const wideForm = computed(() =>
   props.wide
   || props.tabs.some(tab =>
@@ -21,7 +38,8 @@ const wideForm = computed(() =>
       section.fields.some(field =>
         field.type === 'telegram-destinations'
         || field.type === 'notification-rules'
-        || field.type === 'card-fields-editor',
+        || field.type === 'line-table'
+        || field.type === 'related-records',
       ),
     ),
   ),
@@ -42,7 +60,8 @@ function isFullWidthField(field: DocumentTabSchema['sections'][0]['fields'][0]) 
     || field.type === 'validation-builder'
     || field.type === 'options-builder'
     || field.type === 'visibility-builder'
-    || field.type === 'card-fields-editor'
+    || field.type === 'line-table'
+    || field.type === 'related-records'
 }
 </script>
 
@@ -57,12 +76,12 @@ function isFullWidthField(field: DocumentTabSchema['sections'][0]['fields'][0]) 
             class="space-y-4"
             :class="sectionIndex > 0 ? 'border-t border-default pt-6' : ''"
           >
-            <div v-if="section.title || section.titleKey || section.description || section.descriptionKey">
-              <h3 v-if="section.title || section.titleKey" class="text-sm font-medium text-highlighted">
-                {{ section.title || $t(section.titleKey!) }}
+            <div v-if="sectionHeading(section) || sectionDescription(section)">
+              <h3 v-if="sectionHeading(section)" class="text-sm font-medium text-highlighted">
+                {{ sectionHeading(section) }}
               </h3>
-              <p v-if="section.description || section.descriptionKey" class="mt-1 text-xs text-muted">
-                {{ section.description || $t(section.descriptionKey!) }}
+              <p v-if="sectionDescription(section)" class="mt-1 text-xs text-muted">
+                {{ sectionDescription(section) }}
               </p>
             </div>
 
@@ -76,7 +95,7 @@ function isFullWidthField(field: DocumentTabSchema['sections'][0]['fields'][0]) 
                 <DocumentAppDynamicFieldRenderer
                   :field="field"
                   :model-value="fieldValue(field.key)"
-                  :disabled="readOnly"
+                  :disabled="readOnly || Boolean(field.readOnly)"
                   @update:model-value="(v) => setFieldValue(field.key, v)"
                 />
               </div>

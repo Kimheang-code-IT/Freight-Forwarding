@@ -8,10 +8,18 @@ const ORG_KEY = 'lcs-active-org'
 const BRANCH_KEY = 'lcs-active-branch'
 
 export const useTenantStore = defineStore('tenant', () => {
-  const organizationId = useState('lcs-org-id', () => 1)
-  const branchId = useState<BranchSelection>('lcs-branch-id', () => 'all')
-
   const auth = useAuthStore()
+
+  // Initial state derives from the signed-in user so SSR / first paint already
+  // reflect the permitted scope instead of a generic "all branches" default.
+  const organizationId = useState('lcs-org-id', () => auth.user?.organizationId || 1)
+  const branchId = useState<BranchSelection>('lcs-branch-id', () => {
+    const user = auth.user
+    if (!user) return 'all'
+    if (user.permissionScope === 'ORGANIZATION') return 'all'
+    if (user.branchId && (user.assignedBranchIds || []).includes(user.branchId)) return user.branchId
+    return user.assignedBranchIds?.[0] ?? 'all'
+  })
 
   const assignedBranches = computed(() => {
     const user = auth.user

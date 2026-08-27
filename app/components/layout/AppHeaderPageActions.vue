@@ -2,11 +2,14 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { ExportFieldOption, ExportRequest } from '~/types/docetra/export'
 import { useAppHeader } from '~/composables/layout/useAppHeader'
+import { headerListNavDisabled } from '~/utils/layout/header-actions'
 
 /**
- * Registers reusable header actions (refresh / more / optional create).
+ * Registers reusable header actions with layout AppHeader.
+ * Catalog: list nav → refresh → ⋯ (export) → slotted extras → save/cancel → create.
  * Create is opt-in: pass :can-create="true" only on pages that open a /new flow.
  * Use createButtons for multiple create actions (e.g. Add Topic + Add Meeting).
+ * Keep #leading / default slots only for rare extras (settings test buttons, job workflow).
  */
 const props = withDefaults(defineProps<{
   canCreate?: boolean
@@ -18,14 +21,44 @@ const props = withDefaults(defineProps<{
   exportFields?: ExportFieldOption[]
   selectedCount?: number
   exporting?: boolean
+  showListNav?: boolean
+  listTo?: string
+  canNavigatePrevious?: boolean
+  canNavigateNext?: boolean
+  loadingListNavigation?: boolean
+  listNavigationDirection?: 'previous' | 'next' | null
+  isCreate?: boolean
+  showSave?: boolean
+  saveLabel?: string
+  saving?: boolean
+  showCancel?: boolean
+  cancelTo?: string
+  showMetaRailToggle?: boolean
+  metaRailOpen?: boolean
 }>(), {
   canCreate: false,
+  createLabel: '',
   createIcon: 'i-lucide-plus',
+  createButtons: () => [],
   refreshing: false,
-  moreItems: undefined,
+  moreItems: () => [],
   exportFields: () => [],
   selectedCount: 0,
   exporting: false,
+  showListNav: false,
+  listTo: '',
+  canNavigatePrevious: false,
+  canNavigateNext: false,
+  loadingListNavigation: false,
+  listNavigationDirection: null,
+  isCreate: false,
+  showSave: false,
+  saveLabel: '',
+  saving: false,
+  showCancel: false,
+  cancelTo: '',
+  showMetaRailToggle: false,
+  metaRailOpen: false,
 })
 
 const emit = defineEmits<{
@@ -33,6 +66,11 @@ const emit = defineEmits<{
   create: []
   createButton: [index: number]
   export: [request: ExportRequest]
+  navigatePrevious: []
+  navigateNext: []
+  save: []
+  cancel: []
+  toggleMetaRail: []
 }>()
 
 const { t } = useI18n()
@@ -63,10 +101,11 @@ function withoutPrint(items: DropdownMenuItem[][]): DropdownMenuItem[][] {
     t('docetra.rolePermissions.actions.print').trim().toLowerCase(),
   ])
   return items
-    .map(group => group.filter((item: any) =>
-      !String(item.icon || '').includes('printer')
-      && !printLabels.has(String(item.label || '').trim().toLowerCase()),
-    ))
+    .map(group => group.filter((item) => {
+      const icon = typeof item === 'object' && item && 'icon' in item ? String(item.icon || '') : ''
+      const label = typeof item === 'object' && item && 'label' in item ? String(item.label || '') : ''
+      return !icon.includes('printer') && !printLabels.has(label.trim().toLowerCase())
+    }))
     .filter(group => group.length > 0)
 }
 
@@ -103,6 +142,51 @@ function syncActions() {
     createButtons,
     refreshing: Boolean(props.refreshing),
     moreItems: menuItems.value,
+    listNav: props.showListNav
+      ? {
+          listTo: props.listTo || undefined,
+          listLabel: t('docetra.document.listView'),
+          previousLabel: t('docetra.document.previous'),
+          nextLabel: t('docetra.document.next'),
+          previousDisabled: headerListNavDisabled({
+            isCreate: props.isCreate,
+            canNavigate: props.canNavigatePrevious,
+            loading: props.loadingListNavigation,
+            direction: props.listNavigationDirection,
+          }),
+          nextDisabled: headerListNavDisabled({
+            isCreate: props.isCreate,
+            canNavigate: props.canNavigateNext,
+            loading: props.loadingListNavigation,
+            direction: props.listNavigationDirection,
+          }),
+          previousLoading: props.listNavigationDirection === 'previous',
+          nextLoading: props.listNavigationDirection === 'next',
+          onPrevious: () => emit('navigatePrevious'),
+          onNext: () => emit('navigateNext'),
+        }
+      : undefined,
+    save: props.showSave
+      ? {
+          label: props.saveLabel || t('docetra.common.save'),
+          loading: Boolean(props.saving),
+          onClick: () => emit('save'),
+        }
+      : undefined,
+    cancel: props.showCancel
+      ? {
+          label: t('actions.cancel'),
+          to: props.cancelTo || undefined,
+          onClick: () => emit('cancel'),
+        }
+      : undefined,
+    metaRail: props.showMetaRailToggle
+      ? {
+          open: Boolean(props.metaRailOpen),
+          label: t('docetra.tabs.details'),
+          onToggle: () => emit('toggleMetaRail'),
+        }
+      : undefined,
     onCreate: () => emit('create'),
     onRefresh: () => emit('refresh'),
   })
@@ -116,6 +200,20 @@ watch(
     props.createButtons,
     props.refreshing,
     menuItems.value,
+    props.showListNav,
+    props.listTo,
+    props.canNavigatePrevious,
+    props.canNavigateNext,
+    props.loadingListNavigation,
+    props.listNavigationDirection,
+    props.isCreate,
+    props.showSave,
+    props.saveLabel,
+    props.saving,
+    props.showCancel,
+    props.cancelTo,
+    props.showMetaRailToggle,
+    props.metaRailOpen,
   ] as const,
   () => syncActions(),
   { immediate: true, deep: true },

@@ -110,8 +110,6 @@ async function save() {
     model.value = await appConfig.update(model.value)
     appLocalization.apply(model.value.localization)
     usePreferencesStore().syncLocaleWithConfig()
-    const { invalidateCardFieldsCache } = await import('~/composables/settings/useCardFields')
-    invalidateCardFieldsCache()
     toast.add({ title: t('docetra.common.saved'), color: 'success' })
   }
   catch (e: any) {

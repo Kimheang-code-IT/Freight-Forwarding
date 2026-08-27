@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { FreightField } from '~/config/freight-modules'
 import { useFreightLabel } from '~/composables/freight/useFreight'
-import { documentSequenceTypeLabel } from '~/utils/document-sequences'
+import { documentSequenceTypeLabel, isDocumentSequenceType } from '~/utils/document-sequences'
+import { resolveFormFieldHelp } from '~/utils/field-help'
 
 const props = defineProps<{
   field: FreightField
   modelValue: unknown
   disabled?: boolean
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -16,21 +18,35 @@ const emit = defineEmits<{
 const { t, te } = useI18n()
 const { fieldLabel } = useFreightLabel()
 
+function selectOptionLabel(value: string, explicitLabel?: string) {
+  if (explicitLabel) return explicitLabel
+  if (props.field.key === 'documentType' && isDocumentSequenceType(value)) {
+    return documentSequenceTypeLabel(value)
+  }
+  return value
+}
+
 const items = computed(() =>
-  (props.field.options || [])
-    .map(option => String(option).trim())
-    .filter(Boolean)
-    .map(option => ({ label: props.field.key === 'documentType' ? documentSequenceTypeLabel(option) : option, value: option })),
+  (props.field.options || []).flatMap((option) => {
+    if (option && typeof option === 'object') {
+      const value = String(option.value ?? '').trim()
+      if (!value) return []
+      const explicit = String(option.label || '').trim()
+      return [{ label: selectOptionLabel(value, explicit || undefined), value }]
+    }
+    const value = String(option).trim()
+    if (!value) return []
+    return [{ label: selectOptionLabel(value), value }]
+  }),
 )
 
-const help = computed(() => {
-  if (props.field.help) return props.field.help
-  if (props.field.helpKey && te(props.field.helpKey)) return t(props.field.helpKey)
-  const fieldHelpKey = `freight.fieldHelp.${props.field.key}`
-  if (te(fieldHelpKey)) return t(fieldHelpKey)
-  if (props.field.computed) return t('freight.ui.calculatedHelp')
-  return t('freight.ui.enterFieldHelp', { field: fieldLabel(props.field) })
-})
+const help = computed(() => resolveFormFieldHelp({
+  key: props.field.key,
+  label: fieldLabel(props.field),
+  help: props.field.help,
+  helpKey: props.field.helpKey,
+  computed: props.field.computed,
+}, t, te))
 
 const checkboxTrue = computed(() => String(props.field.options?.[0] ?? 'Yes'))
 const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
@@ -48,7 +64,7 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
         :true-value="checkboxTrue"
         :false-value="checkboxFalse"
         :disabled="disabled || field.computed"
-        size="lg"
+        size="md"
         @update:model-value="emit('update:modelValue', $event)"
       >
         <template #label>
@@ -74,7 +90,7 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
       :model-value="modelValue ? String(modelValue) : undefined"
       :items="items"
       :disabled="disabled || field.computed"
-      size="lg"
+      size="md"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event ?? '')"
     />
@@ -85,7 +101,7 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
       :items="items"
       :disabled="disabled"
       value-key="value"
-      size="lg"
+      size="md"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />
@@ -93,7 +109,9 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
       v-else-if="field.type === 'number'"
       :model-value="Number(modelValue || 0)"
       :disabled="disabled || field.computed"
-      size="lg"
+      :increment="false"
+      :decrement="false"
+      size="md"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event ?? 0)"
     />
@@ -101,8 +119,8 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
       v-else-if="field.type === 'textarea'"
       :model-value="String(modelValue ?? '')"
       :disabled="disabled"
-      :rows="4"
-      size="lg"
+      :rows="compact ? 2 : 4"
+      size="md"
       autoresize
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
@@ -113,7 +131,7 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
       :granularity="field.type === 'datetime' ? 'minute' : 'day'"
       :disabled="disabled || field.computed"
       :required="Boolean(field.required)"
-      size="lg"
+      size="md"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />
@@ -122,7 +140,7 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
       type="password"
       :model-value="String(modelValue ?? '')"
       :disabled="disabled"
-      size="lg"
+      size="md"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />
@@ -130,7 +148,7 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
       v-else-if="field.type === 'file'"
       type="file"
       :disabled="disabled"
-      size="lg"
+      size="md"
       class="w-full"
       @change="(event: Event) => {
         const file = (event.target as HTMLInputElement).files?.[0]
@@ -141,7 +159,7 @@ const checkboxFalse = computed(() => String(props.field.options?.[1] ?? 'No'))
       v-else
       :model-value="String(modelValue ?? '')"
       :disabled="disabled || field.computed"
-      size="lg"
+      size="md"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />

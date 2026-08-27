@@ -1,24 +1,51 @@
 import { defineStore } from 'pinia'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { AuthUser } from '~/types/auth-user'
+import { AUTH_STORAGE_KEY, compactAuthUser } from '~/utils/auth/session'
 
 export const useAuthStore = defineStore('auth', () => {
-  const cookieOptions = {
+  const cookieUser = useCookie<AuthUser | null>('auth_user', {
     default: () => null,
     path: '/',
-    sameSite: 'strict' as const,
+    sameSite: 'lax',
     secure: import.meta.env.PROD,
-  }
-  const user = useCookie<AuthUser | null>('auth_user', cookieOptions)
+    maxAge: 60 * 60 * 24 * 30,
+  })
+  const storedUser = ref<AuthUser | null>(null)
+  const user = computed(() => storedUser.value || cookieUser.value)
   const isLoggedIn = computed(() => Boolean(user.value))
 
+  function persist(userData: AuthUser | null) {
+    storedUser.value = userData
+    cookieUser.value = userData ? compactAuthUser(userData) : null
+    if (!import.meta.client) return
+    if (userData) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
+    else localStorage.removeItem(AUTH_STORAGE_KEY)
+  }
+
+  function hydrateClient() {
+    if (!import.meta.client) return
+    try {
+      const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+      const local = raw ? JSON.parse(raw) as AuthUser : null
+      if (local?.email) {
+        persist(local)
+        return
+      }
+    }
+    catch {
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+    }
+    if (cookieUser.value?.email) persist(cookieUser.value)
+  }
+
   function login(userData: AuthUser) {
-    user.value = userData
+    persist(userData)
     useTenantStore().applyUser(userData)
   }
 
   function clearSession() {
-    user.value = null
+    persist(null)
     if (import.meta.client) {
       localStorage.removeItem('lcs-active-org')
       localStorage.removeItem('lcs-active-branch')
@@ -59,13 +86,14 @@ export const useAuthStore = defineStore('auth', () => {
     if ('avatar' in partial && partial.avatar == null) {
       delete next.avatar
     }
-    user.value = next
+    persist(next)
   }
 
   return {
     user,
     isLoggedIn,
     login,
+    hydrateClient,
     clearSession,
     logout,
     updateUser,

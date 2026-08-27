@@ -25,6 +25,7 @@ import {
   convertQuotationRevision,
   createFinanceInvoiceFromCharge,
   createQuotationRevision,
+  ensureServiceComponent,
   issueServiceCharge,
   postFinancialDocument,
   reverseFinancialDocument,
@@ -138,6 +139,8 @@ export function createMockComponentRepository(): ComponentRepository {
         return next
       })
     },
+    ensureForJob: async (jobNo, payload) =>
+      run(db => ensureServiceComponent(db, currentLcsSession(), { ...payload, jobNo })),
   }
 }
 

@@ -1,4 +1,5 @@
 import { useAccessAlert } from '~/composables/common/useAccessAlert'
+import { safeInternalPath } from '~/utils/auth/session'
 
 const PERMITTED_LANDING_ROUTES = [
   ['/', 'dashboard.view'],
@@ -23,11 +24,14 @@ export default defineNuxtRouteMiddleware((to, from) => {
   const isPublicPage = publicPaths.includes(to.path)
 
   if (!auth.isLoggedIn && !isPublicPage) {
-    return navigateTo('/auth/login')
+    return navigateTo({
+      path: '/auth/login',
+      query: { redirect: to.fullPath },
+    }, { replace: true })
   }
 
   if (auth.isLoggedIn && isPublicPage) {
-    return navigateTo('/')
+    return navigateTo(safeInternalPath(to.query.redirect) || '/', { replace: true })
   }
 
   const permission = typeof to.meta.permission === 'string' ? to.meta.permission : ''

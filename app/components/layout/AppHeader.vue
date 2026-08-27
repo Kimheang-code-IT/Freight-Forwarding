@@ -59,6 +59,40 @@ const { displayTitle, breadcrumbs, badges, hasBreadcrumbs, actions } = useAppHea
 
     <template #right>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+        <template v-if="actions?.listNav">
+          <UButton
+            v-if="actions.listNav.listTo"
+            color="neutral"
+            variant="soft"
+            icon="i-lucide-list"
+            :to="actions.listNav.listTo"
+            :label="actions.listNav.listLabel"
+            class="hidden rounded-md sm:inline-flex"
+          />
+          <UButton
+            color="neutral"
+            variant="soft"
+            icon="i-lucide-chevron-left"
+            square
+            class="rounded-md"
+            :loading="actions.listNav.previousLoading"
+            :disabled="actions.listNav.previousDisabled"
+            :aria-label="actions.listNav.previousLabel"
+            @click="actions.listNav.onPrevious?.()"
+          />
+          <UButton
+            color="neutral"
+            variant="soft"
+            icon="i-lucide-chevron-right"
+            square
+            class="rounded-md"
+            :loading="actions.listNav.nextLoading"
+            :disabled="actions.listNav.nextDisabled"
+            :aria-label="actions.listNav.nextLabel"
+            @click="actions.listNav.onNext?.()"
+          />
+        </template>
+
         <div
           id="app-header-leading"
           class="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
@@ -96,6 +130,43 @@ const { displayTitle, breadcrumbs, badges, hasBreadcrumbs, actions } = useAppHea
         <div
           id="app-header-trailing"
           class="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
+        />
+
+        <UButton
+          v-if="actions?.metaRail"
+          icon="i-lucide-menu"
+          color="neutral"
+          variant="soft"
+          square
+          class="rounded-md lg:hidden"
+          :aria-label="actions.metaRail.label"
+          :aria-expanded="actions.metaRail.open"
+          @click="actions.metaRail.onToggle()"
+        />
+
+        <UButton
+          v-if="actions?.cancel?.to"
+          color="neutral"
+          variant="ghost"
+          :to="actions.cancel.to"
+          :label="actions.cancel.label"
+          class="rounded-md"
+        />
+        <UButton
+          v-else-if="actions?.cancel"
+          color="neutral"
+          variant="ghost"
+          :label="actions.cancel.label"
+          class="rounded-md"
+          @click="actions.cancel.onClick?.()"
+        />
+        <UButton
+          v-if="actions?.save"
+          :loading="actions.save.loading"
+          icon="i-lucide-save"
+          :label="actions.save.label"
+          class="rounded-md"
+          @click="actions.save.onClick()"
         />
 
         <template v-if="actions?.createButtons?.length">

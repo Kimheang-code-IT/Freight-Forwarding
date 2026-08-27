@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { DocumentTabSchema } from '~/types/docetra/common'
-import { useAppHeader, type AppHeaderBadge } from '~/composables/layout/useAppHeader'
+import { useAppHeader } from '~/composables/layout/useAppHeader'
+import { useConfirm } from '~/composables/common/useConfirm'
 import { usePageSeo } from '~/composables/usePageSeo'
 import { useFreightRecordChrome } from '~/composables/freight/useFreightRecordChrome'
 import { useJobRelated } from '~/composables/freight/useJobRelated'
@@ -14,25 +15,49 @@ import {
   useFreightRouteModule,
 } from '~/composables/freight/useFreight'
 import type { FreightRecord } from '~/config/freight-seed'
+import type { ServiceOrderStatus } from '~/types/lcs/domain'
 import {
-  JOB_WORKSPACE_SECTIONS,
   parseJobWorkspaceSection,
   type JobWorkspaceSection,
 } from '~/utils/freight/job-workspace'
+import {
+  jobContainerCount,
+  jobContainerPaymentRows,
+  jobContainerPaymentTotals,
+} from '~/utils/freight/job-containers'
+import {
+  firstJobDocumentSection,
+  isFixedJobWorkspaceSection,
+  jobWorkspaceSectionList,
+} from '~/utils/freight/job-component-tabs'
+import { jobDomainStatus } from '~/utils/lcs/states'
 
 const { module, isCreate, recordId, route } = useFreightRouteModule()
 const store = useFreightStore()
 const toast = useToast()
 const router = useRouter()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const { moduleTitle, moduleSingular } = useFreightLabel()
 const { setBreadcrumbs, setBadges, clear } = useAppHeader()
+const { confirm } = useConfirm()
 const lcs = useLcs()
 
 const saving = ref(false)
 const editingOverview = ref(false)
 const model = ref<FreightRecord>({} as FreightRecord)
 const notFound = ref(false)
+
+const EDITABLE_STATUSES: ServiceOrderStatus[] = ['DRAFT', 'OPEN', 'IN_PROGRESS']
+
+const domainStatus = computed(() => jobDomainStatus(model.value))
+const canEdit = computed(() =>
+  !isCreate.value && lcs.can('service_order.update') && EDITABLE_STATUSES.includes(domainStatus.value))
+const canEditPayments = computed(() =>
+  !isCreate.value
+  && lcs.can('service_order.update')
+  && !['CLOSED', 'CANCELLED'].includes(domainStatus.value))
+const canComplete = computed(() =>
+  lcs.can('service_order.complete') && domainStatus.value === 'IN_PROGRESS')
 
 const {
   commentBody,
@@ -53,38 +78,83 @@ const {
   submitComment,
   updateComment,
   deleteComment,
-  toggleFavorite,
 } = useFreightRecordChrome({ module, isCreate, recordId, model })
 
 const jobNo = computed(() => String(model.value.jobNo || ''))
 const {
   shipments,
-  shipment,
-  customs,
-  customsRecord,
   documents,
-  delivery,
   charges,
   supplierCosts,
-  payments,
-  supplierPayments,
   debitNotes,
   receivables,
-  payables,
-  profitability,
-  journals,
-  containerRequirements,
   actualContainers,
+  containerRequirements,
 } = useJobRelated(jobNo)
 
-const activeTab = ref<JobWorkspaceSection>(parseJobWorkspaceSection(route.query.section))
+const quotation = computed(() => {
+  const no = String(model.value.quotationNo || '').trim()
+  if (!no) return null
+  return store.list('quotations').find(row => String(row.quotationNo || '') === no) || null
+})
+
+/** Task progress comes straight from the scoped collection — no extra request. */
+const taskRows = computed<FreightRecord[]>(() =>
+  jobNo.value
+    ? store.list('serviceComponents').filter(row => String(row.jobNo || '') === jobNo.value)
+    : [])
+const tasksDone = computed(() => taskRows.value.filter(row => row.status === 'COMPLETED').length)
+const paymentRows = computed(() => jobContainerPaymentRows(model.value, {
+  shipments: shipments.value,
+  charges: charges.value,
+  quotation: quotation.value,
+}))
+const chargesTotals = computed(() => {
+  const totals = jobContainerPaymentTotals(paymentRows.value, model.value.vatRate)
+  const invoiced = charges.value
+    .filter(row => String(row.financialDocumentId || '').trim())
+    .reduce((sum, row) => sum + Number(row.total || row.amount || 0), 0)
+  return { total: totals.total, invoiced }
+})
+const containersCount = computed(() =>
+  jobContainerCount(model.value, paymentRows.value, actualContainers.value)
+  || actualContainers.value.length)
+
+const tabOptions = computed(() => ({
+  direction: String(model.value.direction || ''),
+  assignments: store.list('tradeDirectionComponents'),
+}))
+const workspaceSections = computed(() =>
+  jobWorkspaceSectionList(store.list('componentGroups'), tabOptions.value),
+)
+const documentSection = computed(() =>
+  firstJobDocumentSection(store.list('componentGroups'), tabOptions.value),
+)
+const isComponentTab = computed(() =>
+  Boolean(activeTab.value) && !isFixedJobWorkspaceSection(activeTab.value),
+)
+
+function parseSection(value: unknown) {
+  return parseJobWorkspaceSection(value, workspaceSections.value)
+}
+
+const activeTab = ref<JobWorkspaceSection>('overview')
+
+function sectionLabel(id: string) {
+  const key = `freight.jobSections.${id}`
+  if (te(key)) return t(key)
+  const group = store.list('componentGroups').find(row =>
+    String(row.code || '').toLowerCase().replace(/_/g, '-') === id,
+  )
+  return String(group?.name || id)
+}
 
 const tabs = computed<DocumentTabSchema[]>(() =>
-  JOB_WORKSPACE_SECTIONS.map(id => ({
+  workspaceSections.value.map(id => ({
     id,
     labelKey: `freight.jobSections.${id}`,
-    label: t(`freight.jobSections.${id}`),
-    sections: [{ id, title: t(`freight.jobSections.${id}`), fields: [] }],
+    label: sectionLabel(id),
+    sections: [{ id, title: sectionLabel(id), fields: [] }],
   })),
 )
 
@@ -101,15 +171,23 @@ function load() {
   model.value = found ? { ...found } as FreightRecord : {} as FreightRecord
 }
 
-watch([recordId, isCreate], load, { immediate: true })
+watch(
+  [recordId, isCreate, () => Boolean(recordId.value && store.get('jobs', recordId.value))],
+  load,
+  { immediate: true },
+)
 
-watch(() => route.query.section, (value) => {
-  const section = parseJobWorkspaceSection(value)
-  if (activeTab.value !== section) activeTab.value = section
-})
+watch(
+  [() => route.query.section, workspaceSections],
+  () => {
+    const section = parseSection(route.query.section)
+    if (activeTab.value !== section) activeTab.value = section
+  },
+  { immediate: true },
+)
 
 watch(activeTab, (section) => {
-  const current = parseJobWorkspaceSection(route.query.section)
+  const current = parseSection(route.query.section)
   if (current === section) return
   const query = { ...route.query }
   if (section === 'overview') delete query.section
@@ -117,48 +195,34 @@ watch(activeTab, (section) => {
   void router.replace({ query })
 })
 
+/** Deep link from the list row action: /service-orders/:id?section=containers&new=1 */
+watch(() => route.query.new, (value) => {
+  if (value !== '1') return
+  activeTab.value = 'containers'
+  const query = { ...route.query }
+  delete query.new
+  void router.replace({ query })
+}, { immediate: true })
+
 const jobSections = computed(() => module.value ? groupedFields(module.value) : [])
-const placeRows = computed<FreightRecord[]>(() => {
-  const candidates = [
-    ['Origin', model.value.origin],
-    ['Pickup', model.value.pickup],
-    ['Border', model.value.border],
-    ['Destination', model.value.destination],
-    ['Delivery', model.value.deliveryLocation || model.value.delivery],
-  ]
-  return candidates
-    .filter(([, place]) => String(place || '').trim())
-    .map(([placeRole, place], index) => ({
-      id: `place-${index + 1}`,
-      sequence: index + 1,
-      placeRole,
-      place,
-      freeText: '',
-      plannedActual: index === 0 ? model.value.pickupDate : index === candidates.length - 1 ? model.value.deliveryDate : '',
-      notes: '',
-    } as FreightRecord))
-})
-const routeLabel = computed(() => {
-  const origin = String(model.value.origin || model.value.pickup || '')
-  const destination = String(model.value.destination || model.value.deliveryLocation || '')
-  if (origin && destination) return `${origin} → ${destination}`
-  return origin || destination
-})
+
 const headerSubtitle = computed(() =>
-  [String(model.value.customer || ''), routeLabel.value].filter(Boolean).join(' · '),
+  [String(model.value.customer || ''), String(model.value.direction || ''), String(model.value.branchName || '')]
+    .filter(Boolean).join(' · '),
 )
 
-watch([() => model.value.jobNo, () => model.value.status, () => model.value.direction, headerSubtitle], () => {
+watch([jobNo, () => model.value.workflowStatus, () => model.value.status, headerSubtitle], () => {
   if (!module.value) return
   setBreadcrumbs([
     { label: moduleTitle(module.value), to: module.value.path },
     { label: String(model.value.jobNo || moduleTitle(module.value)) },
   ])
-  const badges: AppHeaderBadge[] = []
-  if (model.value.direction) badges.push({ label: String(model.value.direction), color: 'info' })
-  if (model.value.workflowStatus) badges.push({ label: String(model.value.workflowStatus), color: 'neutral' })
-  if (model.value.status) badges.push({ label: String(model.value.status), color: statusColor(String(model.value.status)) })
-  setBadges(badges)
+  setBadges([
+    ...(model.value.direction ? [{ label: String(model.value.direction), color: 'info' as const }] : []),
+    ...(model.value.workflowStatus
+      ? [{ label: String(model.value.workflowStatus), color: statusColor(String(model.value.status || model.value.workflowStatus)) }]
+      : []),
+  ])
 }, { immediate: true })
 
 onBeforeUnmount(clear)
@@ -166,6 +230,10 @@ usePageSeo({ title: () => String(model.value.jobNo || 'Job') })
 
 function setField(key: string, value: unknown) {
   model.value = { ...model.value, [key]: value }
+}
+
+function patchJob(patch: Record<string, unknown>) {
+  model.value = { ...model.value, ...patch }
 }
 
 function fieldValue(key: string) {
@@ -178,10 +246,6 @@ function setFieldValue(key: string, value: unknown) {
     return
   }
   setField(key, value)
-}
-
-function setChecklist(value: Array<Record<string, unknown>>) {
-  model.value = { ...model.value, checklist: value }
 }
 
 async function save() {
@@ -198,8 +262,8 @@ async function save() {
       )
       const next = Number(sequence?.lastValue || store.list('jobs').length) + 1
       payload.jobNo ||= `${sequence?.prefix || 'SO'}-${currentYear}-${String(next).padStart(Number(sequence?.paddingLength || 6), '0')}`
-      payload.status ||= 'NEW'
-      payload.workflowStatus ||= 'NEW'
+      payload.status ||= 'Draft'
+      payload.workflowStatus ||= 'DRAFT'
       payload.currency ||= 'USD'
       payload.createdAt ||= new Date().toISOString()
       payload.createdBy ||= String(currentUser.value?.name || 'Current User')
@@ -208,7 +272,7 @@ async function save() {
     const saved = isCreate.value || !payload.id
       ? store.create('jobs', payload, 'job')
       : store.save('jobs', model.value)
-    store.addAudit('Saved job', 'Jobs', String(saved.jobNo))
+    store.addAudit('Updated service order', 'Service Orders', String(saved.jobNo))
     toast.add({ title: t('freight.ui.save'), color: 'success' })
     editingOverview.value = false
     if (isCreate.value) await navigateTo(`/service-orders/${saved.id}`)
@@ -219,77 +283,83 @@ async function save() {
   }
 }
 
-async function duplicateJob() {
-  if (!model.value.id) return
-  const copy = store.duplicate('jobs', String(model.value.id), {
-    jobNo: `${model.value.jobNo || 'JOB'}-COPY`,
-    status: 'Job Created',
-  })
-  if (!copy) return
-  store.addAudit('Duplicated job', 'Jobs', String(copy.jobNo))
-  toast.add({ title: t('freight.ui.duplicated'), color: 'success' })
-  await navigateTo(`/service-orders/${copy.id}`)
+async function startEdit() {
+  activeTab.value = 'overview'
+  editingOverview.value = true
 }
 
-async function setOrderStatus(status: 'COMPLETED' | 'CANCELLED') {
-  if (!model.value.id || !lcs.can('service_order.update')) return
+function discardEdit() {
+  editingOverview.value = false
+  load()
+}
+
+function applyWorkflow(next: ServiceOrderStatus, displayStatus: string, auditAction: string) {
+  if (!model.value.id) return
   const saved = store.save('jobs', {
     ...model.value,
-    status,
-    workflowStatus: status,
+    status: displayStatus,
+    workflowStatus: next,
     updatedAt: new Date().toISOString(),
   })
   model.value = saved
-  store.addAudit(status === 'COMPLETED' ? 'Completed service order' : 'Cancelled service order', 'Service Orders', String(saved.jobNo))
-  toast.add({ title: t(status === 'COMPLETED' ? 'freight.ui.jobCompleted' : 'freight.ui.jobCancelled'), color: status === 'COMPLETED' ? 'success' : 'warning' })
+  store.addAudit(auditAction, 'Service Orders', String(saved.jobNo))
+}
+
+async function transition(next: ServiceOrderStatus, displayStatus: string, messageKey: string) {
+  const ok = await confirm({
+    kind: 'generic',
+    title: t(messageKey),
+    description: `${String(model.value.jobNo || '')} · ${headerSubtitle.value}`,
+    confirmLabel: t(messageKey),
+    confirmColor: next === 'CANCELLED' ? 'warning' : 'primary',
+  })
+  if (!ok) return
+  const auditAction
+    = next === 'ON_HOLD' ? 'Put service order on hold'
+      : next === 'CANCELLED' ? 'Cancelled service order'
+        : next === 'COMPLETED' ? 'Completed service order'
+          : `${displayStatus} service order`
+  applyWorkflow(next, displayStatus, auditAction)
+  toast.add({ title: t(messageKey), color: next === 'CANCELLED' ? 'warning' : 'success' })
+}
+
+function openQuotation() {
+  const quotation = store.list('quotations').find(row => String(row.quotationNo || '') === String(model.value.quotationNo || ''))
+  if (!quotation) {
+    toast.add({ title: t('docetra.states.notFound'), color: 'warning' })
+    return
+  }
+  void navigateTo(`/quotations/${quotation.id}`)
 }
 
 const moreItems = computed<DropdownMenuItem[][]>(() => {
   if (isCreate.value || !model.value.id) return []
-  return [[
-    {
-      label: t('freight.ui.duplicate'),
-      icon: 'i-lucide-copy',
-      onSelect: () => { void duplicateJob() },
-    },
-    ...(lcs.can('service_order.update') && !['COMPLETED', 'CANCELLED'].includes(String(model.value.status).toUpperCase()) ? [{
+  const items: DropdownMenuItem[] = []
+  if (lcs.can('service_order.update') && ['OPEN', 'IN_PROGRESS'].includes(domainStatus.value)) {
+    items.push({ label: t('freight.ui.putOnHold'), icon: 'i-lucide-pause', onSelect: () => { void transition('ON_HOLD', 'On Hold', 'freight.ui.putOnHold') } })
+  }
+  if (lcs.can('service_order.update') && domainStatus.value === 'ON_HOLD') {
+    items.push({ label: t('freight.ui.resume'), icon: 'i-lucide-play', onSelect: () => { void transition('IN_PROGRESS', 'In Progress', 'freight.ui.resume') } })
+  }
+  if (domainStatus.value === 'COMPLETED' && lcs.can('service_order.update')) {
+    items.push({ label: t('freight.ui.close'), icon: 'i-lucide-lock', onSelect: () => { void transition('CLOSED', 'Closed', 'freight.ui.closeJob') } })
+  }
+  if (String(model.value.quotationNo || '').trim()) {
+    items.push({ label: t('freight.ui.viewSourceQuotation'), icon: 'i-lucide-file-search', onSelect: openQuotation })
+  }
+  if (!['CLOSED', 'CANCELLED'].includes(domainStatus.value) && lcs.can('service_order.update')) {
+    items.push({
       label: t('freight.ui.cancel'),
-      icon: 'i-lucide-circle-x',
-      color: 'error' as const,
-      onSelect: () => { void setOrderStatus('CANCELLED') },
-    }] : []),
-  ]]
-})
-
-const closeReady = computed(() => {
-  const checklist = Array.isArray(model.value.checklist) ? model.value.checklist as Array<Record<string, unknown>> : []
-  const docsOk = checklist.every(item => !item.required || ['Uploaded', 'Approved'].includes(String(item.status)))
-  const deliveryStatus = String(delivery.value?.status || '')
-  return {
-    documents: docsOk,
-    customs: ['Cleared'].includes(String(customsRecord.value?.status || model.value.customsStatus || '')),
-    delivery: ['Delivered', 'POD Received'].includes(deliveryStatus) || ['Delivered', 'Closed'].includes(String(model.value.status)),
-    pod: checklist.find(item => item.type === 'POD')?.status === 'Approved' || checklist.find(item => item.type === 'POD')?.status === 'Uploaded',
-    charges: debitNotes.value.length > 0,
-    supplier: supplierCosts.value.length > 0,
-    revenue: debitNotes.value.length > 0,
-    profit: Boolean(profitability.value),
+      icon: 'i-lucide-ban',
+      color: 'error',
+      onSelect: () => { void transition('CANCELLED', 'Cancelled', 'freight.ui.jobCancelled') },
+    })
   }
+  return [items]
 })
-
-async function closeJob() {
-  const missing = Object.entries(closeReady.value).filter(([, ok]) => !ok).map(([key]) => key)
-  if (missing.length) {
-    toast.add({ title: t('freight.ui.cannotCloseJob'), description: missing.join(', '), color: 'warning' })
-    return
-  }
-  setField('status', 'Closed')
-  setField('workflowStatus', 'CLOSED')
-  await save()
-}
 
 function onTabChange(value: string) {
-  activeTab.value = parseJobWorkspaceSection(value)
+  activeTab.value = parseSection(value)
 }
 </script>
 
@@ -304,8 +374,10 @@ function onTabChange(value: string) {
     :not-found="notFound"
     :save-label="t('docetra.common.save')"
     :confirm-save="false"
-    show-cancel
-    show-comments
+    :show-save="editingOverview || isCreate"
+    :show-cancel="!editingOverview && !isCreate"
+    :show-comments="activeTab === 'overview'"
+    :show-meta-rail="!isCreate"
     show-list-nav
     content-wide
     :can-navigate-previous="canNavigatePrevious"
@@ -328,7 +400,6 @@ function onTabChange(value: string) {
     :meta-tags="tags"
     :meta-created-at="String(model.createdAt || '')"
     :meta-updated-at="String(model.updatedAt || '')"
-    :meta-favorite="Boolean(model.favorite)"
     :more-items="moreItems"
     :can-export="false"
     @update:active-tab="onTabChange"
@@ -341,38 +412,37 @@ function onTabChange(value: string) {
     @delete-comment="deleteComment"
     @navigate-previous="navigatePrevious"
     @navigate-next="navigateNext"
-    @toggle-favorite="toggleFavorite"
   >
     <template #actions>
       <UButton
+        v-if="canEdit"
         color="neutral"
         variant="soft"
         size="sm"
-        icon="i-lucide-receipt-text"
+        icon="i-lucide-pencil"
         class="rounded-md"
-        :to="{ path: '/finance/documents/new', query: { documentType: 'CUSTOMER_INVOICE', jobNo, customer: String(model.customer || '') } }"
-        :label="t('freight.ui.debitNote')"
+        :label="t('freight.ui.edit')"
+        @click="startEdit"
       />
       <UButton
-        v-if="lcs.can('service_order.update') && !['COMPLETED', 'CANCELLED'].includes(String(model.status).toUpperCase())"
-        color="primary"
-        variant="soft"
-        size="sm"
-        icon="i-lucide-circle-check"
-        class="rounded-md"
-        :disabled="isCreate"
-        :label="t('freight.ui.complete')"
-        @click="setOrderStatus('COMPLETED')"
-      />
-      <UButton
+        v-if="canComplete"
         color="success"
         variant="soft"
         size="sm"
-        icon="i-lucide-lock"
+        icon="i-lucide-check-circle-2"
         class="rounded-md"
-        :disabled="isCreate"
-        :label="t('freight.ui.closeJob')"
-        @click="closeJob"
+        :label="t('freight.ui.complete')"
+        @click="transition('COMPLETED', 'Financial Completed', 'freight.ui.jobCompleted')"
+      />
+      <UButton
+        v-if="domainStatus === 'ON_HOLD' && lcs.can('service_order.update')"
+        color="warning"
+        variant="soft"
+        size="sm"
+        icon="i-lucide-play"
+        class="rounded-md"
+        :label="t('freight.ui.resume')"
+        @click="transition('IN_PROGRESS', 'In Progress', 'freight.ui.resume')"
       />
     </template>
 
@@ -385,79 +455,58 @@ function onTabChange(value: string) {
             :is-create="isCreate"
             :editing="editingOverview"
             :sections="jobSections"
+            :containers-count="containersCount"
+            :tasks-done="tasksDone"
+            :tasks-total="taskRows.length"
+            :document-tab="documentSection"
+            :charges-total="chargesTotals.total"
+            :invoiced-total="chargesTotals.invoiced"
             @update:field="setField"
-            @edit="editingOverview = true"
+            @edit="startEdit"
+            @cancel-edit="discardEdit"
           />
-          <section v-else-if="activeTab === 'places'" class="space-y-2">
-            <FreightJobSectionHeader :title="t('freight.ui.places')" />
-            <FreightJobRelatedTable
-              :rows="placeRows"
-              :columns="[
-                { key: 'sequence', label: t('freight.ui.cols.sequence') },
-                { key: 'placeRole', label: t('freight.ui.cols.placeRole') },
-                { key: 'place', label: t('freight.ui.cols.place') },
-                { key: 'freeText', label: t('freight.ui.cols.freeTextPlace') },
-                { key: 'plannedActual', label: t('freight.ui.cols.plannedActual') },
-                { key: 'notes', label: t('freight.ui.cols.notes') },
-              ]"
-              :empty-title="t('freight.ui.noPlaces')"
-              :job-link="false"
-            />
-          </section>
+          <FreightJobRoute
+            v-else-if="activeTab === 'route'"
+            :job="model"
+            :is-create="isCreate"
+            :editable="canEdit"
+            @update:job="patchJob"
+          />
           <FreightJobContainers
-            v-else-if="activeTab === 'container-requirements' || activeTab === 'actual-containers'"
+            v-else-if="activeTab === 'containers'"
             :job="model"
             :shipments="shipments"
-            :requirements="containerRequirements"
-            :actual="actualContainers"
+            :charges="charges"
+            :container-requirements="containerRequirements"
+            :actual-containers="actualContainers"
             :is-create="isCreate"
-            :mode="activeTab === 'container-requirements' ? 'requirements' : 'actual'"
+            :editable="canEdit"
+            :editable-payments="canEditPayments"
+            @update:job="patchJob"
           />
-          <FreightJobComponents
-            v-else-if="activeTab === 'components'"
+          <FreightJobTasks
+            v-else-if="isComponentTab"
             :job-no="jobNo"
+            :job-id="String(model.id || '')"
+            :direction="String(model.direction || '')"
             :is-create="isCreate"
+            :section="activeTab"
           />
-          <section v-else-if="activeTab === 'service-charges'" class="space-y-2">
-            <FreightJobSectionHeader :title="t('freight.ui.serviceCharges')" />
-            <FreightJobRelatedTable
-              :rows="charges"
-              :columns="[
-                { key: 'chargeNo', label: t('freight.ui.cols.chargeNo') },
-                { key: 'customer', label: t('freight.ui.cols.customer') },
-                { key: 'chargeDate', label: t('freight.ui.cols.chargeDate') },
-                { key: 'currency', label: t('freight.ui.cols.currency') },
-                { key: 'total', label: t('freight.ui.cols.total'), money: true },
-                { key: 'status', label: t('freight.ui.cols.status'), status: true },
-              ]"
-              :empty-title="t('freight.ui.noServiceCharges')"
-              :record-path="row => `/service-charges/${row.id}`"
-              :job-link="false"
-            />
-          </section>
-          <FreightJobDocuments
-            v-else-if="activeTab === 'attachments'"
+          <FreightJobFinance
+            v-else-if="activeTab === 'finance'"
+            :job-no="jobNo"
+            :customer="String(model.customer || '')"
+            :documents="debitNotes"
+            :supplier-costs="supplierCosts"
+            :receivables="receivables"
+          />
+          <FreightJobFiles
+            v-else-if="activeTab === 'files'"
             :job="model"
             :documents="documents"
             :is-create="isCreate"
-            @update:checklist="setChecklist"
-          />
-          <FreightJobFinance
-            v-else-if="activeTab === 'financial-documents'"
-            :debit-notes="debitNotes"
-            :payments="payments"
-            :supplier-costs="supplierCosts"
-            :supplier-payments="supplierPayments"
-            :receivables="receivables"
-            :payables="payables"
-            :journals="journals"
-            :is-create="isCreate"
-            :job-no="jobNo"
-            :customer="String(model.customer || '')"
-          />
-          <FreightJobActivity
-            v-else-if="activeTab === 'audit-timeline'"
-            :events="chromeActivity"
+            :editable="canEdit"
+            @update:job="patchJob"
           />
         </div>
       </DocumentAppDocumentContentShell>

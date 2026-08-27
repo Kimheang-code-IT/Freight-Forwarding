@@ -1,31 +1,123 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
+import { h, type Component } from 'vue'
+import { UBadge, UButton, UDropdownMenu, ULink } from '#components'
 import type { FreightRecord } from '~/config/freight-seed'
+import { codeTitle, formatMoneyUsd, freightStatusBadge, shortDay } from '~/composables/freight/useFreight'
+import { useLcs } from '~/composables/lcs/useLcs'
+import { outstandingOf, postedDocumentTotal } from '~/utils/freight/finance'
+import { freightTableUiCompactReadonly } from '~/utils/table/theme'
 
-defineProps<{
-  debitNotes: FreightRecord[]
-  payments: FreightRecord[]
-  supplierCosts: FreightRecord[]
-  supplierPayments: FreightRecord[]
-  receivables: FreightRecord[]
-  payables: FreightRecord[]
-  journals?: FreightRecord[]
-  isCreate: boolean
+const props = defineProps<{
   jobNo: string
   customer: string
+  documents: FreightRecord[]
+  supplierCosts: FreightRecord[]
+  receivables: FreightRecord[]
 }>()
 
 const { t } = useI18n()
+const lcs = useLcs()
+
+const TableBadge = UBadge as Component
+const TableButton = UButton as Component
+const TableLink = ULink as Component
+const TableMenu = UDropdownMenu as Component
+
+const summary = computed(() => {
+  const revenue = Math.round(postedDocumentTotal(props.documents) * 100) / 100
+  const cost = Math.round(props.supplierCosts.reduce((sum, row) => sum + Number(row.amount || 0), 0) * 100) / 100
+  const outstanding = Math.round(props.receivables.reduce((sum, row) => sum + Number(row.outstanding || 0), 0) * 100) / 100
+  return {
+    revenue,
+    cost,
+    profit: Math.round((revenue - cost) * 100) / 100,
+    outstanding,
+  }
+})
+
+const summaryItems = computed(() => [
+  { label: t('freight.ui.revenue'), value: formatMoneyUsd(summary.value.revenue) },
+  { label: t('freight.ui.costLabel'), value: formatMoneyUsd(summary.value.cost) },
+  { label: t('freight.ui.grossProfit'), value: formatMoneyUsd(summary.value.profit) },
+  { label: t('freight.ui.outstandingAmount'), value: formatMoneyUsd(summary.value.outstanding) },
+])
+
+function rowMenuItems(row: FreightRecord) {
+  return [[{
+    label: t('freight.ui.viewDocument'),
+    icon: 'i-lucide-eye',
+    onSelect: () => { void navigateTo(`/finance/documents/${row.id}`) },
+  }]]
+}
+
+const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
+  {
+    accessorKey: 'debitNoteNo',
+    header: t('freight.ui.cols.documentNo'),
+    cell: ({ row }) => h(TableLink, {
+      to: `/finance/documents/${row.original.id}`,
+      class: 'font-medium text-highlighted hover:text-primary hover:underline',
+    }, () => String(row.original.debitNoteNo || row.original.paymentNo || '—')),
+  },
+  {
+    accessorKey: 'documentType',
+    header: t('freight.ui.cols.type'),
+    cell: ({ row }) => h(TableBadge, {
+      color: 'neutral',
+      variant: 'subtle',
+      size: 'xs',
+    }, () => codeTitle(row.original.documentType)),
+  },
+  {
+    accessorKey: 'date',
+    header: t('freight.ui.cols.date'),
+    cell: ({ row }) => h('span', { class: 'tabular-nums text-muted' }, shortDay(row.original.date)),
+  },
+  {
+    accessorKey: 'total',
+    header: t('freight.ui.cols.total'),
+    meta: { class: { td: 'text-end tabular-nums whitespace-nowrap', th: 'text-end' } },
+    cell: ({ row }) => h('span', { class: 'tabular-nums font-medium' }, formatMoneyUsd(row.original.total ?? row.original.amount)),
+  },
+  {
+    accessorKey: 'outstanding',
+    header: t('freight.ui.outstandingAmount'),
+    meta: { class: { td: 'text-end tabular-nums whitespace-nowrap', th: 'text-end' } },
+    cell: ({ row }) => h('span', {
+      class: outstandingOf(row.original) > 0 ? 'tabular-nums text-warning' : 'tabular-nums text-muted',
+    }, formatMoneyUsd(outstandingOf(row.original))),
+  },
+  {
+    accessorKey: 'status',
+    header: t('freight.ui.status'),
+    cell: ({ row }) => freightStatusBadge(row.original.status),
+  },
+  {
+    id: 'actions',
+    header: '',
+    meta: { class: { th: 'w-12 text-end', td: 'text-end w-12' } },
+    cell: ({ row }) => h(TableMenu, {
+      content: { align: 'end' },
+      items: rowMenuItems(row.original),
+      'aria-label': t('freight.ui.actions'),
+    }, () => h(TableButton, {
+      icon: 'i-lucide-ellipsis',
+      color: 'neutral',
+      variant: 'ghost',
+      size: 'xs',
+      'aria-label': t('freight.ui.actions'),
+    })),
+  },
+])
 </script>
 
 <template>
-  <div class="space-y-5">
-    <FreightJobSectionHeader
-      :title="t('freight.ui.jobFinance')"
-      :description="t('freight.ui.jobFinanceHint')"
-    >
+  <div class="space-y-4">
+    <FreightJobSectionHeader :title="t('freight.jobSections.finance')" :description="t('freight.ui.postedOnlyHint')">
       <template #actions>
         <UButton
-          v-if="!isCreate"
+          v-if="lcs.can('financial_document.create')"
           size="xs"
           color="neutral"
           variant="soft"
@@ -33,137 +125,38 @@ const { t } = useI18n()
           :to="{ path: '/finance/documents/new', query: { documentType: 'CUSTOMER_INVOICE', jobNo, customer } }"
           :label="t('freight.ui.customerInvoice')"
         />
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-arrow-up-right"
+          :to="{ path: '/finance/documents', query: { jobNo } }"
+          :label="t('freight.ui.openFinance')"
+        />
       </template>
     </FreightJobSectionHeader>
 
-    <UAlert
-      color="neutral"
-      variant="subtle"
-      icon="i-lucide-book-open"
-      :title="$t('lcs.finance.documentVsJournal')"
-    />
+    <FreightJobSummaryStrip :items="summaryItems" />
 
     <section class="space-y-2">
       <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-        {{ t('freight.ui.customerInvoices') }}
+        {{ t('freight.ui.financialDocuments') }}
       </h4>
-      <FreightJobRelatedTable
-        :rows="debitNotes"
-        :columns="[
-          { key: 'debitNoteNo', label: t('freight.ui.cols.debitNoteNo') },
-          { key: 'date', label: t('freight.ui.cols.date') },
-          { key: 'total', label: t('freight.ui.cols.total'), money: true },
-          { key: 'status', label: t('freight.ui.cols.status'), status: true },
-          { key: 'journalId', label: t('freight.ui.cols.journal') },
-        ]"
-        :empty-title="t('freight.ui.noCustomerInvoices')"
-        :record-path="(row) => `/finance/documents/${row.id}`"
-        :job-link="false"
-      />
-    </section>
-
-    <section class="space-y-2">
-      <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-        {{ t('freight.ui.customerReceipts') }}
-      </h4>
-      <FreightJobRelatedTable
-        :rows="payments"
-        :columns="[
-          { key: 'paymentNo', label: t('freight.ui.cols.receiptNo') },
-          { key: 'received', label: t('freight.ui.cols.received'), money: true },
-          { key: 'outstanding', label: t('freight.ui.cols.outstanding'), money: true },
-          { key: 'status', label: t('freight.ui.cols.status'), status: true },
-        ]"
-        :empty-title="t('freight.ui.noReceipts')"
-        :record-path="undefined"
-        :job-link="false"
-      />
-    </section>
-
-    <div class="grid gap-4 lg:grid-cols-2">
-      <section class="space-y-2">
-        <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-          {{ t('freight.ui.supplierBills') }}
-        </h4>
-        <FreightJobRelatedTable
-          :rows="supplierCosts"
-          :columns="[
-            { key: 'supplier', label: t('freight.ui.cols.supplier') },
-            { key: 'invoiceNo', label: t('freight.ui.cols.invoice') },
-            { key: 'amount', label: t('freight.ui.cols.amount'), money: true },
-            { key: 'status', label: t('freight.ui.cols.status'), status: true },
-          ]"
-          :empty-title="t('freight.ui.noSupplierBills')"
-          :record-path="undefined"
-          :job-link="false"
-        />
-      </section>
-      <section class="space-y-2">
-        <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-          {{ t('freight.ui.supplierPayments') }}
-        </h4>
-        <FreightJobRelatedTable
-          :rows="supplierPayments"
-          :columns="[
-            { key: 'paymentNo', label: t('freight.ui.cols.paymentNo') },
-            { key: 'supplier', label: t('freight.ui.cols.supplier') },
-            { key: 'amount', label: t('freight.ui.cols.amount'), money: true },
-            { key: 'status', label: t('freight.ui.cols.status'), status: true },
-          ]"
-          :empty-title="t('freight.ui.noSupplierPayments')"
-          :record-path="undefined"
-          :job-link="false"
-        />
-      </section>
-    </div>
-
-    <div class="grid gap-4 lg:grid-cols-2">
-      <section class="space-y-2">
-        <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-          {{ t('freight.ui.receivable') }}
-        </h4>
-        <FreightJobRelatedTable
-          :rows="receivables"
-          :columns="[
-            { key: 'invoiceNo', label: t('freight.ui.cols.invoice') },
-            { key: 'outstanding', label: t('freight.ui.cols.outstanding'), money: true },
-            { key: 'status', label: t('freight.ui.cols.status'), status: true },
-          ]"
-          :empty-title="t('freight.ui.noReceivables')"
-          :job-link="false"
-        />
-      </section>
-      <section class="space-y-2">
-        <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-          {{ t('freight.ui.payable') }}
-        </h4>
-        <FreightJobRelatedTable
-          :rows="payables"
-          :columns="[
-            { key: 'invoiceNo', label: t('freight.ui.cols.invoice') },
-            { key: 'outstanding', label: t('freight.ui.cols.outstanding'), money: true },
-            { key: 'status', label: t('freight.ui.cols.status'), status: true },
-          ]"
-          :empty-title="t('freight.ui.noPayables')"
-          :job-link="false"
-        />
-      </section>
-    </div>
-
-    <section class="space-y-2">
-      <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
-        {{ t('freight.ui.journals') }}
-      </h4>
-      <FreightJobRelatedTable
-        :rows="journals || []"
-        :columns="[
-          { key: 'entryNo', label: t('freight.ui.cols.entryNo') },
-          { key: 'debitTotal', label: t('freight.ui.cols.debit'), money: true },
-          { key: 'creditTotal', label: t('freight.ui.cols.credit'), money: true },
-          { key: 'status', label: t('freight.ui.cols.status'), status: true },
-        ]"
-        :empty-title="t('freight.ui.noJournals')"
-        :job-link="false"
+      <div v-if="documents.length" class="overflow-hidden rounded-md border border-default">
+        <div class="overflow-x-auto">
+          <UTable
+            :data="documents"
+            :columns="tableColumns"
+            :get-row-id="(row: FreightRecord) => String(row.id || '')"
+            class="freight-table freight-table-compact min-w-max"
+            :ui="freightTableUiCompactReadonly"
+          />
+        </div>
+      </div>
+      <FreightJobEmptyState
+        v-else
+        :title="t('freight.ui.noFinancialDocuments')"
+        icon="i-lucide-banknote"
       />
     </section>
   </div>

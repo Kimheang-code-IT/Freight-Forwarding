@@ -1,20 +1,26 @@
 <script setup lang="ts">
 import type { FreightField } from '~/config/freight-modules'
 import type { FreightRecord } from '~/config/freight-seed'
-import { JOB_STATUS } from '~/config/freight-options'
-import { useFreightLabel } from '~/composables/freight/useFreight'
-import { JOB_OVERVIEW_SECTIONS } from '~/utils/freight/job-workspace'
+import { formatMoneyUsd, shortDay, useFreightLabel } from '~/composables/freight/useFreight'
+import { JOB_OVERVIEW_SECTIONS, jobWorkspacePath } from '~/utils/freight/job-workspace'
 
 const props = defineProps<{
   model: FreightRecord
   isCreate: boolean
   editing: boolean
   sections: Array<{ title: string, titleKm?: string, fields: FreightField[] }>
+  containersCount?: number
+  tasksDone?: number
+  tasksTotal?: number
+  documentTab?: string
+  chargesTotal?: number
+  invoicedTotal?: number
 }>()
 
 const emit = defineEmits<{
   'update:field': [key: string, value: unknown]
   edit: []
+  'cancel-edit': []
 }>()
 
 const { t } = useI18n()
@@ -24,20 +30,48 @@ const overviewFields = computed(() =>
   props.sections.filter(section => JOB_OVERVIEW_SECTIONS.has(section.title)),
 )
 
+function tabTo(section: Parameters<typeof jobWorkspacePath>[1]) {
+  return props.isCreate ? undefined : jobWorkspacePath(String(props.model.id || ''), section)
+}
+
+function displayDate(value: unknown) {
+  return shortDay(value, '')
+}
+
 const summaryItems = computed(() => [
-  { label: t('freight.ui.cols.jobNo'), value: props.model.jobNo },
+  {
+    label: t('freight.ui.containers'),
+    value: String(props.containersCount ?? 0),
+    to: tabTo('containers'),
+  },
+  {
+    label: t('freight.jobSections.documents'),
+    value: t('freight.ui.tasksProgress', { done: props.tasksDone ?? 0, total: props.tasksTotal ?? 0 }),
+    to: props.documentTab ? tabTo(props.documentTab) : undefined,
+  },
+  {
+    label: t('freight.ui.totalCharges'),
+    value: formatMoneyUsd(props.chargesTotal ?? 0),
+    to: tabTo('containers'),
+  },
+  {
+    label: t('freight.ui.invoicedAmount'),
+    value: formatMoneyUsd(props.invoicedTotal ?? 0),
+    to: tabTo('finance'),
+  },
+])
+
+const detailItems = computed(() => [
   { label: t('freight.ui.cols.customer'), value: props.model.customer },
-  { label: t('freight.ui.cols.jobDate'), value: props.model.date },
+  { label: t('freight.ui.branchCol'), value: props.model.branchName },
   { label: t('freight.ui.cols.direction'), value: props.model.direction },
-  { label: t('freight.ui.cols.origin'), value: props.model.origin || props.model.pickup },
-  { label: t('freight.ui.cols.destination'), value: props.model.destination || props.model.deliveryLocation },
-  { label: t('freight.ui.cols.transportType'), value: props.model.transportMode || props.model.serviceType },
-  { label: t('freight.ui.cols.etd'), value: props.model.shipmentDate || props.model.registeredDate },
-  { label: t('freight.ui.cols.eta'), value: props.model.etaFactory || props.model.etaPort },
-  { label: t('freight.ui.cols.assignedStaff'), value: props.model.assignedStaff },
-  { label: t('freight.ui.cols.jobStatus'), value: props.model.status },
-  { label: t('freight.ui.cols.workflow'), value: props.model.workflowStatus || 'OPEN' },
+  { label: t('freight.ui.cols.currency'), value: props.model.currency },
   { label: t('freight.ui.cols.sourceQuotationLabel'), value: props.model.quotationNo },
+  { label: t('freight.ui.cols.workflow'), value: props.model.workflowStatus || props.model.status },
+  { label: t('freight.ui.cols.createdAt'), value: displayDate(props.model.createdAt) },
+  { label: t('freight.ui.cols.createdBy'), value: props.model.createdBy },
+  { label: t('freight.ui.cols.assignedStaff'), value: props.model.assignedStaff },
+  { label: t('freight.ui.descriptionLabel'), value: props.model.description, span: 2 as const },
 ])
 </script>
 
@@ -45,6 +79,15 @@ const summaryItems = computed(() => [
   <div class="space-y-4">
     <FreightJobSectionHeader :title="t('freight.ui.overview')">
       <template #actions>
+        <UButton
+          v-if="!isCreate && editing"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-x"
+          :label="t('actions.cancel')"
+          @click="emit('cancel-edit')"
+        />
         <UButton
           v-if="!isCreate && !editing"
           size="xs"
@@ -57,12 +100,11 @@ const summaryItems = computed(() => [
       </template>
     </FreightJobSectionHeader>
 
-    <FreightProgressSteps :current="String(model.status || JOB_STATUS[0])" :steps="JOB_STATUS" />
+    <FreightJobSummaryStrip v-if="!editing" :items="summaryItems" />
 
-    <FreightJobDefinitionList v-if="!isCreate && !editing" :items="summaryItems" />
-    <FreightJobComponents v-if="!isCreate" :job-no="String(model.jobNo || '')" :is-create="isCreate" />
+    <FreightJobDefinitionList v-if="!isCreate && !editing" :items="detailItems" />
 
-    <div v-else class="space-y-5">
+    <div v-if="editing || isCreate" class="space-y-5">
       <section v-for="section in overviewFields" :key="section.title" class="space-y-3">
         <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
           {{ groupTitle(section.title) }}
@@ -79,5 +121,12 @@ const summaryItems = computed(() => [
         </div>
       </section>
     </div>
+
+    <p
+      v-if="!isCreate && !editing && String(model.operationalRemark || '').trim()"
+      class="text-xs text-muted"
+    >
+      {{ model.operationalRemark }}
+    </p>
   </div>
 </template>

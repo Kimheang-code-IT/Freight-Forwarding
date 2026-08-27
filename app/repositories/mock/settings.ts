@@ -14,7 +14,6 @@ import type {
 } from '~/types/docetra/settings'
 import type { NotificationChannel } from '~/types/docetra/settings'
 import { DEFAULT_TELEGRAM_TEMPLATE, NOTIFICATION_EVENTS } from '~/types/docetra/settings'
-import { DEFAULT_CARD_FIELDS } from '~/utils/card-fields'
 
 const INFO_KEY = 'docetra:settings:app-info'
 const CONFIG_KEY = 'docetra:settings:app-config'
@@ -142,32 +141,18 @@ function seedAppConfig(): AppConfig {
       cacheStatus: 'healthy',
       backgroundJobStatus: 'idle',
     },
-    display: {
-      cardFields: {
-        meetingTopics: [...DEFAULT_CARD_FIELDS.meetingTopics],
-        meetingHistory: [...DEFAULT_CARD_FIELDS.meetingHistory],
-        incomingDocuments: [...DEFAULT_CARD_FIELDS.incomingDocuments],
-        outgoingDocuments: [...DEFAULT_CARD_FIELDS.outgoingDocuments],
-        documents: [...DEFAULT_CARD_FIELDS.documents],
-        masterListRequests: [...DEFAULT_CARD_FIELDS.masterListRequests],
-      },
-      cardFooterAlign: {
-        meetingHistory: {
-          meetingDate: 'left',
-          location: 'right',
-        },
-      },
-    },
     updatedAt: nowIso(),
   }
 }
 
-/** Patch older localStorage payloads that lack `display`. */
-function normalizeAppConfig(raw: AppConfig): AppConfig {
+/** Merge older localStorage payloads onto the current AppConfig shape. */
+function normalizeAppConfig(raw: AppConfig & { display?: unknown }): AppConfig {
   const seed = seedAppConfig()
+  const rest = { ...raw }
+  delete rest.display
   return {
     ...seed,
-    ...raw,
+    ...rest,
     general: { ...seed.general, ...raw.general },
     localization: { ...seed.localization, ...raw.localization },
     email: { ...seed.email, ...raw.email },
@@ -175,16 +160,6 @@ function normalizeAppConfig(raw: AppConfig): AppConfig {
     notifications: { ...seed.notifications, ...raw.notifications },
     security: { ...seed.security, ...raw.security },
     system: { ...seed.system, ...raw.system },
-    display: {
-      cardFields: {
-        ...seed.display.cardFields,
-        ...raw.display?.cardFields,
-      },
-      cardFooterAlign: {
-        ...seed.display.cardFooterAlign,
-        ...raw.display?.cardFooterAlign,
-      },
-    },
     updatedAt: raw.updatedAt || seed.updatedAt,
   }
 }
@@ -337,16 +312,6 @@ export function createMockAppConfigRepository(): AppConfigRepository {
         notifications: { ...value.notifications, ...input.notifications },
         security: { ...value.security, ...input.security },
         system: { ...value.system, ...input.system },
-        display: {
-          cardFields: {
-            ...value.display?.cardFields,
-            ...input.display?.cardFields,
-          },
-          cardFooterAlign: {
-            ...value.display?.cardFooterAlign,
-            ...input.display?.cardFooterAlign,
-          },
-        },
         updatedAt: nowIso(),
       })
       writeJson(CONFIG_KEY, value)
