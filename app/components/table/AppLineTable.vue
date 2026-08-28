@@ -8,7 +8,8 @@ import type { DatePickerGranularity } from '~/utils/date-picker'
 import { fileTableRowBy, fileTableRowCreated, fileTableRowName, filePreviewHref, revokeFilePreview, useFileAttachments } from '~/utils/freight/attachments'
 import { containerPaymentAmounts } from '~/utils/freight/job-containers'
 import { fileTypeIcon } from '~/utils/file-icon'
-import { freightTableUiCompactReadonly, freightTableUiReadonly } from '~/utils/table/theme'
+import { formatDate, formatDateTime, formatMoney, formatNumber } from '~/utils/format/format-service'
+import { freightTableUiCompactReadonly, freightTableUiLine } from '~/utils/table/theme'
 
 const props = withDefaults(defineProps<{
   table: FreightTable
@@ -40,17 +41,19 @@ const TableSelect = USelect as Component
 
 const isFileTable = computed(() => props.table.kind === 'files' || props.table.key === 'attachments')
 const cellSize = computed(() => props.compact ? 'xs' : 'sm')
-const tableUi = computed(() => props.compact ? freightTableUiCompactReadonly : freightTableUiReadonly)
+const tableUi = computed(() => props.compact ? freightTableUiCompactReadonly : freightTableUiLine)
 
 const moneyKeys = new Set(['unitPrice', 'discountPercent', 'taxPercent', 'discountAmount', 'discount', 'taxAmount', 'lineTotal', 'total', 'amount'])
-const numericKeys = new Set(['quantity', 'actualQuantity', 'remaining', 'netWeightKg', 'grossWeightKg', 'taxRate', ...moneyKeys])
+const numericKeys = new Set(['quantity', 'actualQuantity', 'remaining', 'netWeightKg', 'grossWeightKg', 'weightKg', 'taxRate', ...moneyKeys])
 
 function columnCellClass(column: FreightLineColumn) {
   if (column.key === 'blNo' || column.key === 'truckNo' || column.key === 'containerNo') return 'w-36 min-w-28'
   if (column.key === 'quantity' || column.key === 'actualQuantity' || column.key === 'remaining') return 'w-20 min-w-20 text-right tabular-nums'
   if (column.key === 'unit') return 'w-24 min-w-24'
   if (column.key === 'discountPercent' || column.key === 'taxPercent' || column.key === 'taxRate') return 'w-24 min-w-24 text-right tabular-nums'
-  if (column.key === 'netWeightKg' || column.key === 'grossWeightKg') return 'w-28 min-w-24 text-right tabular-nums'
+  if (column.key === 'netWeightKg' || column.key === 'grossWeightKg' || column.key === 'weightKg') {
+    return column.inlineFields?.length ? 'w-36 min-w-32 text-right tabular-nums' : 'w-28 min-w-24 text-right tabular-nums'
+  }
   if (moneyKeys.has(column.key)) return column.inlineFields?.length ? 'w-44 min-w-40 text-right tabular-nums' : 'w-32 min-w-28 text-right tabular-nums'
   if (column.key === 'containerRequirement' || column.key === 'containerRequirementId' || column.key === 'containerType' || column.key === 'feeType') return 'w-36 min-w-28'
   if (column.key === 'sealNo' || column.key === 'status') return 'w-28 min-w-24'
@@ -66,19 +69,22 @@ function displayValue(column: FreightLineColumn, value: unknown, row?: Record<st
     if (column.key === 'uploadedBy') return fileTableRowBy(row) || '—'
     if (column.key === 'uploadedAt') {
       const created = fileTableRowCreated(row)
-      return created ? created.replace('T', ' ').slice(0, 16) : '—'
+      return created ? formatDateTime(created) : '—'
     }
   }
   if (value === undefined || value === null || value === '') return '—'
   if (column.type === 'number') {
     const number = Number(value)
-    const formatted = Number.isFinite(number)
-      ? number.toLocaleString(undefined, { minimumFractionDigits: moneyKeys.has(column.key) ? 2 : 0, maximumFractionDigits: 2 })
-      : String(value)
-    return column.key === 'total' && row?.currency ? `${String(row.currency)} ${formatted}` : formatted
+    if (!Number.isFinite(number)) return String(value)
+    if (moneyKeys.has(column.key)) {
+      const currency = row?.currency ? String(row.currency) : undefined
+      if (column.key === 'total' && currency) return formatMoney(number, currency)
+      return formatMoney(number, currency)
+    }
+    return formatNumber(number, { maximumFractionDigits: 2, minimumFractionDigits: 0 })
   }
-  if (column.type === 'date') return String(value).slice(0, 10)
-  if (column.type === 'datetime') return String(value).replace('T', ' ').slice(0, 16)
+  if (column.type === 'date') return formatDate(value)
+  if (column.type === 'datetime') return formatDateTime(value)
   return String(value)
 }
 
@@ -99,6 +105,38 @@ function columnHeader(column: FreightLineColumn) {
   ])
 }
 
+function inlineNumberFieldsCell(column: FreightLineColumn, row: Record<string, unknown>, index: number) {
+  const inlineFields = column.inlineFields || []
+  const formatInlineNumber = (value: unknown) =>
+    formatNumber(value, { maximumFractionDigits: 2, minimumFractionDigits: 0 })
+  const summary = inlineFields
+    .map(field => formatInlineNumber(row[field.key]))
+    .join(' / ')
+  const main = h('span', {
+    class: [columnCellClass(column), 'block truncate tabular-nums text-xs'],
+    title: summary,
+  }, summary || '—')
+  if (!inlineFields.length) return main
+  if (props.disabled) return main
+  return h('div', { class: 'space-y-0.5 text-right' }, [
+    inlineFields.map(field =>
+      h('div', { class: 'flex items-center justify-end gap-1' }, [
+        h('span', { class: 'text-[11px] leading-none text-muted' }, fieldLabel(field)),
+        h(TableInputNumber, {
+          'modelValue': Number(row[field.key] || 0),
+          'increment': false,
+          'decrement': false,
+          'size': cellSize.value,
+          'class': 'w-20',
+          'ui': { base: 'text-right tabular-nums' },
+          'aria-label': fieldLabel(field),
+          'onUpdate:modelValue': (value: number | null) => updateCell(index, field.key, value ?? 0),
+        }),
+      ]),
+    ),
+  ])
+}
+
 function inlineMoneyCell(column: FreightLineColumn, row: Record<string, unknown>, index: number) {
   const inlineFields = column.inlineFields || []
   const main = h('span', {
@@ -106,7 +144,7 @@ function inlineMoneyCell(column: FreightLineColumn, row: Record<string, unknown>
     title: String(row[column.key] ?? ''),
   }, displayValue(column, row[column.key], row))
   if (!inlineFields.length) return main
-  const formatMoney = (value: unknown) => Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const formatInlineMoney = (value: unknown) => formatMoney(value)
   if (props.disabled) {
     const parts = inlineFields
       .map(field => ({ label: fieldLabel(field), value: Number(row[field.key] ?? 0) }))
@@ -115,7 +153,7 @@ function inlineMoneyCell(column: FreightLineColumn, row: Record<string, unknown>
     return h('div', { class: 'space-y-0.5' }, [
       main,
       h('div', { class: 'space-y-0.5 text-right text-[11px] leading-tight text-muted tabular-nums' }, parts.map(part =>
-        h('div', { title: `${part.label} ${formatMoney(part.value)}` }, `${part.label} ${formatMoney(part.value)}`),
+        h('div', { title: `${part.label} ${formatInlineMoney(part.value)}` }, `${part.label} ${formatInlineMoney(part.value)}`),
       )),
     ])
   }
@@ -129,7 +167,7 @@ function inlineMoneyCell(column: FreightLineColumn, row: Record<string, unknown>
           'increment': false,
           'decrement': false,
           'size': cellSize.value,
-          'class': 'w-[4.5rem]',
+          'class': 'w-20',
           'ui': { base: 'text-right tabular-nums' },
           'aria-label': fieldLabel(field),
           'onUpdate:modelValue': (value: number | null) => updateCell(index, field.key, value ?? 0),
@@ -242,18 +280,21 @@ function fileNameCell(row: Record<string, unknown>) {
   const name = fileTableRowName(row) || '—'
   const icon = fileTypeIcon({ name, mimeType: String(row.mimeType || '') })
   const href = name === '—' ? null : filePreviewHref(row)
+  const labelClass = props.compact
+    ? 'block min-w-0 truncate text-xs font-medium text-highlighted'
+    : 'block min-w-0 truncate text-sm font-medium text-highlighted'
   const label = href
     ? h('a', {
-        href,
-        target: '_blank',
-        rel: 'noopener noreferrer',
-        class: 'block min-w-0 truncate text-xs font-medium text-highlighted hover:text-primary hover:underline',
-        title: name,
-        'aria-label': t('freight.ui.previewFile', { name }),
-      }, name)
-    : h('span', { class: 'block min-w-0 truncate text-xs font-medium text-highlighted', title: name }, name)
+      href,
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      class: [labelClass, 'hover:text-primary hover:underline'],
+      title: name,
+      'aria-label': t('freight.ui.previewFile', { name }),
+    }, name)
+    : h('span', { class: labelClass, title: name }, name)
   return h('div', { class: 'flex min-w-0 items-center gap-1.5' }, [
-    h(TableIcon, { name: icon.icon, class: ['size-3.5 shrink-0', icon.class] }),
+    h(TableIcon, { name: icon.icon, class: ['size-4 shrink-0', icon.class] }),
     label,
   ])
 }
@@ -279,6 +320,9 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
       cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
         const index = Number(row.original._rowIndex || 0)
         if (isFileTable.value && column.key === 'fileName') return fileNameCell(row.original)
+        if (column.inlineFields?.length && !moneyKeys.has(column.key)) {
+          return inlineNumberFieldsCell(column, row.original, index)
+        }
         if (props.disabled || column.computed || isFileTable.value) {
           return inlineMoneyCell(column, row.original, index)
         }
@@ -402,30 +446,16 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
       <h3 :class="compact ? 'text-xs font-medium text-highlighted' : 'text-sm font-medium text-highlighted'">
         {{ tableTitle(table) }}
       </h3>
-      <UButton
-        v-if="!disabled"
-        :size="compact ? 'xs' : 'sm'"
-        color="neutral"
-        variant="soft"
+      <UButton v-if="!disabled" :size="compact ? 'xs' : 'sm'" color="neutral" variant="soft"
         :icon="isFileTable ? 'i-lucide-upload' : 'i-lucide-plus'"
         :label="table.addLabelKey && te(table.addLabelKey) ? t(table.addLabelKey) : (table.addLabel || t('freight.ui.addRow'))"
-        @click="addRow"
-      />
+        @click="addRow" />
     </div>
-    <input
-      v-if="isFileTable && !disabled"
-      ref="inputRef"
-      type="file"
-      multiple
-      class="hidden"
-      @change="onFilesChosen"
-    >
-    <UTable
-      :data="tableRows"
-      :columns="columns"
-      :get-row-id="(row: Record<string, unknown>) => String(row._rowIndex ?? '')"
-      :class="['freight-table min-w-max', compact ? 'freight-table-compact' : '']"
-      :ui="tableUi"
-    />
+    <input v-if="isFileTable && !disabled" ref="inputRef" type="file" multiple class="hidden" @change="onFilesChosen">
+    <div class="overflow-x-auto">
+      <UTable :data="tableRows" :columns="columns"
+        :get-row-id="(row: Record<string, unknown>) => String(row._rowIndex ?? '')"
+        :class="['freight-table min-w-max', compact ? 'freight-table-compact' : '']" :ui="tableUi" />
+    </div>
   </section>
 </template>

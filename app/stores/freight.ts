@@ -162,7 +162,7 @@ export const useFreightStore = defineStore('freight', () => {
   function addAudit(action: string, module: string, recordNo: string, remark = '') {
     const auth = useAuthStore()
     create('auditLogs', {
-      occurredAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      occurredAt: new Date().toISOString().slice(0, 19),
       user: auth.user?.name || 'System',
       action,
       module,

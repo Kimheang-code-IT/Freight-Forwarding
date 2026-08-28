@@ -82,20 +82,9 @@ function onSelect(_event: Event, row: TableRow<FreightRecord>) {
 <template>
   <div v-if="rows.length" class="overflow-hidden rounded-md border border-default">
     <div class="overflow-x-auto">
-      <UTable
-        :data="rows"
-        :columns="tableColumns"
-        :get-row-id="(row: FreightRecord) => String(row.id || '')"
-        class="freight-table freight-table-compact min-w-max"
-        :ui="freightTableUiCompact"
-        @select="onSelect"
-      />
+      <UTable :data="rows" :columns="tableColumns" :get-row-id="(row: FreightRecord) => String(row.id || '')"
+        class="freight-table freight-table-compact min-w-max" :ui="freightTableUiCompact" @select="onSelect" />
     </div>
   </div>
-  <FreightJobEmptyState
-    v-else
-    :title="emptyTitle"
-    :description="emptyDescription"
-    :icon="emptyIcon"
-  />
+  <FreightJobEmptyState v-else :title="emptyTitle" :description="emptyDescription" :icon="emptyIcon" />
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+import { useAppLocalization } from '~/composables/settings/useAppLocalization'
 import { tableRowActorName, tableRowCommentCount, tableRowInitials, tableRowStamp } from '~/utils/table/row-meta'
 
 const props = withDefaults(defineProps<{
@@ -11,31 +12,23 @@ const props = withDefaults(defineProps<{
 })
 
 const { t } = useI18n()
+const { relativeTime } = useAppLocalization()
 
 const stamp = computed(() => tableRowStamp(props.row))
 const letters = computed(() => tableRowInitials(props.row))
 const actor = computed(() => tableRowActorName(props.row) || letters.value)
 const comments = computed(() => tableRowCommentCount(props.row))
 
-const relative = computed(() => {
-  const raw = stamp.value
-  if (!raw) return '—'
-  const date = new Date(raw.includes('T') || raw.includes(' ') ? raw : `${raw}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return raw
-  const seconds = Math.round((Date.now() - date.getTime()) / 1000)
-  const abs = Math.abs(seconds)
-  if (abs < 45) return t('freight.ui.justNow')
-  if (abs < 3600) {
-    const mins = Math.max(1, Math.round(abs / 60))
-    return t('freight.ui.minutesAgo', { n: mins })
-  }
-  if (abs < 86400) {
-    const hours = Math.max(1, Math.round(abs / 3600))
-    return t('freight.ui.hoursAgo', { n: hours })
-  }
-  const days = Math.max(1, Math.round(abs / 86400))
-  return t('freight.ui.daysAgo', { n: days })
-})
+const relativeLabels = computed(() => ({
+  justNow: t('freight.ui.justNow'),
+  minutesAgo: (n: number) => t('freight.ui.minutesAgo', { n }),
+  hoursAgo: (n: number) => t('freight.ui.hoursAgo', { n }),
+  daysAgo: (n: number) => t('freight.ui.daysAgo', { n }),
+}))
+
+const relative = computed(() =>
+  relativeTime(stamp.value, relativeLabels.value, { fallback: '—' }),
+)
 </script>
 
 <template>

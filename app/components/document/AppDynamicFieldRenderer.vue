@@ -24,6 +24,7 @@ import { useReferenceOptions } from '~/composables/common/useReferenceOptions'
 import type { FreightRelated, FreightTable } from '~/config/freight-modules'
 import type { FreightRecord } from '~/config/freight-seed'
 import { asNumber } from '~/composables/freight/useFreight'
+import { useAppLocalization } from '~/composables/settings/useAppLocalization'
 import {
   freightDocumentLineActionKey,
   freightDocumentRecordKey,
@@ -250,12 +251,16 @@ const includeTaxTotal = computed(() => Boolean(props.field.meta?.includeTax))
 const lineCompact = computed(() => Boolean(props.field.meta?.compact))
 const lineViewOnly = computed(() => Boolean(props.field.meta?.viewOnly || props.field.readOnly))
 
+const { formatMoney } = useAppLocalization()
+
+const documentCurrency = computed(() => String(recordAccess?.get('currency') || '').trim() || undefined)
+
 function moneyAmount(key: string) {
   return asNumber(recordAccess?.get(key))
 }
 
 function moneyLabel(value: unknown) {
-  return Number(asNumber(value)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return formatMoney(value, documentCurrency.value)
 }
 
 function onFileChange(event: Event) {
@@ -482,22 +487,22 @@ function removeDestination(id: string) {
     >
       <div class="flex items-center justify-between gap-4">
         <span class="text-muted">{{ $t('freight.fields.subtotal') }}</span>
-        <span class="font-medium text-highlighted">{{ String(recordAccess?.get('currency') || 'USD') }} {{ moneyLabel(moneyAmount('subtotal')) }}</span>
+        <span class="font-medium text-highlighted">{{ moneyLabel(moneyAmount('subtotal')) }}</span>
       </div>
       <div class="flex items-center justify-between gap-4">
         <span class="text-muted">{{ $t('freight.fields.discount') }}</span>
-        <span class="font-medium text-highlighted">− {{ String(recordAccess?.get('currency') || 'USD') }} {{ moneyLabel(moneyAmount('discount')) }}</span>
+        <span class="font-medium text-highlighted">− {{ moneyLabel(moneyAmount('discount')) }}</span>
       </div>
       <div
         v-if="includeTaxTotal"
         class="flex items-center justify-between gap-4"
       >
         <span class="text-muted">{{ $t('freight.fields.tax') }}</span>
-        <span class="font-medium text-highlighted">{{ String(recordAccess?.get('currency') || 'USD') }} {{ moneyLabel(moneyAmount('tax')) }}</span>
+        <span class="font-medium text-highlighted">{{ moneyLabel(moneyAmount('tax')) }}</span>
       </div>
       <div class="mt-1 flex items-center justify-between gap-4 border-t border-default pt-2 text-base">
         <span class="font-semibold text-highlighted">{{ $t('freight.fields.total') }}</span>
-        <span class="font-bold text-primary">{{ String(recordAccess?.get('currency') || 'USD') }} {{ moneyLabel(moneyAmount('total')) }}</span>
+        <span class="font-bold text-primary">{{ moneyLabel(moneyAmount('total')) }}</span>
       </div>
     </div>
   </div>

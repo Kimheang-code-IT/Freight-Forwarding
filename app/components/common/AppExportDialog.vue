@@ -73,6 +73,8 @@ function submit() {
     v-model:open="open"
     :title="$t('docetra.exportDialog.title')"
     :description="$t('docetra.exportDialog.description')"
+    :dismissible="false"
+    :close="{ color: 'primary', variant: 'outline', class: 'rounded-full' }"
     :ui="{ content: 'w-[calc(100%-2rem)] max-w-2xl sm:max-w-2xl' }"
   >
     <template #body>

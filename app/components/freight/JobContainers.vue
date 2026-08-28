@@ -6,6 +6,7 @@ import {
   JOB_CONTAINER_PAYMENT_TABLE,
   JOB_CONTAINER_REQUIREMENT_TABLE,
 } from '~/config/job-workspace-forms'
+import { formatMoney } from '~/composables/freight/useFreight'
 import {
   duplicateContainerNumber,
   firstOpenRequirement,
@@ -115,7 +116,7 @@ const paymentTable = computed<FreightTable>(() => {
 })
 
 function money(value: number) {
-  return `${currency.value} ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return formatMoney(value, currency.value)
 }
 
 function withIds(rows: Array<Record<string, unknown>>, prefix: string) {

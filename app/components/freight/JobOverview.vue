@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FreightField } from '~/config/freight-modules'
 import type { FreightRecord } from '~/config/freight-seed'
-import { formatMoneyUsd, shortDay, useFreightLabel } from '~/composables/freight/useFreight'
+import { formatMoney, shortDay, useFreightLabel } from '~/composables/freight/useFreight'
 import { JOB_OVERVIEW_SECTIONS, jobWorkspacePath } from '~/utils/freight/job-workspace'
 
 const props = defineProps<{
@@ -38,6 +38,8 @@ function displayDate(value: unknown) {
   return shortDay(value, '')
 }
 
+const jobCurrency = computed(() => String(props.model.currency || '').trim() || undefined)
+
 const summaryItems = computed(() => [
   {
     label: t('freight.ui.containers'),
@@ -51,12 +53,12 @@ const summaryItems = computed(() => [
   },
   {
     label: t('freight.ui.totalCharges'),
-    value: formatMoneyUsd(props.chargesTotal ?? 0),
+    value: formatMoney(props.chargesTotal ?? 0, jobCurrency.value),
     to: tabTo('containers'),
   },
   {
     label: t('freight.ui.invoicedAmount'),
-    value: formatMoneyUsd(props.invoicedTotal ?? 0),
+    value: formatMoney(props.invoicedTotal ?? 0, jobCurrency.value),
     to: tabTo('finance'),
   },
 ])

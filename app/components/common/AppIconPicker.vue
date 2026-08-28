@@ -92,7 +92,7 @@ function clear() {
       />
     </div>
 
-    <UModal v-model:open="open">
+    <UModal v-model:open="open" :dismissible="false">
       <template #content>
         <UCard>
           <template #header>
@@ -100,12 +100,25 @@ function clear() {
               <h3 class="text-base font-semibold">
                 {{ t('docetra.common.chooseIcon') }}
               </h3>
-              <CommonAppLiveSearch
-                v-model="query"
-                :placeholder="t('docetra.common.search')"
-                class="max-w-56"
-                size="sm"
-              />
+              <div class="flex items-center gap-2">
+                <CommonAppLiveSearch
+                  v-model="query"
+                  :placeholder="t('docetra.common.search')"
+                  class="max-w-56"
+                  size="sm"
+                />
+                <UButton
+                  icon="i-lucide-x"
+                  color="primary"
+                  variant="outline"
+                  size="sm"
+                  square
+                  class="rounded-full"
+                  :aria-label="t('actions.close')"
+                  :title="t('actions.close')"
+                  @click="open = false"
+                />
+              </div>
             </div>
           </template>
 

@@ -12,9 +12,12 @@ const props = withDefaults(defineProps<{
   mode?: 'single' | 'range'
   granularity?: DatePickerGranularity
   disabled?: boolean
+  /** Number of month grids shown at once. */
+  months?: number
 }>(), {
   mode: 'single',
   granularity: 'day',
+  months: 2,
 })
 
 /** Single date / datetime — shared with UInputDate v-model. */
@@ -203,7 +206,7 @@ const dayRangeCalendar = computed({
       v-model="singleCalendar"
       v-model:placeholder="placeholderBinding"
       class="p-2"
-      :number-of-months="2"
+      :number-of-months="months"
       :paged-navigation="true"
       :size="calendarSize"
       :disabled="disabled"

@@ -393,6 +393,7 @@ function onTabChange(value: string) {
     :current-user="currentUser"
     :meta-title="String(model.jobNo || moduleSingular(module))"
     :meta-subtitle="headerSubtitle || String(model.customer || moduleSingular(module))"
+    :meta-icon="module.icon"
     :meta-status="String(model.status || '')"
     :meta-stage="String(model.direction || '')"
     :meta-owner="metaOwner"

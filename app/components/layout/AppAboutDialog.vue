@@ -23,6 +23,8 @@ const socials = [
     v-model:open="open"
     scrollable
     :title="t('settings.about')"
+    :dismissible="false"
+    :close="{ color: 'primary', variant: 'outline', class: 'rounded-full' }"
     :ui="{
       overlay: 'place-items-start justify-items-center pt-[5vh] sm:pt-[5vh]',
       content: 'w-[calc(100%-2rem)] max-w-md sm:max-w-md',

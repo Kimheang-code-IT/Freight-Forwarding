@@ -30,6 +30,8 @@ const props = withDefaults(defineProps<{
   showDateRange?: boolean
   dateLabel?: string
   dateGranularity?: DatePickerGranularity
+  /** Lights the mobile filter button when any toolbar filter or date range is set. */
+  filtersActive?: boolean
   emptyIcon?: string
   emptyTitle?: string
   emptyDescription?: string
@@ -41,6 +43,7 @@ const props = withDefaults(defineProps<{
   showDateRange: false,
   dateLabel: '',
   dateGranularity: 'day',
+  filtersActive: false,
   emptyIcon: 'i-lucide-inbox',
   emptyTitle: '',
   emptyDescription: '',
@@ -91,16 +94,19 @@ function onSelect(event: Event, row: TableRow<T>) {
         />
 
         <div class="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto">
-          <slot name="filters" />
-
-          <CommonAppDateRangeFilter
-            v-if="showDateRange"
-            v-model:start="dateStart"
-            v-model:end="dateEnd"
-            :granularity="dateGranularity"
-            class="shrink-0"
-            :label="dateLabelText"
-          />
+          <CommonAppFilterMenu :active="filtersActive" class="min-w-0">
+            <template #default="{ compact }">
+              <slot name="filters" :compact="compact" />
+              <CommonAppDateRangeFilter
+                v-if="showDateRange"
+                v-model:start="dateStart"
+                v-model:end="dateEnd"
+                :granularity="dateGranularity"
+                :inline="compact"
+                :label="dateLabelText"
+              />
+            </template>
+          </CommonAppFilterMenu>
 
           <slot name="actions" :selected-ids="selectedIds" />
         </div>
@@ -133,22 +139,23 @@ function onSelect(event: Event, row: TableRow<T>) {
         />
       </div>
 
-      <div class="flex items-center justify-between gap-3 border-t border-default px-3 py-2">
-        <USelect
-          :model-value="String(pagination.pageSize)"
-          :items="pageSizeItems"
-          size="xs"
-          class="w-20"
-          @update:model-value="setPageSize"
-        />
-        <div class="text-xs text-muted">
-          <span v-if="selectedIds.length">{{ selectedIds.length }} {{ t('freight.ui.selected') }} · </span>
-          {{ total }} {{ t('freight.ui.records') }}
+      <div class="flex items-center justify-between gap-2 border-t border-default px-2 py-1.5">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[11px] leading-none text-muted">{{ t('common.rowsPerPage') }}</span>
+          <USelect
+            :model-value="String(pagination.pageSize)"
+            :items="pageSizeItems"
+            size="xs"
+            class="w-16"
+            @update:model-value="setPageSize"
+          />
         </div>
         <UPagination
           :page="pagination.pageIndex + 1"
           :items-per-page="pagination.pageSize"
           :total="total"
+          size="xs"
+          :sibling-count="1"
           @update:page="setPage"
         />
       </div>

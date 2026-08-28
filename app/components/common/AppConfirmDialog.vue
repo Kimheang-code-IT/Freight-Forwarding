@@ -60,7 +60,7 @@ function onConfirm() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :ui="props.ui">
+  <UModal v-model:open="open" :dismissible="false" :ui="props.ui">
     <template #content>
       <UCard>
         <template #header>

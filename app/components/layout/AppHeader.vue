@@ -2,6 +2,26 @@
 import { useAppHeader } from '~/composables/layout/useAppHeader'
 
 const { displayTitle, breadcrumbs, badges, hasBreadcrumbs, actions } = useAppHeader()
+
+/** Spin on every click — page `refreshing` alone misses synchronous refreshes. */
+const refreshSpin = ref(false)
+let refreshSpinTimer: ReturnType<typeof setTimeout> | null = null
+const refreshSpinning = computed(() => Boolean(actions.value?.refreshing) || refreshSpin.value)
+
+function onHeaderRefresh() {
+  const handler = actions.value?.onRefresh
+  if (!handler) return
+  if (refreshSpinTimer) clearTimeout(refreshSpinTimer)
+  refreshSpin.value = true
+  try {
+    handler()
+  }
+  finally {
+    refreshSpinTimer = setTimeout(() => {
+      refreshSpin.value = false
+    }, 450)
+  }
+}
 </script>
 
 <template>
@@ -104,11 +124,11 @@ const { displayTitle, breadcrumbs, badges, hasBreadcrumbs, actions } = useAppHea
             variant="soft"
             icon="i-lucide-refresh-cw"
             square
-            :loading="actions.refreshing"
-            :disabled="actions.refreshing"
+            :class="refreshSpinning ? 'animate-spin' : ''"
+            :disabled="refreshSpinning"
             class="rounded-md"
             :aria-label="$t('docetra.actions.refresh')"
-            @click="actions.onRefresh?.()"
+            @click="onHeaderRefresh"
           />
 
           <UDropdownMenu
@@ -134,11 +154,11 @@ const { displayTitle, breadcrumbs, badges, hasBreadcrumbs, actions } = useAppHea
 
         <UButton
           v-if="actions?.metaRail"
-          icon="i-lucide-menu"
+          :icon="actions.metaRail.open ? 'i-lucide-panel-right-close' : 'i-lucide-panel-right-open'"
           color="neutral"
           variant="soft"
           square
-          class="rounded-md lg:hidden"
+          class="rounded-md"
           :aria-label="actions.metaRail.label"
           :aria-expanded="actions.metaRail.open"
           @click="actions.metaRail.onToggle()"

@@ -1,15 +1,16 @@
 /** Shared display formatting for freight tables, strips, and badges. */
 
+import { formatDate } from '~/utils/format/format-service'
+
 type Translate = (key: string) => string
 type TranslateExists = (key: string) => boolean
 
 /**
- * Compact day cell value: first 10 chars (`YYYY-MM-DD`) with a fallback.
+ * Compact day cell via System Settings date format.
  * Pass `fallback` explicitly when a page needs `''` instead of `—`.
  */
 export function shortDay(value: unknown, fallback = '—') {
-  const text = String(value ?? '')
-  return text ? text.slice(0, 10) : fallback
+  return formatDate(value, fallback)
 }
 
 /** Select items for status constants, using `freight.reportCatalog.statuses.*` when present. */

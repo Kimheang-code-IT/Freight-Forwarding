@@ -18,6 +18,19 @@ const tabItems = computed(() =>
     value: tab.id,
   })),
 )
+
+const scroller = ref<HTMLElement | null>(null)
+
+/** Wheel over the strip pans the tabs sideways instead of scrolling the page. */
+function onWheel(event: WheelEvent) {
+  const el = scroller.value
+  if (!el || el.scrollWidth <= el.clientWidth) return
+  if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+  const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY
+  const max = el.scrollWidth - el.clientWidth
+  el.scrollLeft = Math.min(max, Math.max(0, el.scrollLeft + delta))
+  event.preventDefault()
+}
 </script>
 
 <template>
@@ -25,7 +38,11 @@ const tabItems = computed(() =>
     v-if="tabs.length"
     class="w-full shrink-0 border-b border-default bg-default"
   >
-    <div class="w-full touch-pan-x overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div
+      ref="scroller"
+      class="w-full touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none"
+      @wheel="onWheel"
+    >
       <UTabs
         :model-value="activeTab"
         :items="tabItems"

@@ -48,6 +48,8 @@ const props = withDefaults(defineProps<{
   currentUser?: { id: string, name: string, email?: string }
   metaTitle?: string
   metaSubtitle?: string
+  /** Module icon rendered in the meta rail record tile. */
+  metaIcon?: string
   metaStatus?: string
   metaStage?: string
   metaOwner?: PersonSummary | null
@@ -141,7 +143,12 @@ const { confirm } = useConfirm()
 
 const scrollEl = ref<HTMLElement | null>(null)
 const showScrollTop = ref(false)
+/** Rail starts collapsed — the header panel icon opens/closes it on every breakpoint. */
 const metaRailOpen = ref(false)
+
+function toggleMetaRail() {
+  metaRailOpen.value = !metaRailOpen.value
+}
 
 function onFormScroll() {
   showScrollTop.value = (scrollEl.value?.scrollTop ?? 0) > 240
@@ -195,7 +202,7 @@ async function onSaveClick() {
       @navigate-previous="emit('navigatePrevious')"
       @navigate-next="emit('navigateNext')"
       @save="onSaveClick"
-      @toggle-meta-rail="metaRailOpen = !metaRailOpen"
+      @toggle-meta-rail="toggleMetaRail"
     >
       <template v-if="$slots.leading" #leading>
         <slot name="leading" />
@@ -237,8 +244,8 @@ async function onSaveClick() {
               v-if="notFound"
               class="mx-auto mt-6 w-full px-4 sm:px-6 lg:px-10"
               :class="contentWide
-                ? 'max-w-4xl lg:max-w-5xl xl:max-w-6xl'
-                : 'max-w-xl sm:max-w-2xl lg:max-w-3xl'"
+                ? 'max-w-5xl lg:max-w-6xl xl:max-w-7xl'
+                : 'max-w-2xl sm:max-w-3xl lg:max-w-4xl'"
               color="error"
               :title="t('docetra.states.notFound')"
             />
@@ -246,8 +253,8 @@ async function onSaveClick() {
               v-else-if="error"
               class="mx-auto mt-6 w-full px-4 sm:px-6 lg:px-10"
               :class="contentWide
-                ? 'max-w-4xl lg:max-w-5xl xl:max-w-6xl'
-                : 'max-w-xl sm:max-w-2xl lg:max-w-3xl'"
+                ? 'max-w-5xl lg:max-w-6xl xl:max-w-7xl'
+                : 'max-w-2xl sm:max-w-3xl lg:max-w-4xl'"
               color="error"
               :title="error"
             />
@@ -328,8 +335,10 @@ async function onSaveClick() {
 
         <aside
           v-if="showMetaRail && !notFound && !error && showForm"
-          class="absolute inset-y-0 end-0 z-30 w-[min(22rem,calc(100%-3rem))] bg-default shadow-xl transition-transform duration-200 lg:static lg:z-auto lg:w-64 lg:translate-x-0 lg:shadow-none xl:w-72"
-          :class="metaRailOpen ? 'translate-x-0' : 'translate-x-full rtl:-translate-x-full'"
+          class="absolute inset-y-0 end-0 z-30 w-[min(22rem,calc(100%-3rem))] bg-default shadow-xl transition-transform duration-200 lg:static lg:z-auto lg:w-64 lg:shadow-none xl:w-72"
+          :class="metaRailOpen
+            ? 'translate-x-0'
+            : 'translate-x-full rtl:-translate-x-full lg:hidden'"
         >
           <UButton
             icon="i-lucide-x"
@@ -345,6 +354,7 @@ async function onSaveClick() {
             class="h-full min-h-0 overflow-y-auto"
             :title="metaTitle"
             :subtitle="metaSubtitle"
+            :icon="metaIcon"
             :owner="metaOwner || undefined"
             :activity="activity"
             :created-at="metaCreatedAt"

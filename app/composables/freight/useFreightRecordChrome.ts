@@ -157,10 +157,16 @@ export function useFreightRecordChrome(options: {
         ? { ...item, body, editedAt: new Date().toISOString() }
         : item),
     })
+    if (options.module.value && options.model.value.id) {
+      store.save(options.module.value.collection, options.model.value)
+    }
   }
 
   async function deleteComment(id: string) {
     patch({ comments: comments.value.filter(item => item.id !== id) })
+    if (options.module.value && options.model.value.id) {
+      store.save(options.module.value.collection, options.model.value)
+    }
   }
 
   function emptyFieldValue() {

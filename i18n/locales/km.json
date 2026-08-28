@@ -1104,6 +1104,7 @@
         "sealNo": "លេខត្រា",
         "netWeight": "ទម្ងន់សុទ្ធ",
         "grossWeight": "ទម្ងន់សរុប",
+        "weightKg": "ទម្ងន់ (គក)",
         "createdAt": "បង្កើតនៅ",
         "bookingNo": "លេខកក់ / ដឹក",
         "carrier": "ក្រុមហ៊ុនដឹក",
@@ -2596,6 +2597,8 @@
   "components": {
     "select": "ជ្រើសរើស...",
     "filterSearch": "ស្វែងរកជម្រើស...",
+    "filterMenu": "តម្រង",
+    "filterApplied": "បានអនុវត្តតម្រង",
     "filterNone": "ទាំងអស់ (គ្មានតម្រង)"
   },
   "pages": {

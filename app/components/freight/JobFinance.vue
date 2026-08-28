@@ -3,7 +3,7 @@ import type { TableColumn } from '@nuxt/ui'
 import { h, type Component } from 'vue'
 import { UBadge, UButton, UDropdownMenu, ULink } from '#components'
 import type { FreightRecord } from '~/config/freight-seed'
-import { codeTitle, formatMoneyUsd, freightStatusBadge, shortDay } from '~/composables/freight/useFreight'
+import { codeTitle, formatMoney, freightStatusBadge, shortDay } from '~/composables/freight/useFreight'
 import { useLcs } from '~/composables/lcs/useLcs'
 import { outstandingOf, postedDocumentTotal } from '~/utils/freight/finance'
 import { freightTableUiReadonly } from '~/utils/table/theme'
@@ -36,11 +36,15 @@ const summary = computed(() => {
   }
 })
 
+const jobCurrency = computed(() =>
+  String(props.documents[0]?.currency || props.receivables[0]?.currency || props.supplierCosts[0]?.currency || '').trim() || undefined,
+)
+
 const summaryItems = computed(() => [
-  { label: t('freight.ui.revenue'), value: formatMoneyUsd(summary.value.revenue) },
-  { label: t('freight.ui.costLabel'), value: formatMoneyUsd(summary.value.cost) },
-  { label: t('freight.ui.grossProfit'), value: formatMoneyUsd(summary.value.profit) },
-  { label: t('freight.ui.outstandingAmount'), value: formatMoneyUsd(summary.value.outstanding) },
+  { label: t('freight.ui.revenue'), value: formatMoney(summary.value.revenue, jobCurrency.value) },
+  { label: t('freight.ui.costLabel'), value: formatMoney(summary.value.cost, jobCurrency.value) },
+  { label: t('freight.ui.grossProfit'), value: formatMoney(summary.value.profit, jobCurrency.value) },
+  { label: t('freight.ui.outstandingAmount'), value: formatMoney(summary.value.outstanding, jobCurrency.value) },
 ])
 
 function rowMenuItems(row: FreightRecord) {
@@ -78,7 +82,7 @@ const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
     accessorKey: 'total',
     header: t('freight.ui.cols.total'),
     meta: { class: { td: 'text-end tabular-nums whitespace-nowrap', th: 'text-end' } },
-    cell: ({ row }) => h('span', { class: 'tabular-nums font-medium' }, formatMoneyUsd(row.original.total ?? row.original.amount)),
+    cell: ({ row }) => h('span', { class: 'tabular-nums font-medium' }, formatMoney(row.original.total ?? row.original.amount, String(row.original.currency || jobCurrency.value || ''))),
   },
   {
     accessorKey: 'outstanding',
@@ -86,7 +90,7 @@ const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
     meta: { class: { td: 'text-end tabular-nums whitespace-nowrap', th: 'text-end' } },
     cell: ({ row }) => h('span', {
       class: outstandingOf(row.original) > 0 ? 'tabular-nums text-warning' : 'tabular-nums text-muted',
-    }, formatMoneyUsd(outstandingOf(row.original))),
+    }, formatMoney(outstandingOf(row.original), String(row.original.currency || jobCurrency.value || ''))),
   },
   {
     accessorKey: 'status',
@@ -116,23 +120,12 @@ const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
   <div class="space-y-4">
     <FreightJobSectionHeader :title="t('freight.jobSections.finance')" :description="t('freight.ui.postedOnlyHint')">
       <template #actions>
-        <UButton
-          v-if="lcs.can('financial_document.create')"
-          size="xs"
-          color="neutral"
-          variant="soft"
+        <UButton v-if="lcs.can('financial_document.create')" size="xs" color="neutral" variant="soft"
           icon="i-lucide-receipt-text"
           :to="{ path: '/finance/documents/new', query: { documentType: 'CUSTOMER_INVOICE', jobNo, customer } }"
-          :label="t('freight.ui.customerInvoice')"
-        />
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-arrow-up-right"
-          :to="{ path: '/finance/documents', query: { jobNo } }"
-          :label="t('freight.ui.openFinance')"
-        />
+          :label="t('freight.ui.customerInvoice')" />
+        <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up-right"
+          :to="{ path: '/finance/documents', query: { jobNo } }" :label="t('freight.ui.openFinance')" />
       </template>
     </FreightJobSectionHeader>
 
@@ -144,20 +137,11 @@ const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
       </h4>
       <div v-if="documents.length" class="overflow-hidden rounded-md border border-default">
         <div class="overflow-x-auto">
-          <UTable
-            :data="documents"
-            :columns="tableColumns"
-            :get-row-id="(row: FreightRecord) => String(row.id || '')"
-            class="freight-table min-w-max"
-            :ui="freightTableUiReadonly"
-          />
+          <UTable :data="documents" :columns="tableColumns" :get-row-id="(row: FreightRecord) => String(row.id || '')"
+            class="freight-table min-w-max" :ui="freightTableUiReadonly" />
         </div>
       </div>
-      <FreightJobEmptyState
-        v-else
-        :title="t('freight.ui.noFinancialDocuments')"
-        icon="i-lucide-banknote"
-      />
+      <FreightJobEmptyState v-else :title="t('freight.ui.noFinancialDocuments')" icon="i-lucide-banknote" />
     </section>
   </div>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { today, getLocalTimeZone } from '@internationalized/date'
 import type { DateValue } from '@internationalized/date'
 import type { DatePickerGranularity } from '~/utils/date-picker'
 import {
@@ -7,21 +8,18 @@ import {
   serializePickerValue,
   datePickerPopoverContent,
 } from '~/utils/date-picker'
-import { getFilterDateUi, isFilterValueActive } from '~/utils/filter/select-ui'
+import { formatDateParts } from '~/utils/format/format-service'
+import { useAppLocalization } from '~/composables/settings/useAppLocalization'
 
 const props = withDefaults(defineProps<{
   modelValue?: string | null
   disabled?: boolean
   required?: boolean
   granularity?: DatePickerGranularity
-  color?: 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
-  variant?: 'outline' | 'soft' | 'subtle' | 'ghost' | 'none'
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   class?: string
 }>(), {
   granularity: 'day',
-  color: 'neutral',
-  variant: 'soft',
   size: 'md',
 })
 
@@ -29,92 +27,177 @@ const emit = defineEmits<{
   'update:modelValue': [string]
 }>()
 
-const inputDate = useTemplateRef<{ inputsRef?: Array<{ $el?: HTMLElement }> } | null>('inputDate')
-const pickerAnchor = useTemplateRef<HTMLElement | null>('pickerAnchor')
+const { t } = useI18n()
+const { localization } = useAppLocalization()
+const open = ref(false)
+const anchor = useTemplateRef<HTMLElement | null>('anchor')
+const textInput = useTemplateRef<{ inputRef?: HTMLInputElement } | null>('textInput')
 
 const isDateTime = computed(() => isDateTimeGranularity(props.granularity))
-const isActive = computed(() => isFilterValueActive(props.modelValue))
-const dateUi = computed(() => getFilterDateUi(isActive.value, {
-  isDateTime: isDateTime.value,
-  isRange: false,
-}))
-
 const pickerIcon = computed(() =>
   isDateTime.value ? 'i-lucide-calendar-clock' : 'i-lucide-calendar',
 )
 
-/** Shared with UInputDate + UCalendar in popover (Nuxt UI pattern). */
+/** ERPNext-style display pattern from System Settings (e.g. DD-MM-YYYY). */
+const displayPattern = computed(() => localization.value.dateFormat || 'YYYY-MM-DD')
+
+function pad(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function patternToken(date: DateValue) {
+  return formatDateParts({ year: date.year, month: date.month, day: date.day })
+}
+
+const placeholderText = computed(() => patternToken(today(getLocalTimeZone())))
+
+/** Shown text: formatted date when set, otherwise the raw draft while typing. */
+const displayValue = computed(() => {
+  if (props.modelValue) {
+    const parsed = parsePickerValue(props.modelValue, isDateTime.value)
+    if (parsed) {
+      const datePart = patternToken(parsed)
+      if (!isDateTime.value) return datePart
+      const time = props.modelValue.slice(11, 16)
+      return time ? `${datePart} ${time}` : datePart
+    }
+  }
+  return String(props.modelValue ?? '')
+})
+
 const dateValue = computed({
   get: () => parsePickerValue(props.modelValue, isDateTime.value),
   set: (value: DateValue | null | undefined) => {
     emit('update:modelValue', serializePickerValue(value))
   },
 })
+
+/** Draft holds raw keystrokes while focused so typing is not snapped back. */
+const focused = ref(false)
+const draft = ref('')
+
+const inputValue = computed(() =>
+  focused.value ? draft.value : displayValue.value,
+)
+
+function onFocus() {
+  draft.value = displayValue.value
+  focused.value = true
+  textInput.value?.inputRef?.select()
+}
+
+function onBlur() {
+  focused.value = false
+  draft.value = ''
+}
+
+/** Accept free-typed dates in the configured pattern (or ISO) plus HH:mm for datetime. */
+function commitText(raw: string) {
+  const text = raw.trim()
+  if (!text) {
+    draft.value = ''
+    emit('update:modelValue', '')
+    return
+  }
+  draft.value = raw
+
+  const timeMatch = text.match(/[T\s](\d{1,2}):(\d{2})$/)
+  const time = timeMatch
+    ? { hour: Number(timeMatch[1]), minute: Number(timeMatch[2]) }
+    : null
+  const datePart = (time && timeMatch?.index != null ? text.slice(0, timeMatch.index) : text).trim()
+
+  const iso = datePart.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/)
+  const dmy = datePart.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/)
+  const mdy = displayPattern.value === 'MM/DD/YYYY'
+    ? datePart.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/)
+    : null
+
+  let base: { y: number, m: number, d: number } | null = null
+  if (iso) base = { y: Number(iso[1]), m: Number(iso[2]), d: Number(iso[3]) }
+  else if (dmy && displayPattern.value !== 'MM/DD/YYYY') base = { y: Number(dmy[3]), m: Number(dmy[2]), d: Number(dmy[1]) }
+  else if (mdy) base = { y: Number(mdy[3]), m: Number(mdy[1]), d: Number(mdy[2]) }
+
+  if (!base || base.m < 1 || base.m > 12 || base.d < 1 || base.d > 31) return
+
+  if (isDateTime.value) {
+    const hour = time ? Math.min(23, time.hour) : 0
+    const minute = time ? time.minute : 0
+    emit('update:modelValue', `${base.y}-${pad(base.m)}-${pad(base.d)}T${pad(hour)}:${pad(minute)}`)
+    return
+  }
+  emit('update:modelValue', `${base.y}-${pad(base.m)}-${pad(base.d)}`)
+}
+
+function commitPicker(value: DateValue | undefined | null) {
+  if (!value) return
+  focused.value = false
+  draft.value = ''
+  dateValue.value = value
+  if (!isDateTime.value) open.value = false
+}
+
+function goToday() {
+  const now = today(getLocalTimeZone())
+  focused.value = false
+  draft.value = ''
+  if (isDateTime.value) {
+    const clock = new Date()
+    emit('update:modelValue', `${now.toString()}T${pad(clock.getHours())}:${pad(clock.getMinutes())}`)
+    return
+  }
+  emit('update:modelValue', now.toString())
+  open.value = false
+}
 </script>
 
 <template>
   <div
-    ref="pickerAnchor"
-    class="app-input-date relative min-w-0"
-    :class="[props.class || 'w-full', isDateTime ? 'app-input-date--datetime' : '']"
+    ref="anchor"
+    class="relative min-w-0"
+    :class="[props.class || 'w-full']"
   >
-    <UInputDate
-      ref="inputDate"
-      v-model="dateValue"
-      fixed
-      :granularity="granularity"
+    <UInput
+      ref="textInput"
+      :model-value="inputValue"
       :disabled="disabled"
       :required="required"
-      :color="color"
-      :variant="variant"
       :size="size"
+      :placeholder="placeholderText"
       class="w-full min-w-0"
-      :ui="dateUi"
-    />
-
-    <div class="pointer-events-none absolute inset-y-0 end-0 z-10 flex items-center pe-1.5">
-      <UPopover
-        :reference="pickerAnchor ?? inputDate?.inputsRef?.[0]?.$el"
-        :content="datePickerPopoverContent"
-      >
-        <UButton
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          square
-          :icon="pickerIcon"
-          class="pointer-events-auto size-7 text-muted hover:text-highlighted"
-          :aria-label="isDateTime ? 'Select date and time' : 'Select a date'"
-          :disabled="disabled"
-        />
-
-        <template #content>
-          <CommonAppDatePickerPopover
-            v-model="dateValue"
-            mode="single"
-            :granularity="granularity"
+      autocomplete="off"
+      @update:model-value="commitText"
+      @focus="onFocus"
+      @blur="onBlur"
+    >
+      <template #trailing>
+        <UPopover
+          v-model:open="open"
+          :reference="anchor ?? undefined"
+          :content="datePickerPopoverContent"
+        >
+          <UButton
+            :icon="pickerIcon"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            square
+            class="text-muted hover:text-highlighted"
+            :aria-label="isDateTime ? 'Select date and time' : 'Select a date'"
             :disabled="disabled"
           />
-        </template>
-      </UPopover>
-    </div>
+          <template #content>
+            <CommonAppDatePickerPopover
+              :model-value="dateValue"
+              mode="single"
+              :months="1"
+              :granularity="granularity"
+              :disabled="disabled"
+              @update:model-value="commitPicker"
+            />
+          </template>
+        </UPopover>
+      </template>
+    </UInput>
   </div>
 </template>
-
-<style scoped>
-.app-input-date :deep([data-slot="base"]) {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.app-input-date--datetime :deep([data-slot="base"]) {
-  padding-inline-end: 2.75rem;
-}
-
-.app-input-date :deep([data-slot="base"]::-webkit-scrollbar) {
-  display: none;
-}
-</style>

@@ -6,6 +6,7 @@ import { getFreightModule } from '~/config/freight-modules'
 import { JOB_CHECKLIST_TYPES } from '~/config/freight-options'
 import { defaultJobRoutePlaces, isMoneyKey } from '~/utils/freight/job-workspace'
 import { documentSequenceTypeLabel } from '~/utils/document-sequences'
+import { formatMoney as formatMoneyValue, formatNumber as formatNumberValue } from '~/utils/format/format-service'
 import { codeTitle, labeledStatusOptions, shortDay } from '~/utils/freight/format'
 
 export { codeTitle, labeledStatusOptions, shortDay }
@@ -154,19 +155,14 @@ export function asNumber(value: unknown) {
   return Number.isFinite(n) ? n : 0
 }
 
-export function formatMoney(value: unknown) {
-  const n = asNumber(value)
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+export function formatMoney(value: unknown, currency?: string) {
+  return formatMoneyValue(value, currency)
 }
 
-export function formatMoneyUsd(value: unknown) {
-  return `$${formatMoney(value)}`
-}
-
-export function formatFreightCell(value: unknown, key: string) {
+export function formatFreightCell(value: unknown, key: string, currency?: string) {
   if (key === 'documentType') return documentSequenceTypeLabel(value)
-  if (isMoneyKey(key)) return formatMoneyUsd(value)
-  if (typeof value === 'number') return asNumber(value).toLocaleString()
+  if (isMoneyKey(key)) return formatMoney(value, currency)
+  if (typeof value === 'number') return formatNumberValue(value)
   if (Array.isArray(value)) return value.map(item => String(item ?? '').trim()).filter(Boolean).join(', ') || '—'
   const text = String(value ?? '').trim()
   return text || '—'

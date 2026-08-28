@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TimelineItem } from '@nuxt/ui'
 import type { ActivityEvent, EntityComment, PersonSummary } from '~/types/docetra/common'
+import { useAppLocalization } from '~/composables/settings/useAppLocalization'
 
 const props = withDefaults(defineProps<{
   comments: EntityComment[]
@@ -35,6 +36,21 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { relativeTime } = useAppLocalization()
+
+const relativeLabels = computed(() => ({
+  justNow: t('docetra.meta.justNow'),
+  minuteAgo: t('docetra.meta.minuteAgo'),
+  minutesAgo: (n: number) => t('docetra.meta.minutesAgo', { n }),
+  hourAgo: t('docetra.meta.hourAgo'),
+  hoursAgo: (n: number) => t('docetra.meta.hoursAgo', { n }),
+  dayAgo: t('docetra.meta.dayAgo'),
+  daysAgo: (n: number) => t('docetra.meta.daysAgo', { n }),
+}))
+
+function formatRelativeStamp(value: string) {
+  return relativeTime(value, relativeLabels.value)
+}
 
 const showInput = computed(() => props.canComment && props.showComposer)
 
@@ -58,7 +74,7 @@ const timelineItems = computed<ActivityTimelineItem[]>(() => {
     comment,
     icon: 'i-lucide-message-square',
     title: `${personLabel(comment.author.name)} ${t('docetra.comments.commented')}`,
-    date: relativeTime(comment.createdAt),
+    date: formatRelativeStamp(comment.createdAt),
     slot: 'comment' as const,
   }))
 
@@ -74,27 +90,13 @@ const timelineItems = computed<ActivityTimelineItem[]>(() => {
         highlight: eventHighlight(event),
         icon: attachment ? 'i-lucide-paperclip' : 'i-lucide-circle',
         title: eventPrefix(event),
-        date: relativeTime(event.occurredAt),
+        date: formatRelativeStamp(event.occurredAt),
         slot: 'line' as const,
       }
     })
 
   return [...commentItems, ...eventItems].sort((a, b) => b.at - a.at)
 })
-
-function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return t('docetra.meta.justNow')
-  if (mins === 1) return t('docetra.meta.minuteAgo')
-  if (mins < 60) return t('docetra.meta.minutesAgo', { n: mins })
-  const hours = Math.floor(mins / 60)
-  if (hours === 1) return t('docetra.meta.hourAgo')
-  if (hours < 24) return t('docetra.meta.hoursAgo', { n: hours })
-  const days = Math.floor(hours / 24)
-  if (days === 1) return t('docetra.meta.dayAgo')
-  return t('docetra.meta.daysAgo', { n: days })
-}
 
 function personLabel(name?: string) {
   const current = props.currentUser?.name

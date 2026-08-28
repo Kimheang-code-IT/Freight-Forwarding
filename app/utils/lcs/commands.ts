@@ -68,7 +68,7 @@ function existingIdempotent(db: LcsCollections, key: string) {
 function audit(db: LcsCollections, session: LcsSession, action: string, module: string, recordNo: string, remark = '') {
   replace(db, 'auditLogs', stampTenant({
     id: newId('log'),
-    occurredAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+    occurredAt: new Date().toISOString().slice(0, 19),
     user: session.userName,
     action,
     module,

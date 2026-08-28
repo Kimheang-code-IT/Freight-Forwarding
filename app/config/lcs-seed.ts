@@ -250,6 +250,54 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       grossWeightKg: 21800,
       status: 'Loaded',
     } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+    stamp({
+      id: id('ac', 2),
+      jobNo: 'LCS-EX-260820',
+      serviceOrderId: 'job-002',
+      containerRequirementId: 'cr-job-002',
+      containerType: '20GP',
+      containerNo: 'TGHU 771923-4',
+      sealNo: 'SL-7741',
+      netWeightKg: 12450,
+      grossWeightKg: 15200,
+      status: 'In Transit',
+    } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+    stamp({
+      id: id('ac', 3),
+      jobNo: 'LCS-IM-260819',
+      serviceOrderId: 'job-003',
+      containerRequirementId: 'cr-job-003',
+      containerType: '40GP',
+      containerNo: 'OOLU 204187-1',
+      sealNo: 'SL-4410',
+      netWeightKg: 19800,
+      grossWeightKg: 22400,
+      status: 'Delivered',
+    } as FreightRecord, LCS_ORG_ID, BRANCH_PP_ID),
+    stamp({
+      id: id('ac', 4),
+      jobNo: 'LCS-IM-260818',
+      serviceOrderId: 'job-004',
+      containerRequirementId: 'cr-job-004',
+      containerType: '40HC',
+      containerNo: 'CSLU 551882-1',
+      sealNo: 'SL-2281',
+      netWeightKg: 17600,
+      grossWeightKg: 21100,
+      status: 'Loaded',
+    } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+    stamp({
+      id: id('ac', 5),
+      jobNo: 'LCS-IM-260816',
+      serviceOrderId: 'job-006',
+      containerRequirementId: 'cr-job-006',
+      containerType: '20GP',
+      containerNo: 'MSCU 771100-2',
+      sealNo: 'SL-1102',
+      netWeightKg: 9850,
+      grossWeightKg: 11800,
+      status: 'Returned',
+    } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
   ]
 
   for (const job of jobs) {
@@ -367,12 +415,14 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
     if (row.id === 'cp-002') {
       extra.allocatedAmount = 500
       extra.unallocatedAmount = 0
+      extra.journalId = 'je-004'
       extra.allocations = [{ targetDocumentNo: 'DN-2608-040', targetOutstanding: 1226.5, amount: 500, currency: 'USD', exchangeRate: 1 }]
     }
     if (row.id === 'cp-003') {
       extra.allocatedAmount = 1375
       extra.unallocatedAmount = 0
       extra.branchId = BRANCH_PP_ID
+      extra.journalId = 'je-003'
       extra.allocations = [{ targetDocumentNo: 'DN-2608-039', targetOutstanding: 1375, amount: 1375, currency: 'USD', exchangeRate: 1 }]
     }
     if (row.id === 'cp-001') {
@@ -381,6 +431,7 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       extra.allocatedAmount = 0
       extra.unallocatedAmount = 200
       extra.status = 'Partial'
+      extra.journalId = 'je-008'
       extra.allocations = []
     }
     return { ...row, ...extra }
@@ -456,7 +507,13 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
     customerPayments,
     jobCharges,
     supplierCosts,
-    supplierPayments: stampAll(base.supplierPayments, LCS_ORG_ID, BRANCH_BAVET_ID),
+    supplierPayments: stampAll(base.supplierPayments, LCS_ORG_ID, BRANCH_BAVET_ID).map(row => {
+      const extra: Record<string, unknown> = {}
+      if (row.id === 'sp-001') extra.journalId = 'je-005'
+      if (row.id === 'sp-002') extra.journalId = 'je-006'
+      if (row.id === 'sp-003') extra.journalId = 'je-007'
+      return { ...row, ...extra }
+    }),
     users: stampAll(base.users, LCS_ORG_ID, BRANCH_BAVET_ID).map((row, index) => ({
       ...row,
       userCode: `USR-${String(index + 1).padStart(3, '0')}`,
@@ -534,6 +591,7 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       stamp({ id: 'cg-003', code: 'SHIPMENT_REGISTRATION', name: 'Shipment Registration Number', description: 'Shipment registration number and office', displayOrder: 30, showOnJobWorkspace: 'Yes', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'cg-004', code: 'BILL', name: 'Bill', description: 'Bill of lading / transport bill fields', displayOrder: 40, showOnJobWorkspace: 'Yes', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'cg-005', code: 'CUSTOMS', name: 'Customs', description: 'Customs declaration and clearance work', displayOrder: 50, showOnJobWorkspace: 'Yes', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'cg-006', code: 'TRANSPORT', name: 'Transport', description: 'Truck dispatch and border crossing execution', displayOrder: 60, showOnJobWorkspace: 'Yes', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     componentTemplates: [
       stamp({ id: 'tpl-001', code: 'COMMERCIAL_INVOICE', name: 'Commercial Invoice', group: 'INVOICE', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'invoice_no', label: 'Invoice No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'invoice_date', label: 'Invoice Date', dataType: 'Date', inputType: 'Date', required: 'Yes', displayOrder: 20, validation: '' }, { code: 'seller', label: 'Seller', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }, { code: 'invoice_amount', label: 'Invoice Amount', dataType: 'Number', inputType: 'Currency', required: 'No', displayOrder: 40, validation: 'Minimum 0' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
@@ -541,6 +599,7 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       stamp({ id: 'tpl-003', code: 'SHIPMENT_REGISTRATION', name: 'Shipment Registration', group: 'SHIPMENT_REGISTRATION', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'registration_no', label: 'Registration No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'registered_at', label: 'Registered At', dataType: 'Date', inputType: 'Date', required: 'No', displayOrder: 20, validation: '' }, { code: 'issuing_office', label: 'Issuing Office', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tpl-004', code: 'TRANSPORT_BILL', name: 'Bill', group: 'BILL', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'bill_no', label: 'Bill / B/L No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'bill_date', label: 'Bill Date', dataType: 'Date', inputType: 'Date', required: 'No', displayOrder: 20, validation: '' }, { code: 'carrier', label: 'Carrier', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tpl-005', code: 'CUSTOMS_CLEARANCE', name: 'Customs Clearance', group: 'CUSTOMS', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'declaration_no', label: 'Declaration No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: 'Unique within organization' }, { code: 'cleared_at', label: 'Cleared At', dataType: 'Date', inputType: 'Date', required: 'Yes', displayOrder: 20, validation: '' }, { code: 'customs_fee', label: 'Customs Fee', dataType: 'Number', inputType: 'Currency', required: 'No', displayOrder: 30, validation: 'Minimum 0' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'tpl-006', code: 'TRUCK_DISPATCH', name: 'Truck Dispatch', group: 'TRANSPORT', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'truck_plate', label: 'Truck Plate', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'driver_name', label: 'Driver Name', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 20, validation: '' }, { code: 'driver_phone', label: 'Driver Phone', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }, { code: 'border_eta', label: 'Border ETA', dataType: 'Date', inputType: 'Date', required: 'No', displayOrder: 40, validation: '' }, { code: 'factory_eta', label: 'Factory ETA', dataType: 'Date', inputType: 'Date', required: 'No', displayOrder: 50, validation: '' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ].map(row => ({
       ...row,
       description: row.description || `${row.name} component template`,
@@ -564,6 +623,11 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
           declaration_no: 'Customs declaration number for this clearance.',
           cleared_at: 'Date customs clearance was granted.',
           customs_fee: 'Customs fee amount. Must be zero or greater.',
+          truck_plate: 'License plate of the assigned truck.',
+          driver_name: 'Driver assigned to this movement.',
+          driver_phone: 'Driver contact number for dispatch updates.',
+          border_eta: 'Expected arrival at the border checkpoint.',
+          factory_eta: 'Expected arrival at the factory or delivery point.',
         }
         const code = String(attribute.code || '')
         return {
@@ -587,10 +651,19 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       stamp({ id: 'tdc-008', tradeDirection: 'Export', componentGroup: 'Shipment Registration Number', componentTemplate: 'Shipment Registration', templateVersion: '2026.08', required: 'Yes', repeatable: 'No', displayOrder: 30, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tdc-009', tradeDirection: 'Export', componentGroup: 'Bill', componentTemplate: 'Bill', templateVersion: '2026.08', required: 'Yes', repeatable: 'No', displayOrder: 40, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tdc-010', tradeDirection: 'Export', componentGroup: 'Customs', componentTemplate: 'Customs Clearance', templateVersion: '2026.08', required: 'Yes', repeatable: 'No', displayOrder: 50, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'tdc-011', tradeDirection: 'Import', componentGroup: 'Transport', componentTemplate: 'Truck Dispatch', templateVersion: '2026.08', required: 'Yes', repeatable: 'No', displayOrder: 60, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'tdc-012', tradeDirection: 'Export', componentGroup: 'Transport', componentTemplate: 'Truck Dispatch', templateVersion: '2026.08', required: 'Yes', repeatable: 'No', displayOrder: 60, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     postingRules: [
       stamp({ id: 'pr-001', documentType: 'CUSTOMER_INVOICE', feeType: 'FREIGHT_SERVICE', debitAccount: '1100 · Accounts Receivable', creditAccount: '4010 · Service Revenue', taxAccount: '2020 · Output Tax', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'pr-002', documentType: 'SUPPLIER_BILL', feeType: 'TRANSPORT', debitAccount: '5010 · Transport Expense', creditAccount: '2010 · Accounts Payable', taxAccount: '1210 · Input Tax', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'pr-003', documentType: 'SUPPLIER_BILL', feeType: 'CUSTOMS_CLEARANCE', debitAccount: '5020 · Customs Expense', creditAccount: '2010 · Accounts Payable', taxAccount: '1210 · Input Tax', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'pr-004', documentType: 'CUSTOMER_RECEIPT', feeType: 'BANK_TRANSFER', debitAccount: '1020 · Bank Account', creditAccount: '1100 · Accounts Receivable', taxAccount: '', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'pr-005', documentType: 'CUSTOMER_RECEIPT', feeType: 'CASH', debitAccount: '1010 · Cash on Hand', creditAccount: '1100 · Accounts Receivable', taxAccount: '', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'pr-006', documentType: 'SUPPLIER_PAYMENT', feeType: 'BANK_TRANSFER', debitAccount: '2010 · Accounts Payable', creditAccount: '1020 · Bank Account', taxAccount: '', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'pr-007', documentType: 'SUPPLIER_PAYMENT', feeType: 'CASH', debitAccount: '2010 · Accounts Payable', creditAccount: '1010 · Cash on Hand', taxAccount: '', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'pr-008', documentType: 'SERVICE_CHARGE', feeType: 'INLAND_TRANSPORT', debitAccount: '1100 · Accounts Receivable', creditAccount: '4010 · Service Revenue', taxAccount: '2020 · Output Tax', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'pr-009', documentType: 'SUPPLIER_BILL', feeType: 'VIETNAM_SERVICE', debitAccount: '5010 · Transport Expense', creditAccount: '2010 · Accounts Payable', taxAccount: '1210 · Input Tax', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     documentSequences: [
       ...['QUOTATION', 'SERVICE_ORDER', 'SERVICE_CHARGE', 'CUSTOMER_INVOICE', 'SUPPLIER_BILL', 'CUSTOMER_RECEIPT', 'SUPPLIER_PAYMENT', 'JOURNAL'].map((documentType, index) => stamp({
@@ -609,11 +682,13 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       stamp({ id: 'set-003', organizationName: 'LCS Freight', branchName: '', settingKey: 'smtp_password', settingValue: '••••••••', displayValue: '••••••••', scope: 'Organization', sensitive: 'Yes', updatedBy: 'System Administrator', updatedAt: '2026-08-18T10:10:00' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     chartOfAccounts: [
-      ['1010', 'Cash on Hand', 'Asset', 'Debit'], ['1020', 'Bank Account', 'Asset', 'Debit'], ['1100', 'Accounts Receivable', 'Asset', 'Debit'], ['1200', 'Prepayments', 'Asset', 'Debit'], ['2010', 'Accounts Payable', 'Liability', 'Credit'], ['3010', 'Owner Equity', 'Equity', 'Credit'], ['4010', 'Service Revenue', 'Revenue', 'Credit'], ['4020', 'Other Income', 'Revenue', 'Credit'], ['5010', 'Transport Expense', 'Expense', 'Debit'], ['5020', 'Customs Expense', 'Expense', 'Debit'], ['5030', 'Office Expense', 'Expense', 'Debit'], ['5040', 'Bank Charges', 'Expense', 'Debit'],
+      ['1010', 'Cash on Hand', 'Asset', 'Debit'], ['1020', 'Bank Account', 'Asset', 'Debit'], ['1100', 'Accounts Receivable', 'Asset', 'Debit'], ['1210', 'Input Tax', 'Asset', 'Debit'], ['1200', 'Prepayments', 'Asset', 'Debit'], ['2010', 'Accounts Payable', 'Liability', 'Credit'], ['2020', 'Output Tax', 'Liability', 'Credit'], ['3010', 'Owner Equity', 'Equity', 'Credit'], ['4010', 'Service Revenue', 'Revenue', 'Credit'], ['4020', 'Other Income', 'Revenue', 'Credit'], ['5010', 'Transport Expense', 'Expense', 'Debit'], ['5020', 'Customs Expense', 'Expense', 'Debit'], ['5030', 'Office Expense', 'Expense', 'Debit'], ['5040', 'Bank Charges', 'Expense', 'Debit'],
     ].map((row, index) => stamp({ id: `coa-${index + 1}`, accountCode: row[0], accountName: row[1], accountType: row[2], normalBalance: row[3], parentCode: '', postable: 'Yes', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID)),
     financialAccounts: [
-      stamp({ id: 'fa-001', accountName: 'ABA Operating', accountType: 'Bank', ledgerCode: '1020', currency: 'USD', bankName: 'ABA Bank', accountNumberMasked: '****1234', balance: 1622.5, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
-      stamp({ id: 'fa-002', accountName: 'Cash on Hand', accountType: 'Cash', ledgerCode: '1010', currency: 'USD', bankName: '', accountNumberMasked: '', balance: 0, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'fa-001', accountName: 'ABA Bavet Operating', accountType: 'Bank', ledgerCode: '1020', currency: 'USD', bankName: 'ABA Bank', accountNumberMasked: '****1234', balance: 40900, branchName: 'Bavet', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'fa-002', accountName: 'Cash on Hand — Bavet', accountType: 'Cash', ledgerCode: '1010', currency: 'USD', bankName: '', accountNumberMasked: '', balance: 2700, branchName: 'Bavet', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'fa-003', accountName: 'ACLEDA Phnom Penh', accountType: 'Bank', ledgerCode: '1020', currency: 'USD', bankName: 'ACLEDA Bank', accountNumberMasked: '****5678', balance: 1375, branchName: 'Phnom Penh', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_PP_ID),
+      stamp({ id: 'fa-004', accountName: 'Canadia USD — Bavet', accountType: 'Bank', ledgerCode: '1020', currency: 'USD', bankName: 'Canadia Bank', accountNumberMasked: '****9012', balance: 8500, branchName: 'Bavet', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     containerRequirements,
     actualContainers,
@@ -721,6 +796,25 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
           { code: 'carrier', label: 'Carrier', dataType: 'text', required: false, valueText: 'NTL Transport', helpText: 'Carrier named on the bill.' },
         ],
       } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({
+        id: id('cmp', 7),
+        jobNo: 'LCS-IM-260821',
+        serviceOrderId: 'job-001',
+        templateCode: 'TRUCK_DISPATCH',
+        templateVersion: '2026.08',
+        latestTemplateVersion: '2026.08',
+        groupCode: 'TRANSPORT',
+        status: 'COMPLETED',
+        required: true,
+        sequenceNo: 6,
+        values: [
+          { code: 'truck_plate', label: 'Truck Plate', dataType: 'text', required: true, valueText: '3C-9088', helpText: 'License plate of the assigned truck.' },
+          { code: 'driver_name', label: 'Driver Name', dataType: 'text', required: false, valueText: 'Vannak', helpText: 'Driver assigned to this movement.' },
+          { code: 'driver_phone', label: 'Driver Phone', dataType: 'text', required: false, valueText: '+855 12 900 111', helpText: 'Driver contact number for dispatch updates.' },
+          { code: 'border_eta', label: 'Border ETA', dataType: 'date', required: false, valueDate: '2026-08-20', helpText: 'Expected arrival at the border checkpoint.' },
+          { code: 'factory_eta', label: 'Factory ETA', dataType: 'date', required: false, valueDate: '2026-08-21', helpText: 'Expected arrival at the factory or delivery point.' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     accountingPeriods: [
       stamp({
@@ -730,7 +824,7 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
         startDate: '2026-07-01',
         endDate: '2026-07-31',
         status: 'CLOSED',
-        year: 2026, month: 7, postingCount: 42, closedBy: 'Finance Manager', closedAt: '2026-08-03T17:00:00',
+        year: 2026, month: 7, postingCount: 48, closedBy: 'Finance Manager', closedAt: '2026-08-03T17:00:00',
       } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({
         id: 'per-002',
@@ -739,30 +833,92 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
         startDate: '2026-08-01',
         endDate: '2026-08-31',
         status: 'OPEN',
-        year: 2026, month: 8, postingCount: 18, closedBy: '', closedAt: '',
+        year: 2026, month: 8, postingCount: 26, closedBy: '', closedAt: '',
       } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     journals: [
       stamp({
-        id: 'je-001',
-        entryNo: 'JE-2026-0041',
-        entryType: 'AUTOMATIC', entryDate: '2026-08-20', postingDate: '2026-08-20', periodName: 'August 2026', branchName: 'Bavet', description: 'Customer invoice posting', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-20T11:40:00', balanceDifference: 0,
+        id: 'je-open',
+        entryNo: 'JE-2026-0001',
+        entryType: 'MANUAL', entryDate: '2026-08-01', postingDate: '2026-08-01', periodName: 'August 2026', branchName: 'Bavet', description: 'Opening cash and bank balances', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-01T08:00:00', balanceDifference: 0,
         status: 'POSTED',
-        sourceDocumentId: 'dn-001',
-        sourceDocumentNo: 'DN-2608-041',
-        jobNo: 'LCS-IM-260821',
+        sourceDocumentNo: 'OPEN-2026-08',
         periodId: 'per-002',
-        debitTotal: 1622.5,
-        creditTotal: 1622.5,
+        debitTotal: 44500,
+        creditTotal: 44500,
         lines: [
-          { lineNo: 1, account_code: '1100', account_name: 'Accounts Receivable', party: 'Tai Seng Manufacturing', branch: 'Bavet', serviceOrder: 'LCS-IM-260821', financialDocument: 'DN-2608-041', debit_amount: 1622.5, credit_amount: 0, currency: 'USD', exchangeRate: 1, baseDebit: 1622.5, baseCredit: 0, description: 'Customer invoice DN-2608-041' },
-          { lineNo: 2, account_code: '4010', account_name: 'Service Revenue', party: 'Tai Seng Manufacturing', branch: 'Bavet', serviceOrder: 'LCS-IM-260821', financialDocument: 'DN-2608-041', debit_amount: 0, credit_amount: 1622.5, currency: 'USD', exchangeRate: 1, baseDebit: 0, baseCredit: 1622.5, description: 'Customer invoice DN-2608-041' },
+          { lineNo: 1, account_code: '1020', account_name: 'Bank Account', party: '', branch: 'Bavet', debit_amount: 42000, credit_amount: 0, currency: 'USD', description: 'Opening bank balance' },
+          { lineNo: 2, account_code: '1010', account_name: 'Cash on Hand', party: '', branch: 'Bavet', debit_amount: 2500, credit_amount: 0, currency: 'USD', description: 'Opening cash balance' },
+          { lineNo: 3, account_code: '3010', account_name: 'Owner Equity', party: '', branch: 'Bavet', debit_amount: 0, credit_amount: 44500, currency: 'USD', description: 'Opening equity offset' },
         ],
       } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({
+        id: 'je-007',
+        entryNo: 'JE-2026-0035',
+        entryType: 'AUTOMATIC', entryDate: '2026-08-16', postingDate: '2026-08-16', periodName: 'August 2026', branchName: 'Bavet', description: 'Supplier payment SP-2608-019', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-16T14:10:00', balanceDifference: 0,
+        status: 'POSTED',
+        sourceDocumentId: 'sp-003',
+        sourceDocumentNo: 'SP-2608-019',
+        jobNo: 'LCS-IM-260816',
+        periodId: 'per-002',
+        debitTotal: 980,
+        creditTotal: 980,
+        lines: [
+          { lineNo: 1, account_code: '2010', account_name: 'Accounts Payable', party: 'NTL Transport', branch: 'Bavet', serviceOrder: 'LCS-IM-260816', financialDocument: 'SP-2608-019', debit_amount: 980, credit_amount: 0, currency: 'USD', description: 'Supplier payment to NTL Transport' },
+          { lineNo: 2, account_code: '1020', account_name: 'Bank Account', party: 'NTL Transport', branch: 'Bavet', serviceOrder: 'LCS-IM-260816', financialDocument: 'SP-2608-019', debit_amount: 0, credit_amount: 980, currency: 'USD', description: 'Bank transfer SP-2608-019' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({
+        id: 'je-003',
+        entryNo: 'JE-2026-0037',
+        entryType: 'AUTOMATIC', entryDate: '2026-08-18', postingDate: '2026-08-18', periodName: 'August 2026', branchName: 'Phnom Penh', description: 'Customer receipt PAY-2608-026', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-18T16:05:00', balanceDifference: 0,
+        status: 'POSTED',
+        sourceDocumentId: 'cp-003',
+        sourceDocumentNo: 'PAY-2608-026',
+        jobNo: 'LCS-IM-260819',
+        periodId: 'per-002',
+        debitTotal: 1375,
+        creditTotal: 1375,
+        lines: [
+          { lineNo: 1, account_code: '1020', account_name: 'Bank Account', party: 'Royal Group Manufacturing', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'PAY-2608-026', debit_amount: 1375, credit_amount: 0, currency: 'USD', description: 'Customer receipt PAY-2608-026' },
+          { lineNo: 2, account_code: '1100', account_name: 'Accounts Receivable', party: 'Royal Group Manufacturing', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'DN-2608-039', debit_amount: 0, credit_amount: 1375, currency: 'USD', description: 'Allocation DN-2608-039' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_PP_ID),
+      stamp({
+        id: 'je-006',
+        entryNo: 'JE-2026-0038',
+        entryType: 'AUTOMATIC', entryDate: '2026-08-18', postingDate: '2026-08-18', periodName: 'August 2026', branchName: 'Phnom Penh', description: 'Supplier payment SP-2608-020', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-18T17:20:00', balanceDifference: 0,
+        status: 'POSTED',
+        sourceDocumentId: 'sp-002',
+        sourceDocumentNo: 'SP-2608-020',
+        jobNo: 'LCS-IM-260819',
+        periodId: 'per-002',
+        debitTotal: 300,
+        creditTotal: 300,
+        lines: [
+          { lineNo: 1, account_code: '2010', account_name: 'Accounts Payable', party: 'Vanxuan Transport', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'SP-2608-020', debit_amount: 300, credit_amount: 0, currency: 'USD', description: 'Supplier payment Vanxuan Transport' },
+          { lineNo: 2, account_code: '1010', account_name: 'Cash on Hand', party: 'Vanxuan Transport', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'SP-2608-020', debit_amount: 0, credit_amount: 300, currency: 'USD', description: 'Cash payment SP-2608-020' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_PP_ID),
+      stamp({
+        id: 'je-011',
+        entryNo: 'JE-2026-0036',
+        entryType: 'AUTOMATIC', entryDate: '2026-08-18', postingDate: '2026-08-18', periodName: 'August 2026', branchName: 'Phnom Penh', description: 'Supplier bill SUP-VX-8852', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-18T11:00:00', balanceDifference: 0,
+        status: 'POSTED',
+        sourceDocumentNo: 'SUP-VX-8852',
+        jobNo: 'LCS-IM-260819',
+        periodId: 'per-002',
+        debitTotal: 610,
+        creditTotal: 610,
+        lines: [
+          { lineNo: 1, account_code: '5010', account_name: 'Transport Expense', party: 'Vanxuan Transport', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'SUP-VX-8852', debit_amount: 610, credit_amount: 0, currency: 'USD', description: 'Vietnam port and border handling' },
+          { lineNo: 2, account_code: '2010', account_name: 'Accounts Payable', party: 'Vanxuan Transport', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'SUP-VX-8852', debit_amount: 0, credit_amount: 610, currency: 'USD', description: 'Supplier bill SUP-VX-8852' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_PP_ID),
+      stamp({
         id: 'je-002',
         entryNo: 'JE-2026-0039',
-        entryType: 'AUTOMATIC', entryDate: '2026-08-19', postingDate: '2026-08-19', periodName: 'August 2026', branchName: 'Phnom Penh', description: 'Customer invoice posting', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-19T16:20:00', balanceDifference: 0,
+        entryType: 'AUTOMATIC', entryDate: '2026-08-18', postingDate: '2026-08-18', periodName: 'August 2026', branchName: 'Phnom Penh', description: 'Customer invoice DN-2608-039', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-18T15:30:00', balanceDifference: 0,
         status: 'POSTED',
         sourceDocumentId: 'dn-003',
         sourceDocumentNo: 'DN-2608-039',
@@ -771,10 +927,76 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
         debitTotal: 1375,
         creditTotal: 1375,
         lines: [
-          { account_code: '1100', account_name: 'Accounts Receivable', debit_amount: 1375, credit_amount: 0, description: 'Customer invoice DN-2608-039' },
-          { account_code: '4000', account_name: 'Freight Revenue', debit_amount: 0, credit_amount: 1375, description: 'Customer invoice DN-2608-039' },
+          { lineNo: 1, account_code: '1100', account_name: 'Accounts Receivable', party: 'Royal Group Manufacturing', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'DN-2608-039', debit_amount: 1375, credit_amount: 0, currency: 'USD', description: 'Customer invoice DN-2608-039' },
+          { lineNo: 2, account_code: '4010', account_name: 'Service Revenue', party: 'Royal Group Manufacturing', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'DN-2608-039', debit_amount: 0, credit_amount: 1250, currency: 'USD', description: 'Freight service revenue' },
+          { lineNo: 3, account_code: '2020', account_name: 'Output Tax', party: 'Royal Group Manufacturing', branch: 'Phnom Penh', serviceOrder: 'LCS-IM-260819', financialDocument: 'DN-2608-039', debit_amount: 0, credit_amount: 125, currency: 'USD', description: 'VAT 10%' },
         ],
       } as FreightRecord, LCS_ORG_ID, BRANCH_PP_ID),
+      stamp({
+        id: 'je-005',
+        entryNo: 'JE-2026-0040',
+        entryType: 'AUTOMATIC', entryDate: '2026-08-19', postingDate: '2026-08-19', periodName: 'August 2026', branchName: 'Bavet', description: 'Supplier payment SP-2608-021', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-19T10:45:00', balanceDifference: 0,
+        status: 'POSTED',
+        sourceDocumentId: 'sp-001',
+        sourceDocumentNo: 'SP-2608-021',
+        jobNo: 'LCS-EX-260820',
+        periodId: 'per-002',
+        debitTotal: 320,
+        creditTotal: 320,
+        lines: [
+          { lineNo: 1, account_code: '2010', account_name: 'Accounts Payable', party: 'Golden Logistics', branch: 'Bavet', serviceOrder: 'LCS-EX-260820', financialDocument: 'SP-2608-021', debit_amount: 320, credit_amount: 0, currency: 'USD', description: 'Supplier payment Golden Logistics' },
+          { lineNo: 2, account_code: '1020', account_name: 'Bank Account', party: 'Golden Logistics', branch: 'Bavet', serviceOrder: 'LCS-EX-260820', financialDocument: 'SP-2608-021', debit_amount: 0, credit_amount: 320, currency: 'USD', description: 'Bank transfer SP-2608-021' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({
+        id: 'je-004',
+        entryNo: 'JE-2026-0042',
+        entryType: 'AUTOMATIC', entryDate: '2026-08-19', postingDate: '2026-08-19', periodName: 'August 2026', branchName: 'Bavet', description: 'Customer receipt PAY-2608-027', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-19T15:10:00', balanceDifference: 0,
+        status: 'POSTED',
+        sourceDocumentId: 'cp-002',
+        sourceDocumentNo: 'PAY-2608-027',
+        jobNo: 'LCS-EX-260820',
+        periodId: 'per-002',
+        debitTotal: 500,
+        creditTotal: 500,
+        lines: [
+          { lineNo: 1, account_code: '1010', account_name: 'Cash on Hand', party: 'Tai Seng Manufacturing', branch: 'Bavet', serviceOrder: 'LCS-EX-260820', financialDocument: 'PAY-2608-027', debit_amount: 500, credit_amount: 0, currency: 'USD', description: 'Cash receipt PAY-2608-027' },
+          { lineNo: 2, account_code: '1100', account_name: 'Accounts Receivable', party: 'Tai Seng Manufacturing', branch: 'Bavet', serviceOrder: 'LCS-EX-260820', financialDocument: 'DN-2608-040', debit_amount: 0, credit_amount: 500, currency: 'USD', description: 'Partial allocation DN-2608-040' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({
+        id: 'je-001',
+        entryNo: 'JE-2026-0041',
+        entryType: 'AUTOMATIC', entryDate: '2026-08-20', postingDate: '2026-08-20', periodName: 'August 2026', branchName: 'Bavet', description: 'Customer invoice DN-2608-041', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-20T11:40:00', balanceDifference: 0,
+        status: 'POSTED',
+        sourceDocumentId: 'dn-001',
+        sourceDocumentNo: 'DN-2608-041',
+        jobNo: 'LCS-IM-260821',
+        periodId: 'per-002',
+        debitTotal: 1622.5,
+        creditTotal: 1622.5,
+        lines: [
+          { lineNo: 1, account_code: '1100', account_name: 'Accounts Receivable', party: 'Manhattan SEZ Co., Ltd.', branch: 'Bavet', serviceOrder: 'LCS-IM-260821', financialDocument: 'DN-2608-041', debit_amount: 1622.5, credit_amount: 0, currency: 'USD', description: 'Customer invoice DN-2608-041' },
+          { lineNo: 2, account_code: '4010', account_name: 'Service Revenue', party: 'Manhattan SEZ Co., Ltd.', branch: 'Bavet', serviceOrder: 'LCS-IM-260821', financialDocument: 'DN-2608-041', debit_amount: 0, credit_amount: 1475, currency: 'USD', description: 'Freight service revenue' },
+          { lineNo: 3, account_code: '2020', account_name: 'Output Tax', party: 'Manhattan SEZ Co., Ltd.', branch: 'Bavet', serviceOrder: 'LCS-IM-260821', financialDocument: 'DN-2608-041', debit_amount: 0, credit_amount: 147.5, currency: 'USD', description: 'VAT 10%' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({
+        id: 'je-008',
+        entryNo: 'JE-2026-0043',
+        entryType: 'AUTOMATIC', entryDate: '2026-08-20', postingDate: '2026-08-20', periodName: 'August 2026', branchName: 'Bavet', description: 'Customer receipt partial PAY-2608-028', createdBy: 'Finance', postedBy: 'Finance Manager', postedAt: '2026-08-20T14:20:00', balanceDifference: 0,
+        status: 'POSTED',
+        sourceDocumentId: 'cp-001',
+        sourceDocumentNo: 'PAY-2608-028',
+        jobNo: 'LCS-IM-260821',
+        periodId: 'per-002',
+        debitTotal: 200,
+        creditTotal: 200,
+        lines: [
+          { lineNo: 1, account_code: '1020', account_name: 'Bank Account', party: 'Manhattan SEZ Co., Ltd.', branch: 'Bavet', serviceOrder: 'LCS-IM-260821', financialDocument: 'PAY-2608-028', debit_amount: 200, credit_amount: 0, currency: 'USD', description: 'Partial bank receipt PAY-2608-028' },
+          { lineNo: 2, account_code: '1100', account_name: 'Accounts Receivable', party: 'Manhattan SEZ Co., Ltd.', branch: 'Bavet', serviceOrder: 'LCS-IM-260821', financialDocument: 'DN-2608-041', debit_amount: 0, credit_amount: 200, currency: 'USD', description: 'Unallocated receipt on account' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     allocations: [
       stamp({
@@ -788,16 +1010,22 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
     cashAccounts: [
       stamp({
         id: 'cash-001',
-        name: 'ABA Operating',
+        name: 'ABA Bavet Operating',
         currency: 'USD',
-        balance: 48250,
+        balance: 40900,
       } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({
         id: 'cash-002',
         name: 'ACLEDA Phnom Penh',
         currency: 'USD',
-        balance: 12100,
+        balance: 1375,
       } as FreightRecord, LCS_ORG_ID, BRANCH_PP_ID),
+      stamp({
+        id: 'cash-003',
+        name: 'Cash on Hand — Bavet',
+        currency: 'USD',
+        balance: 2700,
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     uiSchemas: [
       stamp({

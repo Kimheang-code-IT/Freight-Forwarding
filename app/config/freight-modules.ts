@@ -1346,7 +1346,7 @@ if (quotationModule) freightModules.push({
     { key: 'saveDraft', label: 'Save Draft', labelKm: 'រក្សាទុកព្រាង', icon: 'i-lucide-save' }, { key: 'send', label: 'Send', labelKm: 'ផ្ញើ', icon: 'i-lucide-send' }, { key: 'createRevision', label: 'Create Revision', labelKm: 'បង្កើតកំណែ', icon: 'i-lucide-git-branch' },
     { key: 'accept', label: 'Accept', labelKm: 'ទទួលយក', icon: 'i-lucide-check', color: 'success' }, { key: 'reject', label: 'Reject', labelKm: 'បដិសេធ', icon: 'i-lucide-x', color: 'error' }, { key: 'convertJob', label: 'Convert to Service Order', labelKm: 'បម្លែងទៅបញ្ជាសេវាកម្ម', icon: 'i-lucide-arrow-right', color: 'primary' }, { key: 'cancel', label: 'Cancel', labelKm: 'បោះបង់', icon: 'i-lucide-ban', color: 'warning' },
   ],
-  filters: [f('customer', 'Customer', 'អតិថិជន', '', '', 'select'), f('branchName', 'Branch', 'សាខា', '', '', 'select'), f('direction', 'Trade Direction', 'ទិសដៅពាណិជ្ជកម្ម', '', '', 'select', DIRECTIONS), f('status', 'Status', 'ស្ថានភាព', '', '', 'select', QUOTATION_STATUS)],
+  filters: [f('customer', 'Customer', 'អតិថិជន', '', '', 'select'), f('branchName', 'Branch', 'សាខា', '', '', 'select'), f('direction', 'Trade Direction', 'ទិសដៅពាណិជ្ជកម្ម', '', '', 'select', DIRECTIONS)],
 })
 
 if (jobsModule) freightModules.push({
@@ -1378,7 +1378,6 @@ if (jobsModule) freightModules.push({
     f('customer', 'Customer', 'អតិថិជន', '', '', 'select', undefined, { labelKey: 'freight.ui.cols.customer' }),
     f('branchName', 'Branch', 'សាខា', '', '', 'select', undefined, { labelKey: 'freight.ui.branchCol' }),
     f('direction', 'Trade Direction', 'ទិសដៅពាណិជ្ជកម្ម', '', '', 'select', DIRECTIONS, { labelKey: 'freight.ui.cols.direction' }),
-    f('workflowStatus', 'Status', 'ស្ថានភាព', '', '', 'select', JOB_WORKFLOW_STATUS, { labelKey: 'freight.ui.status' }),
   ],
   statuses: JOB_WORKFLOW_STATUS,
   actions: [
@@ -1433,7 +1432,7 @@ if (chargesModule) freightModules.push({
   actions: [
     { key: 'saveDraft', label: 'Save Draft', labelKm: 'រក្សាទុកព្រាង', icon: 'i-lucide-save' }, { key: 'issue', label: 'Issue', labelKm: 'ចេញ', icon: 'i-lucide-send', color: 'success' }, { key: 'print', label: 'Print / Download', labelKm: 'បោះពុម្ព / ទាញយក', icon: 'i-lucide-printer' }, { key: 'createInvoice', label: 'Create Finance Invoice', labelKm: 'បង្កើតវិក្កយបត្រហិរញ្ញវត្ថុ', icon: 'i-lucide-file-plus-2', color: 'primary' },
   ],
-  filters: [f('jobNo', 'Service Order', 'បញ្ជាសេវាកម្ម'), f('customer', 'Customer', 'អតិថិជន'), f('branchName', 'Branch', 'សាខា'), f('documentType', 'Document Type', 'ប្រភេទឯកសារ', '', '', 'select', ['SERVICE_NOTE', 'DEBIT_NOTE', 'PRO_FORMA']), f('status', 'Status', 'ស្ថានភាព', '', '', 'select', SERVICE_CHARGE_STATUS), f('currency', 'Currency', 'រូបិយប័ណ្ណ', '', '', 'select', CURRENCIES)],
+  filters: [f('jobNo', 'Service Order', 'បញ្ជាសេវាកម្ម'), f('customer', 'Customer', 'អតិថិជន'), f('branchName', 'Branch', 'សាខា'), f('documentType', 'Document Type', 'ប្រភេទឯកសារ', '', '', 'select', ['SERVICE_NOTE', 'DEBIT_NOTE', 'PRO_FORMA']), f('status', 'Status', 'ស្ថានភាព', '', '', 'select', SERVICE_CHARGE_STATUS)],
 })
 
 if (invoicesModule) freightModules.push({

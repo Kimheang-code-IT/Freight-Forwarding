@@ -34,6 +34,13 @@ export const freightTableUiReadonly = {
   tr: '',
 } as const
 
+/** Document line tables: mid density — smaller than lists was too tight, this sits between. */
+export const freightTableUiLine = {
+  ...freightTableUiReadonly,
+  th: 'sticky top-0 z-10 border border-default bg-elevated px-3 py-2 text-left text-xs font-semibold text-highlighted whitespace-nowrap',
+  td: 'border border-default bg-default px-3 py-2 align-middle text-xs text-default transition-colors',
+} as const
+
 export const freightTableUiCompactReadonly = {
   ...freightTableUiCompact,
   tbody: 'bg-default text-default [&>tr:hover>td]:bg-muted',

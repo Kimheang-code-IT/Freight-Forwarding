@@ -278,13 +278,8 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
   <section class="space-y-2">
     <FreightJobSectionHeader :title="sectionTitle" :description="t('freight.ui.componentVersionHint')">
       <template #actions>
-        <UButton
-          v-if="showList && canMutate && template"
-          size="xs"
-          icon="i-lucide-plus"
-          :label="t('freight.ui.addDocument')"
-          @click="openNew"
-        />
+        <UButton v-if="showList && canMutate && template" size="xs" icon="i-lucide-plus"
+          :label="t('freight.ui.addDocument')" @click="openNew" />
       </template>
     </FreightJobSectionHeader>
 
@@ -297,109 +292,56 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
           </span>
           <span v-else-if="template?.version">· {{ template.version }}</span>
           <span
-            v-if="formRecord?.latestTemplateVersion && formRecord.latestTemplateVersion !== formRecord.templateVersion"
-          >
+            v-if="formRecord?.latestTemplateVersion && formRecord.latestTemplateVersion !== formRecord.templateVersion">
             · {{ t('freight.ui.latest') }} {{ formRecord.latestTemplateVersion }}
           </span>
-          <UBadge
-            v-if="formRecord"
-            :color="statusColor(String(formRecord.status || ''))"
-            variant="subtle"
-            size="sm"
-          >
+          <UBadge v-if="formRecord" :color="statusColor(String(formRecord.status || ''))" variant="subtle" size="sm">
             {{ formRecord.status }}
           </UBadge>
         </div>
 
-        <UAlert
-          v-if="editing && missingLabels.length"
-          color="warning"
-          variant="subtle"
-          icon="i-lucide-triangle-alert"
-          :title="t('freight.ui.validationErrors')"
-          :description="missingLabels.join(', ')"
-        />
+        <UAlert v-if="editing && missingLabels.length" color="warning" variant="subtle" icon="i-lucide-triangle-alert"
+          :title="t('freight.ui.validationErrors')" :description="missingLabels.join(', ')" />
 
         <div v-if="draftValues.length" class="grid gap-3 sm:grid-cols-2">
-          <DocumentAppDynamicFieldRenderer
-            v-for="value in draftValues"
-            :key="String(value.code)"
-            :field="taskValueToDocumentField(value, !editing)"
-            :model-value="taskValueModel(value)"
-            :disabled="!editing"
-            @update:model-value="applyTaskValue(value, $event)"
-          />
+          <DocumentAppDynamicFieldRenderer v-for="value in draftValues" :key="String(value.code)"
+            :field="taskValueToDocumentField(value, !editing)" :model-value="taskValueModel(value)" :disabled="!editing"
+            @update:model-value="applyTaskValue(value, $event)" />
         </div>
-        <FreightJobEmptyState
-          v-else
-          :title="t('freight.ui.noTasks')"
-          :description="t('freight.ui.noTasksHint')"
-          icon="i-lucide-file-text"
-        />
+        <FreightJobEmptyState v-else :title="t('freight.ui.noTasks')" :description="t('freight.ui.noTasksHint')"
+          icon="i-lucide-file-text" />
 
         <div class="flex flex-wrap items-center justify-end gap-2">
-          <UButton
-            v-if="canMutate && !formCompleted && !editing"
-            color="neutral"
-            variant="soft"
-            size="sm"
-            icon="i-lucide-pencil"
-            :label="t('freight.ui.edit')"
-            @click="editing = true"
-          />
-          <UButton
-            v-if="editing"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            :label="t('actions.cancel')"
-            @click="resetDraft"
-          />
-          <UButton
-            v-if="editing"
-            size="sm"
-            :loading="saving"
-            :label="t('freight.ui.saveTask')"
-            @click="persistValues"
-          />
-          <UButton
-            v-if="formRecord?.status === 'PENDING' && !editing && canMutate"
-            size="sm"
-            icon="i-lucide-check-circle-2"
-            :label="t('freight.ui.complete')"
-            @click="completeTask"
-          />
+          <UButton v-if="canMutate && !formCompleted && !editing" color="neutral" variant="soft" size="sm"
+            icon="i-lucide-pencil" :label="t('freight.ui.edit')" @click="editing = true" />
+          <UButton v-if="editing" color="neutral" variant="ghost" size="sm" :label="t('actions.cancel')"
+            @click="resetDraft" />
+          <UButton v-if="editing" size="sm" :loading="saving" :label="t('freight.ui.saveTask')"
+            @click="persistValues" />
+          <UButton v-if="formRecord?.status === 'PENDING' && !editing && canMutate" size="sm"
+            icon="i-lucide-check-circle-2" :label="t('freight.ui.complete')" @click="completeTask" />
         </div>
       </div>
     </template>
 
-    <div v-else-if="!loading && showList && sectionRows.length" class="overflow-hidden rounded-md border border-default">
+    <div v-else-if="!loading && showList && sectionRows.length"
+      class="overflow-hidden rounded-md border border-default">
       <div class="overflow-x-auto">
-        <UTable
-          :data="sectionRows"
-          :columns="tableColumns"
-          :get-row-id="(row: FreightRecord) => String(row.id || '')"
-          class="freight-table freight-table-compact min-w-max"
-          :ui="freightTableUiCompactReadonly"
-          @select="(_event: Event, row: { original: FreightRecord }) => openDetail(row.original)"
-        />
+        <UTable :data="sectionRows" :columns="tableColumns" :get-row-id="(row: FreightRecord) => String(row.id || '')"
+          class="freight-table freight-table-compact min-w-max" :ui="freightTableUiCompactReadonly"
+          @select="(_event: Event, row: { original: FreightRecord }) => openDetail(row.original)" />
       </div>
     </div>
-    <FreightJobEmptyState
-      v-else-if="!loading"
-      :title="t('freight.ui.noTasks')"
-      :description="t('freight.ui.noTasksHint')"
-      icon="i-lucide-file-text"
-    />
+    <FreightJobEmptyState v-else-if="!loading" :title="t('freight.ui.noTasks')"
+      :description="t('freight.ui.noTasksHint')" icon="i-lucide-file-text" />
     <div v-else class="flex justify-center py-6">
       <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-muted" />
     </div>
 
-    <USlideover
-      v-model:open="detailOpen"
-      :title="creating ? t('freight.ui.addDocument') : t('freight.ui.taskDetails')"
-      :ui="{ content: 'max-w-md' }"
-    >
+    <USlideover v-model:open="detailOpen" :title="creating ? t('freight.ui.addDocument') : t('freight.ui.taskDetails')"
+      :dismissible="false"
+      :close="{ color: 'primary', variant: 'outline', class: 'rounded-full' }"
+      :ui="{ content: 'max-w-md' }">
       <template #body>
         <div v-if="showList" class="space-y-4">
           <div class="space-y-1">
@@ -412,82 +354,44 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
                 · {{ t('freight.ui.capturedVersion') }} {{ formRecord.templateVersion }}
               </span>
               <span
-                v-if="formRecord?.latestTemplateVersion && formRecord.latestTemplateVersion !== formRecord.templateVersion"
-              >
+                v-if="formRecord?.latestTemplateVersion && formRecord.latestTemplateVersion !== formRecord.templateVersion">
                 · {{ t('freight.ui.latest') }} {{ formRecord.latestTemplateVersion }}
               </span>
-              · {{ t(isConfigFlagYes(formRecord?.required ?? assignment?.required) ? 'freight.ui.required' : 'freight.ui.optional') }}
+              · {{ t(isConfigFlagYes(formRecord?.required ?? assignment?.required) ? 'freight.ui.required' :
+              'freight.ui.optional') }}
             </p>
-            <UBadge
-              v-if="formRecord"
-              :color="statusColor(String(formRecord.status || ''))"
-              variant="subtle"
-              size="sm"
-            >
+            <UBadge v-if="formRecord" :color="statusColor(String(formRecord.status || ''))" variant="subtle" size="sm">
               {{ formRecord.status }}
             </UBadge>
           </div>
 
-          <div v-if="formRecord?.completedBy || formRecord?.completedAt" class="rounded-md border border-default px-3 py-2 text-xs text-muted">
+          <div v-if="formRecord?.completedBy || formRecord?.completedAt"
+            class="rounded-md border border-default px-3 py-2 text-xs text-muted">
             <p class="mb-0.5 font-medium uppercase tracking-wide">{{ t('freight.ui.completionInfo') }}</p>
             {{ t('freight.ui.completedBy') }} {{ formRecord.completedBy || '—' }} · {{ formRecord.completedAt || '—' }}
           </div>
 
-          <UAlert
-            v-if="editing && missingLabels.length"
-            color="warning"
-            variant="subtle"
-            icon="i-lucide-triangle-alert"
-            :title="t('freight.ui.validationErrors')"
-            :description="missingLabels.join(', ')"
-          />
+          <UAlert v-if="editing && missingLabels.length" color="warning" variant="subtle" icon="i-lucide-triangle-alert"
+            :title="t('freight.ui.validationErrors')" :description="missingLabels.join(', ')" />
 
           <div class="space-y-3">
             <p class="text-xs font-semibold uppercase tracking-wide text-muted">{{ t('freight.ui.dynamicFields') }}</p>
-            <DocumentAppDynamicFieldRenderer
-              v-for="value in draftValues"
-              :key="String(value.code)"
-              :field="taskValueToDocumentField(value, !editing)"
-              :model-value="taskValueModel(value)"
-              :disabled="!editing"
-              @update:model-value="applyTaskValue(value, $event)"
-            />
+            <DocumentAppDynamicFieldRenderer v-for="value in draftValues" :key="String(value.code)"
+              :field="taskValueToDocumentField(value, !editing)" :model-value="taskValueModel(value)"
+              :disabled="!editing" @update:model-value="applyTaskValue(value, $event)" />
           </div>
         </div>
       </template>
       <template #footer>
         <div v-if="showList" class="flex w-full flex-wrap items-center justify-end gap-2">
-          <UButton
-            v-if="canMutate && !formCompleted && !editing"
-            color="neutral"
-            variant="soft"
-            size="sm"
-            icon="i-lucide-pencil"
-            :label="t('freight.ui.edit')"
-            @click="editing = true"
-          />
-          <UButton
-            v-if="editing"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            :label="t('actions.cancel')"
-            @click="resetDraft(); if (creating) detailOpen = false"
-          />
-          <UButton
-            v-if="editing"
-            size="sm"
-            :loading="saving"
-            :label="t('freight.ui.saveTask')"
-            @click="persistValues"
-          />
-          <UButton
-            v-if="formRecord?.status === 'PENDING' && !editing && canMutate"
-            size="sm"
-            icon="i-lucide-check-circle-2"
-            :label="t('freight.ui.complete')"
-            @click="completeTask"
-          />
+          <UButton v-if="canMutate && !formCompleted && !editing" color="neutral" variant="soft" size="sm"
+            icon="i-lucide-pencil" :label="t('freight.ui.edit')" @click="editing = true" />
+          <UButton v-if="editing" color="neutral" variant="ghost" size="sm" :label="t('actions.cancel')"
+            @click="resetDraft(); if (creating) detailOpen = false" />
+          <UButton v-if="editing" size="sm" :loading="saving" :label="t('freight.ui.saveTask')"
+            @click="persistValues" />
+          <UButton v-if="formRecord?.status === 'PENDING' && !editing && canMutate" size="sm"
+            icon="i-lucide-check-circle-2" :label="t('freight.ui.complete')" @click="completeTask" />
         </div>
       </template>
     </USlideover>

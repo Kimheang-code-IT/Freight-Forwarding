@@ -12,7 +12,7 @@ import { downloadCsv } from '~/utils/export/csv'
 import { paidAmountOf } from '~/utils/freight/finance'
 import { agingBucket, buildStatementGroups, daysSince, postedJournalLines, reportRowDate, statementDifference as statementDifferenceOf } from '~/utils/freight/report'
 import { isFilterValueActive } from '~/utils/filter/select-ui'
-import { matchesFilter } from '~/utils/filter/values'
+import { limitFilterSelects, matchesFilter } from '~/utils/filter/values'
 import { listTableRowMetaColumn, listTableSelectColumn } from '~/utils/table/list-columns'
 import { listTablePageSummary } from '~/utils/table/list-table'
 
@@ -61,8 +61,8 @@ const rows = computed<FreightRecord[]>(() => {
   if (['service-orders','service-order-status'].includes(slug.value)) return jobs.map(job => { const related = components.filter(r => r.jobNo === job.jobNo); return { ...job, workflowStatus: job.workflowStatus || job.status, containers: store.list('actualContainers').filter(r => r.jobNo === job.jobNo).length, components: related.length, chargeTotal: charges.filter(r => r.jobNo === job.jobNo).reduce((s,r) => s + Number(r.total || 0),0), invoiceTotal: documents.filter(r => r.jobNo === job.jobNo && String(r.status).toUpperCase() === 'POSTED').reduce((s,r) => s + Number(r.total || 0),0), daysOpen: daysSince(job.createdAt || job.date), pendingComponents: related.filter(r => String(r.status).toUpperCase() !== 'COMPLETED').length, lastActivity: job.updatedAt || job.createdAt || job.date } })
   if (slug.value === 'containers') return store.list('actualContainers').map(row => { const job = jobByNo(row.jobNo); return { ...row, customer: job?.customer, branchName: job?.branchName, currentMilestone: job?.stage || job?.workflowStatus || job?.status } })
   if (slug.value === 'profitability') return store.list('profitability').map(row => { const job = jobByNo(row.jobNo), serviceCharges = charges.filter(r => r.jobNo === row.jobNo).reduce((s,r) => s + Number(r.total || 0),0), postedRevenue = Number(row.postedRevenue || 0), postedCost = Number(row.totalCost || 0); return { ...row, branchName: job?.branchName, date: job?.date, currency: job?.currency || 'USD', quoted: Number(job?.quotationAmount || job?.amount || 0), serviceCharges, postedRevenue, postedCost, grossProfit: postedRevenue-postedCost, margin: postedRevenue ? (postedRevenue-postedCost)/postedRevenue*100 : 0 } })
-  if (slug.value === 'accounts-receivable') return store.list('receivables').map(row => ({ ...row, invoiceDate: row.date, paid: paidAmountOf(row), aging: agingBucket(row.dueDate) }))
-  if (slug.value === 'accounts-payable') return store.list('payables').map(row => ({ ...row, billDate: row.date, paid: paidAmountOf(row), aging: agingBucket(row.dueDate) }))
+  if (slug.value === 'accounts-receivable') return store.list('receivables').map(row => ({ ...row, invoiceDate: row.date, paid: paidAmountOf(row), aging: agingBucket(row.dueDate, t, te) }))
+  if (slug.value === 'accounts-payable') return store.list('payables').map(row => ({ ...row, billDate: row.date, paid: paidAmountOf(row), aging: agingBucket(row.dueDate, t, te) }))
   if (slug.value === 'revenue-expense') return postedLines.value.filter(r => ['Revenue','Expense'].includes(String(r.accountType))).map(r => ({ ...r, category: r.accountType, revenue: r.accountType === 'Revenue' ? Number(r.credit)-Number(r.debit) : 0, expense: r.accountType === 'Expense' ? Number(r.debit)-Number(r.credit) : 0 }))
   if (slug.value === 'trial-balance') { const map = new Map<string,FreightRecord>(); for (const line of postedLines.value) { const key=String(line.accountCode), row=map.get(key)||{id:key,accountCode:key,accountName:line.accountName,openingDebit:0,openingCredit:0,periodDebit:0,periodCredit:0,closingDebit:0,closingCredit:0}; row.periodDebit=Number(row.periodDebit)+Number(line.debit); row.periodCredit=Number(row.periodCredit)+Number(line.credit); const balance=Number(row.periodDebit)-Number(row.periodCredit); row.closingDebit=Math.max(balance,0); row.closingCredit=Math.max(-balance,0); map.set(key,row) } return [...map.values()] }
   if (slug.value === 'cash-flow') { let balance=0; const codes=new Set(store.list('financialAccounts').map(r=>String(r.ledgerCode))); return postedLines.value.filter(r=>codes.has(String(r.accountCode))).map(r=>{const cashIn=Number(r.debit),cashOut=Number(r.credit);balance+=cashIn-cashOut;return{...r,cashIn,cashOut,runningBalance:balance}}) }
@@ -91,6 +91,30 @@ const statusItems=computed(()=>{
   if (slug.value==='containers') return labeledStatusOptions(CONTAINER_STATUSES, t, te)
   return [...new Set(rows.value.map(r=>String(r.status||r.workflowStatus||'')).filter(Boolean))].sort().map(value=>({label:value,value}))
 })
+type ReportFilterKey = 'branch' | 'party' | 'status' | 'currency'
+const filterSelects = computed<Array<{ key: ReportFilterKey, items: Array<{ label: string, value: string }>, placeholder: string, width: string }>>(() => {
+  const selects: Array<{ key: ReportFilterKey, items: Array<{ label: string, value: string }>, placeholder: string, width: string }> = []
+  if (report.value.filters.includes('branch')) selects.push({ key: 'branch', items: branchItems.value, placeholder: t('freight.ui.branchCol'), width: 'w-36' })
+  if (report.value.filters.includes('party')) selects.push({ key: 'party', items: partyItems.value, placeholder: t('freight.fields.party'), width: 'w-44' })
+  if (report.value.filters.includes('status')) selects.push({ key: 'status', items: statusItems.value, placeholder: t('freight.ui.status'), width: 'w-36' })
+  if (report.value.filters.includes('currency')) selects.push({ key: 'currency', items: currencyItems.value, placeholder: t('freight.ui.cols.currency'), width: 'w-28' })
+  return limitFilterSelects(selects, report.value.filters.includes('date'), select => select.key === 'status')
+})
+const filterValues = computed<Record<ReportFilterKey, string[]>>(() => ({
+  branch: branch.value,
+  party: party.value,
+  status: status.value,
+  currency: currency.value,
+}))
+
+function setFilterValue(key: ReportFilterKey, value: string[] | string | undefined) {
+  const next = Array.isArray(value) ? value : value ? [value] : []
+  if (key === 'branch') branch.value = next
+  else if (key === 'party') party.value = next
+  else if (key === 'status') status.value = next
+  else currency.value = next
+}
+
 const statementGroups=computed(()=>buildStatementGroups(postedLines.value, slug.value==='profit-loss'?['Revenue','Expense']:['Asset','Liability','Equity']))
 const statementDifference=computed(()=>statementDifferenceOf(statementGroups.value, slug.value==='balance-sheet'))
 function actions(row:FreightRecord):DropdownMenuItem[][]{const job=jobByNo(row.jobNo);return job?[[{label:t('freight.ui.open'),icon:'i-lucide-eye',onSelect:()=>navigateTo(`/service-orders/${job.id}`)},{label:t('freight.jobSections.charges'),icon:'i-lucide-receipt-text',onSelect:()=>navigateTo(`/service-charges?jobNo=${encodeURIComponent(String(row.jobNo))}`)},{label:t('freight.jobSections.finance'),icon:'i-lucide-banknote',onSelect:()=>navigateTo(`/finance/documents?jobNo=${encodeURIComponent(String(row.jobNo))}`)}]]:[]}
@@ -145,37 +169,19 @@ function exportCsv(request:{fieldCodes:string[]}){const statementRows=statementG
         :data="filtered"
         :columns="columns"
         :show-date-range="report.filters.includes('date')"
+        :filters-active="hasActiveFilters"
       >
-        <template #filters>
-          <CommonAppFilterSelect
-            v-if="report.filters.includes('branch')"
-            v-model="branch"
-            :items="branchItems"
-            :placeholder="t('freight.ui.branchCol')"
-            class="w-36"
-          />
-          <CommonAppFilterSelect
-            v-if="report.filters.includes('party')"
-            v-model="party"
-            :items="partyItems"
-            :placeholder="t('freight.fields.party')"
-            class="w-44"
-          />
-          <CommonAppFilterSelect
-            v-if="report.filters.includes('status')"
-            v-model="status"
-            :items="statusItems"
-            :placeholder="t('freight.ui.status')"
-            class="w-36"
-          />
-          <CommonAppFilterSelect
-            v-if="report.filters.includes('currency')"
-            v-model="currency"
-            :items="currencyItems"
-            :placeholder="t('freight.ui.cols.currency')"
-            class="w-28"
-          />
-        </template>
+      <template #filters="{ compact }">
+        <CommonAppFilterSelect
+          v-for="select in filterSelects"
+          :key="select.key"
+          :model-value="filterValues[select.key]"
+          :items="select.items"
+          :placeholder="select.placeholder"
+          :class="compact ? 'w-full' : select.width"
+          @update:model-value="setFilterValue(select.key, $event)"
+        />
+      </template>
         <template #actions>
           <UButton
             v-if="hasActiveFilters"
@@ -192,36 +198,41 @@ function exportCsv(request:{fieldCodes:string[]}){const statementRows=statementG
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden px-1.5 pt-1.5 pb-0">
         <div class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-sm border border-default bg-default shadow-xs">
           <div class="flex items-center gap-3 border-b border-default px-2 py-2">
-            <CommonAppLiveSearch v-model="q" class="w-56 shrink-0 sm:w-64" :placeholder="t('freight.ui.search')" />
-            <div class="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto">
-              <CommonAppFilterSelect
-                v-if="report.filters.includes('branch')"
-                v-model="branch"
-                :items="branchItems"
-                :placeholder="t('freight.ui.branchCol')"
-                class="w-36"
-              />
-              <CommonAppFilterSelect
-                v-if="report.filters.includes('currency')"
-                v-model="currency"
-                :items="currencyItems"
-                :placeholder="t('freight.ui.cols.currency')"
-                class="w-28"
-              />
-              <CommonAppDateRangeFilter
-                v-if="report.filters.includes('date')"
-                v-model:start="dateFrom"
-                v-model:end="dateTo"
-                granularity="day"
-                class="shrink-0"
-                :label="t('freight.ui.date')"
-              />
+            <CommonAppLiveSearch v-model="q" class="w-40 shrink-0 sm:w-56 lg:w-64" :placeholder="t('freight.ui.search')" />
+            <div class="flex min-w-0 flex-1 items-center justify-end gap-2">
+              <CommonAppFilterMenu :active="hasActiveFilters">
+                <template #default="{ compact }">
+                  <CommonAppFilterSelect
+                    v-if="report.filters.includes('branch')"
+                    v-model="branch"
+                    :items="branchItems"
+                    :placeholder="t('freight.ui.branchCol')"
+                    class="w-36"
+                  />
+                  <CommonAppFilterSelect
+                    v-if="report.filters.includes('currency')"
+                    v-model="currency"
+                    :items="currencyItems"
+                    :placeholder="t('freight.ui.cols.currency')"
+                    class="w-28"
+                  />
+                  <CommonAppDateRangeFilter
+                    v-if="report.filters.includes('date')"
+                    v-model:start="dateFrom"
+                    v-model:end="dateTo"
+                    granularity="day"
+                    :inline="compact"
+                    :label="t('freight.ui.date')"
+                  />
+                </template>
+              </CommonAppFilterMenu>
               <UButton
                 v-if="hasActiveFilters"
                 :label="t('freight.ui.clear')"
                 color="neutral"
                 variant="ghost"
                 size="sm"
+                class="shrink-0"
                 @click="clearFilters"
               />
             </div>

@@ -2,7 +2,7 @@
 import type { EChartsCoreOption } from 'echarts/core'
 import { useAppHeader } from '~/composables/layout/useAppHeader'
 import { usePageSeo } from '~/composables/usePageSeo'
-import { formatLcsMoney } from '~/utils/lcs/format'
+import { useAppLocalization } from '~/composables/settings/useAppLocalization'
 import {
   bucketDashboardRevenueExpense,
   dashboardChartYearRange,
@@ -20,7 +20,8 @@ import {
 
 const store = useFreightStore()
 const tenant = useTenantStore()
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const { formatMoney, formatCompact, formatDatePart } = useAppLocalization()
 const { setTitle, clear } = useAppHeader()
 
 setTitle(t('freight.pages.dashboard'))
@@ -66,7 +67,7 @@ watch(revenueYear, year => { revenueSummary.value = loadChart(year) })
 watch(ordersYear, year => { ordersSummary.value = loadChart(year) })
 onMounted(load)
 
-const money = (value: number) => formatLcsMoney(value, 'USD', locale.value)
+const money = (value: number) => formatMoney(value)
 
 interface KpiCard {
   key: string
@@ -107,15 +108,14 @@ const BRAND = '#e8472a'
 const NAVY = '#3a539f'
 
 function compactNumber(value: number) {
-  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k`
-  return String(value)
+  return formatCompact(value)
 }
 
 function monthLabel(month: string) {
   const [year, m] = month.split('-')
   if (!year || !m) return month
   const date = new Date(Date.UTC(Number(year), Number(m) - 1, 1))
-  const name = new Intl.DateTimeFormat(locale.value === 'km' ? 'km-KH' : 'en-US', { month: 'short', timeZone: 'UTC' }).format(date)
+  const name = formatDatePart(date, { month: 'short', timeZone: 'UTC' })
   return `${name} ${year.slice(2)}`
 }
 

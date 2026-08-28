@@ -199,6 +199,8 @@ function openPickerDialog() {
       v-if="iconOnly"
       v-model:open="pickerDialogOpen"
       :title="pickerTitle"
+      :dismissible="false"
+      :close="{ color: 'primary', variant: 'outline', class: 'rounded-full' }"
       :ui="{ content: 'w-[calc(100%-2rem)] max-w-2xl sm:max-w-2xl' }"
     >
       <template #body>

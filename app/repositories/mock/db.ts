@@ -2,7 +2,7 @@ import type { FreightRecord } from '~/config/freight-seed'
 import { createLcsFreightSeed } from '~/config/lcs-seed'
 import { normalizeDocumentSequenceRecord } from '~/utils/document-sequences'
 
-export const LCS_FREIGHT_STORAGE_KEY = 'lcs-freight-data-v4'
+export const LCS_FREIGHT_STORAGE_KEY = 'lcs-freight-data-v5'
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -27,7 +27,7 @@ export function getLcsDb(): Record<string, FreightRecord[]> {
         for (const [collection, rows] of Object.entries(fresh)) {
           if (!Array.isArray(memory[collection])) memory[collection] = clone(rows)
         }
-        for (const collection of ['debitNotes', 'jobCharges', 'quotations', 'users', 'componentTemplates', 'auditLogs']) {
+        for (const collection of ['debitNotes', 'jobCharges', 'quotations', 'users', 'componentTemplates', 'auditLogs', 'journals', 'chartOfAccounts', 'financialAccounts', 'postingRules', 'actualContainers', 'cashAccounts']) {
           const freshRows = fresh[collection] || []
           const existingRows = memory[collection] || []
           const merged = freshRows.map((freshRow) => {

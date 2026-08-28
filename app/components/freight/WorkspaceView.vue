@@ -18,7 +18,8 @@ import { freightModules, type FreightSelectOption } from '~/config/freight-modul
 import { chargeDomainStatus, financeDomainStatus, jobDomainStatus, quotationDomainStatus } from '~/utils/lcs/states'
 import { isMoneyKey, isNumericKey, jobForQuotation, jobWorkspacePath, workspaceSectionForPath } from '~/utils/freight/job-workspace'
 import { enrichJobListRows } from '~/utils/freight/job-list'
-import { parseFilterQuery } from '~/utils/filter/values'
+import { limitFilterSelects, parseFilterQuery } from '~/utils/filter/values'
+import { isFilterValueActive } from '~/utils/filter/select-ui'
 import { listTableRowMetaColumn, listTableSelectColumn } from '~/utils/table/list-columns'
 import { listTablePageSummary, listTableSelectedIds } from '~/utils/table/list-table'
 import { documentSequenceTypeLabel, isDocumentSequenceType } from '~/utils/document-sequences'
@@ -89,6 +90,20 @@ const result = computed(() => {
   return { rows: all, total: all.length, all }
 })
 const selectedIds = computed(() => listTableSelectedIds(rowSelection.value))
+
+/** Lights the collapsed filter-menu button when any toolbar filter is set. */
+const hasActiveFilters = computed(() => Boolean(
+  Object.values(filters).some(value => isFilterValueActive(value))
+  || isFilterValueActive(dateFrom.value)
+  || isFilterValueActive(dateTo.value),
+))
+
+/** Toolbar shows at most 3 selects beside the date range, 4 without it. */
+const visibleFilters = computed(() => limitFilterSelects(
+  current.value?.filters || [],
+  Boolean(dateField.value),
+  filter => filter.key === 'status' || filter.key === 'workflowStatus',
+))
 
 watch(current, (value) => {
   if (!value) return
@@ -440,7 +455,7 @@ function setDocumentSequenceStatus(row: Record<string, unknown>, status: 'ACTIVE
 }
 
 function refresh() {
-  store.hydrate()
+  store.reload()
 }
 
 function optionValue(option: FreightSelectOption) {
@@ -490,17 +505,18 @@ function filterItems(filter: { options?: readonly FreightSelectOption[] | Freigh
       :columns="columns"
       :loading="pending"
       :show-date-range="Boolean(dateField)"
+      :filters-active="hasActiveFilters"
       :empty-actions="canCreate ? [{ icon: 'i-lucide-plus', label: t('freight.ui.newEntity', { entity: moduleSingular(current) }), onClick: openCreate }] : []"
       @select="onRowSelect"
     >
-      <template #filters>
+      <template #filters="{ compact }">
         <CommonAppFilterSelect
-          v-for="filter in current.filters || []"
+          v-for="filter in visibleFilters"
           :key="filter.key"
           :model-value="filters[filter.key] ?? []"
           :items="filterItems(filter)"
           :placeholder="fieldLabel(filter)"
-          class="w-40"
+          :class="compact ? 'w-full' : 'w-40'"
           @update:model-value="filters[filter.key] = parseFilterQuery($event)"
         />
       </template>

@@ -29,7 +29,7 @@ function acknowledge() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :ui="{ overlay: 'z-[250]', content: 'z-[250]' }">
+  <UModal v-model:open="open" :dismissible="false" :ui="{ overlay: 'z-[250]', content: 'z-[250]' }">
     <template #content>
       <UCard>
         <div class="flex items-start gap-3">

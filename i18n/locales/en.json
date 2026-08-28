@@ -1104,6 +1104,7 @@
         "sealNo": "Seal No.",
         "netWeight": "Net Weight (kg)",
         "grossWeight": "Gross Weight (kg)",
+        "weightKg": "Weight (kg)",
         "createdAt": "Created At",
         "bookingNo": "Booking No.",
         "carrier": "Carrier / Shipping Line",
@@ -2796,6 +2797,8 @@
   "components": {
     "select": "Select...",
     "filterSearch": "Search options...",
+    "filterMenu": "Filters",
+    "filterApplied": "Filters applied",
     "filterNone": "All (no filter)"
   },
   "pages": {

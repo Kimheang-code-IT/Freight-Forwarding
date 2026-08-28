@@ -126,7 +126,7 @@ watch([title, () => module.value, () => model.value.status], () => {
 onBeforeUnmount(clear)
 usePageSeo({ title: () => title.value })
 
-const compactBusinessDocument = computed(() => ['quotations', 'debitNotes', 'journals', 'jobCharges'].includes(module.value?.collection || ''))
+const compactBusinessDocument = computed(() => false)
 const chargeLinkedToJob = computed(() => module.value?.collection === 'jobCharges' && Boolean(String(model.value.jobNo || '').trim()))
 const related = computed(() => module.value && !isCreate.value ? store.related(module.value, model.value) : [])
 const readOnly = computed(() => {
@@ -857,7 +857,7 @@ async function confirmReverse() {
     :can-navigate-next="canNavigateNext"
     :list-to="listTo"
     :is-create="isCreate"
-    :can-comment="!isCreate && !readOnly"
+    :can-comment="!isCreate"
     :comments="comments"
     :activity="activity"
     :attachments="attachments"
@@ -868,6 +868,7 @@ async function confirmReverse() {
     :meta-subtitle="module.collection === 'quotations'
       ? [model.customer, model.direction, model.currency].filter(Boolean).join(' · ')
       : moduleSingular(module)"
+    :meta-icon="module.icon"
     :meta-status="String(model.status || '')"
     :meta-owner="metaOwner"
     :meta-assignee="metaAssignee"
@@ -950,6 +951,8 @@ async function confirmReverse() {
   <UModal
     :open="reverseOpen"
     :title="$t('lcs.finance.reverseReason')"
+    :dismissible="false"
+    :close="{ color: 'primary', variant: 'outline', class: 'rounded-full' }"
     :ui="{ content: 'w-[calc(100%-2rem)] max-w-md sm:max-w-md' }"
     @update:open="value => !value && (reverseOpen = false)"
   >
