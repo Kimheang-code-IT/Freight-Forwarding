@@ -50,7 +50,6 @@ watch(() => props.job.id, loadRows, { immediate: true })
     :table="table"
     :model-value="rows"
     :disabled="!canEdit"
-    compact
     @update:model-value="setRows"
   />
 </template>

@@ -32,7 +32,6 @@ const fields = computed(() => [
     size: 'lg' as const,
     label: t('pages.auth.email'),
     placeholder: t('pages.auth.emailPlaceholder'),
-    description: t('pages.forgetPassword.emailHelp'),
     required: true,
     autocomplete: 'email',
   },
@@ -76,7 +75,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
       @submit="onSubmit"
     >
       <template #leading>
-        <img src="/assets/images/logo.png" alt="Logo" class="mx-auto h-20 w-auto rounded-full shadow">
+        <img src="/assets/images/logo.png" alt="Logo" class="mx-auto h-20 w-auto">
       </template>
 
       <template #description>

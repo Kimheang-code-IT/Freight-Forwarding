@@ -318,9 +318,18 @@ export const freightModules: FreightModule[] = [
           { key: 'quantity', label: 'Quantity', labelKm: 'បរិមាណ', type: 'number' },
           { key: 'unit', label: 'Unit', labelKm: 'ឯកតា' },
           { key: 'unitPrice', label: 'Unit Price', labelKm: 'តម្លៃឯកតា', type: 'number' },
-          { key: 'discount', label: 'Discount', labelKm: 'បញ្ចុះតម្លៃ', type: 'number' },
-          { key: 'tax', label: 'Tax', labelKm: 'ពន្ធ', type: 'number' },
-          { key: 'total', label: 'Total', labelKm: 'សរុប', type: 'number' },
+          {
+            key: 'total',
+            label: 'Line Total',
+            labelKm: 'សរុបជួរ',
+            labelKey: 'freight.ui.lineTotal',
+            type: 'number',
+            computed: true,
+            inlineFields: [
+              { key: 'discount', label: 'Disc.', labelKm: 'បញ្ចុះ.', labelKey: 'freight.ui.discountCol' },
+              { key: 'tax', label: 'Tax', labelKm: 'ពន្ធ', labelKey: 'freight.ui.taxCol' },
+            ],
+          },
         ],
       },
       {
@@ -1315,9 +1324,18 @@ if (quotationModule) freightModules.push({
     { key: 'pricingLines', title: 'Pricing', titleKm: 'តម្លៃ', addLabel: 'Add Pricing Line', columns: [
       { key: 'feeType', label: 'Service / Fee', labelKm: 'សេវា / ថ្លៃ', required: true }, { key: 'containerRequirement', label: 'Container', labelKm: 'កុងតឺន័រ' },
       { key: 'quantity', label: 'Qty', labelKm: 'បរិមាណ', type: 'number', required: true }, { key: 'unitPrice', label: 'Unit Price', labelKm: 'តម្លៃឯកតា', type: 'number', required: true },
-      { key: 'discountAmount', label: 'Discount', labelKm: 'បញ្ចុះតម្លៃ', type: 'number' },
-      { key: 'taxAmount', label: 'Tax', labelKm: 'ពន្ធ', type: 'number' },
-      { key: 'lineTotal', label: 'Total', labelKm: 'សរុប', type: 'number', computed: true },
+      {
+        key: 'lineTotal',
+        label: 'Line Total',
+        labelKm: 'សរុបជួរ',
+        labelKey: 'freight.ui.lineTotal',
+        type: 'number',
+        computed: true,
+        inlineFields: [
+          { key: 'discountAmount', label: 'Disc.', labelKm: 'បញ្ចុះ.', labelKey: 'freight.ui.discountCol' },
+          { key: 'taxAmount', label: 'Tax', labelKm: 'ពន្ធ', labelKey: 'freight.ui.taxCol' },
+        ],
+      },
     ] },
     { key: 'attachments', title: 'Files', titleKm: 'ឯកសារ', addLabel: 'Upload File', addLabelKey: 'freight.ui.uploadFile', kind: 'files', columns: FILE_ATTACHMENT_COLUMNS },
     { key: 'revisionHistory', title: 'Revisions', titleKm: 'កំណែ', columns: [
@@ -1449,7 +1467,19 @@ if (invoicesModule) freightModules.push({
     {
       key: 'lines', title: 'Financial Lines', titleKm: 'ជួរហិរញ្ញវត្ថុ', addLabel: 'Add financial line',
       columns: [
-        { key: 'description', label: 'Description', labelKm: 'បរិយាយ', required: true }, { key: 'accountCode', label: 'Account', labelKm: 'គណនី', required: true }, { key: 'quantity', label: 'Qty', labelKm: 'បរិមាណ', type: 'number', required: true }, { key: 'unitAmount', label: 'Unit Price', labelKm: 'តម្លៃឯកតា', type: 'number', required: true }, { key: 'discount', label: 'Discount', labelKm: 'បញ្ចុះតម្លៃ', type: 'number' }, { key: 'taxRate', label: 'Tax', labelKm: 'ពន្ធ', type: 'number' }, { key: 'amount', label: 'Amount', labelKm: 'ចំនួន', type: 'number', computed: true },
+        { key: 'description', label: 'Description', labelKm: 'បរិយាយ', required: true }, { key: 'accountCode', label: 'Account', labelKm: 'គណនី', required: true }, { key: 'quantity', label: 'Qty', labelKm: 'បរិមាណ', type: 'number', required: true }, { key: 'unitAmount', label: 'Unit Price', labelKm: 'តម្លៃឯកតា', type: 'number', required: true },
+        {
+          key: 'amount',
+          label: 'Line Total',
+          labelKm: 'សរុបជួរ',
+          labelKey: 'freight.ui.lineTotal',
+          type: 'number',
+          computed: true,
+          inlineFields: [
+            { key: 'discount', label: 'Disc.', labelKm: 'បញ្ចុះ.', labelKey: 'freight.ui.discountCol' },
+            { key: 'taxAmount', label: 'Tax', labelKm: 'ពន្ធ', labelKey: 'freight.ui.taxCol' },
+          ],
+        },
       ],
     },
     {

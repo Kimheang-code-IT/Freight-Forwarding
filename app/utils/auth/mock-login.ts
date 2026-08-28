@@ -101,6 +101,30 @@ function avatar(name: string, bg: string) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${bg}&color=fff`
 }
 
+/** All page keys except Configuration and Administration sidebar groups. */
+function getStaffUserPermissionKeys(): string[] {
+  return getAllSystemPermissionKeys().filter((key) => {
+    if (key === 'configuration.manage') return false
+    if (key.startsWith('configuration.')) return false
+    if (key.startsWith('admin.')) return false
+    if (key.startsWith('settings.')) return false
+    return true
+  })
+}
+
+const STAFF_USER_PAGES = getStaffUserPermissionKeys()
+
+const STAFF_SOURCE: SourcePermission[] = [
+  ...new Set<SourcePermission>([
+    ...OPS_SOURCE,
+    ...FINANCE_SOURCE,
+    'organization.read',
+    'branch.read',
+    'quotation.accept',
+    'quotation.convert',
+  ]),
+]
+
 /** Frontend-only demo accounts. Replace with real API auth later. */
 export const MOCK_LOGIN_ACCOUNTS: MockLoginAccount[] = [
   {
@@ -122,6 +146,27 @@ export const MOCK_LOGIN_ACCOUNTS: MockLoginAccount[] = [
       assignedBranchIds: [BRANCH_BAVET_ID, BRANCH_PP_ID],
       permissionScope: 'ORGANIZATION',
       sourcePermissions: ALL_SOURCE,
+    },
+  },
+  {
+    email: 'user@gmail.com',
+    password: '123456',
+    user: {
+      id: 7,
+      name: 'Standard User',
+      email: 'user@gmail.com',
+      role: 'Operations',
+      avatar: avatar('Standard User', '059669'),
+      pageAccess: STAFF_USER_PAGES,
+      permissions: STAFF_USER_PAGES,
+      organizationId: LCS_ORG_ID,
+      organizationCode: 'LCS',
+      organizationName: 'LCS Freight',
+      branchId: BRANCH_BAVET_ID,
+      branchName: 'Bavet',
+      assignedBranchIds: [BRANCH_BAVET_ID, BRANCH_PP_ID],
+      permissionScope: 'ORGANIZATION',
+      sourcePermissions: STAFF_SOURCE,
     },
   },
   {

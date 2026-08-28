@@ -8,7 +8,7 @@ import type { DatePickerGranularity } from '~/utils/date-picker'
 import { fileTableRowBy, fileTableRowCreated, fileTableRowName, filePreviewHref, revokeFilePreview, useFileAttachments } from '~/utils/freight/attachments'
 import { containerPaymentAmounts } from '~/utils/freight/job-containers'
 import { fileTypeIcon } from '~/utils/file-icon'
-import { freightTableUiCompactReadonly } from '~/utils/table/theme'
+import { freightTableUiCompactReadonly, freightTableUiReadonly } from '~/utils/table/theme'
 
 const props = withDefaults(defineProps<{
   table: FreightTable
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
   compact?: boolean
   viewOnlyActions?: boolean
 }>(), {
-  compact: true,
+  compact: false,
 })
 
 const emit = defineEmits<{
@@ -40,6 +40,7 @@ const TableSelect = USelect as Component
 
 const isFileTable = computed(() => props.table.kind === 'files' || props.table.key === 'attachments')
 const cellSize = computed(() => props.compact ? 'xs' : 'sm')
+const tableUi = computed(() => props.compact ? freightTableUiCompactReadonly : freightTableUiReadonly)
 
 const moneyKeys = new Set(['unitPrice', 'discountPercent', 'taxPercent', 'discountAmount', 'discount', 'taxAmount', 'lineTotal', 'total', 'amount'])
 const numericKeys = new Set(['quantity', 'actualQuantity', 'remaining', 'netWeightKg', 'grossWeightKg', 'taxRate', ...moneyKeys])
@@ -160,6 +161,22 @@ function updateCell(index: number, key: string, value: unknown) {
     const amount = Math.max(0, Number(row.quantity || 0) * Number(row.unitAmount || 0) - Number(row.discount || 0))
     next[index] = { ...row, amount: amount + Number(row.taxAmount || 0) }
   }
+  if (props.table.key === 'pricingLines') {
+    const row = next[index]
+    if (!row) return
+    const subtotal = Number(row.quantity || 0) * Number(row.unitPrice || 0)
+    const discount = Number(row.discountAmount || 0)
+    const taxable = Math.max(0, subtotal - discount)
+    const tax = Number(row.taxAmount || 0)
+    next[index] = { ...row, lineTotal: Number((taxable + tax).toFixed(2)) }
+  }
+  if (props.table.key === 'lines') {
+    const row = next[index]
+    if (!row) return
+    const taxable = Math.max(0, Number(row.quantity || 0) * Number(row.unitAmount || 0) - Number(row.discount || 0))
+    const tax = Number(row.taxAmount || row.tax || 0)
+    next[index] = { ...row, amount: Number((taxable + tax).toFixed(2)) }
+  }
   if (props.table.key === 'containerPayments') {
     const row = next[index]
     if (!row) return
@@ -252,7 +269,7 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
     {
       id: 'rowNumber',
       header: '#',
-      cell: ({ row }) => h('span', { class: 'text-[11px] tabular-nums text-muted' }, Number(row.original._rowIndex || 0) + 1),
+      cell: ({ row }) => h('span', { class: props.compact ? 'text-[11px] tabular-nums text-muted' : 'text-xs tabular-nums text-muted' }, Number(row.original._rowIndex || 0) + 1),
       enableSorting: false,
     },
     ...props.table.columns.map(column => ({
@@ -382,7 +399,7 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
 <template>
   <section :class="compact ? 'space-y-2' : 'space-y-3'">
     <div class="flex items-center justify-between gap-2">
-      <h3 class="text-xs font-medium text-highlighted">
+      <h3 :class="compact ? 'text-xs font-medium text-highlighted' : 'text-sm font-medium text-highlighted'">
         {{ tableTitle(table) }}
       </h3>
       <UButton
@@ -407,8 +424,8 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
       :data="tableRows"
       :columns="columns"
       :get-row-id="(row: Record<string, unknown>) => String(row._rowIndex ?? '')"
-      class="freight-table freight-table-compact min-w-max"
-      :ui="freightTableUiCompactReadonly"
+      :class="['freight-table min-w-max', compact ? 'freight-table-compact' : '']"
+      :ui="tableUi"
     />
   </section>
 </template>

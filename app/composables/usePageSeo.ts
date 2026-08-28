@@ -4,12 +4,12 @@ type PageSeoOptions = {
   description?: MaybeRefOrGetter<string | undefined | null>
   /** Default: noindex for authenticated app; auth pages should pass `index, follow`. */
   robots?: MaybeRefOrGetter<string | undefined>
-  /** Relative path (`/logo.png`) or absolute URL. Resolved to absolute for crawlers. */
+  /** Relative path (`/og-image.png`) or absolute URL. Resolved to absolute for crawlers. */
   ogImage?: MaybeRefOrGetter<string | undefined>
 }
 
 /** Default social preview image. */
-const DEFAULT_OG_IMAGE = '/logo.png'
+const DEFAULT_OG_IMAGE = '/og-image.png'
 
 /**
  * Per-page SEO. Titles are the page label only — brand is not appended

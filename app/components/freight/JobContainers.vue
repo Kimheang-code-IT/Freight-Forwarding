@@ -234,21 +234,18 @@ watch(() => props.job.id, loadRows, { immediate: true })
       :table="requirementTable"
       :model-value="requirementDisplayRows"
       :disabled="!canEdit"
-      compact
       @update:model-value="setRequirements"
     />
     <TableAppLineTable
       :table="actualTable"
       :model-value="actualRows"
       :disabled="!canEdit"
-      compact
       @update:model-value="setActuals"
     />
     <TableAppLineTable
       :table="paymentTable"
       :model-value="paymentRows"
       :disabled="!canEditPayments"
-      compact
       @update:model-value="setPayments"
     />
     <div class="ms-auto grid w-full max-w-sm gap-1 px-1 py-1.5 text-xs">

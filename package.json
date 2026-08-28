@@ -13,7 +13,8 @@
     "typecheck:unused": "vue-tsc --noEmit --noUnusedLocals --noUnusedParameters -p .nuxt/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "og:image": "node scripts/generate-og-image.mjs"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.96",
@@ -51,6 +52,7 @@
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/fonts": "^0.14.0",
     "eslint": "^10.9.0",
+    "sharp": "^0.35.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11",
     "vue-tsc": "^3.2.5"

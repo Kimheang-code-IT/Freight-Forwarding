@@ -6,7 +6,7 @@ import type { FreightRecord } from '~/config/freight-seed'
 import { codeTitle, formatMoneyUsd, freightStatusBadge, shortDay } from '~/composables/freight/useFreight'
 import { useLcs } from '~/composables/lcs/useLcs'
 import { outstandingOf, postedDocumentTotal } from '~/utils/freight/finance'
-import { freightTableUiCompactReadonly } from '~/utils/table/theme'
+import { freightTableUiReadonly } from '~/utils/table/theme'
 
 const props = defineProps<{
   jobNo: string
@@ -148,8 +148,8 @@ const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
             :data="documents"
             :columns="tableColumns"
             :get-row-id="(row: FreightRecord) => String(row.id || '')"
-            class="freight-table freight-table-compact min-w-max"
-            :ui="freightTableUiCompactReadonly"
+            class="freight-table min-w-max"
+            :ui="freightTableUiReadonly"
           />
         </div>
       </div>

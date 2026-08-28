@@ -58,8 +58,8 @@ export const JOB_CONTAINER_PAYMENT_TABLE: FreightTable = {
     { key: 'unitPrice', label: 'Unit Price', labelKey: 'freight.ui.unitPriceCol', type: 'number', required: true },
     {
       key: 'lineTotal',
-      label: 'Grand Total',
-      labelKey: 'freight.fields.total',
+      label: 'Line Total',
+      labelKey: 'freight.ui.lineTotal',
       type: 'number',
       computed: true,
       inlineFields: [

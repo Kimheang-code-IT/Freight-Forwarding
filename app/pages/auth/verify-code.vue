@@ -90,16 +90,18 @@ async function onResendCode() {
 <template>
   <div class="flex w-full flex-col items-center justify-center">
     <div class="mb-6 flex flex-col items-center gap-3">
-      <img src="/assets/images/logo.png" alt="Logo" class="h-20 w-auto rounded-full shadow">
+      <img src="/assets/images/logo.png" alt="Logo" class="h-20 w-auto">
       <h2 class="text-center text-2xl font-normal">
         {{ t('pages.forgetPassword.verifyTitle') }}
       </h2>
+      <p class="text-center text-sm text-muted">
+        {{ t('pages.forgetPassword.verifyDesc') }}
+      </p>
     </div>
 
     <form class="flex w-full flex-col items-center gap-5" @submit.prevent="onVerifyCode">
       <UFormField
         :label="t('pages.forgetPassword.enterCode')"
-        :help="t('pages.forgetPassword.codeHelp')"
         class="w-full"
       >
         <UPinInput

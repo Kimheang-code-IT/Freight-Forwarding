@@ -56,7 +56,6 @@ watch(
     :table="table"
     :model-value="rows"
     :disabled="!canEdit"
-    compact
     @update:model-value="setRows"
   />
 </template>

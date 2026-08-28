@@ -51,7 +51,6 @@ const fields = computed(() => [
     size: 'lg' as const,
     label: t('pages.forgetPassword.newPassword'),
     placeholder: t('pages.forgetPassword.newPasswordPlaceholder'),
-    description: t('pages.forgetPassword.newPasswordHelp'),
     required: true,
     autocomplete: 'new-password',
   },
@@ -61,7 +60,6 @@ const fields = computed(() => [
     size: 'lg' as const,
     label: t('pages.forgetPassword.confirmPassword'),
     placeholder: t('pages.forgetPassword.confirmPasswordPlaceholder'),
-    description: t('pages.forgetPassword.confirmPasswordHelp'),
     required: true,
     autocomplete: 'new-password',
   },
@@ -119,7 +117,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
       @submit="onSubmit"
     >
       <template #leading>
-        <img src="/assets/images/logo.png" alt="Logo" class="mx-auto h-20 w-auto rounded-full shadow">
+        <img src="/assets/images/logo.png" alt="Logo" class="mx-auto h-20 w-auto">
       </template>
 
       <template #description>

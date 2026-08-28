@@ -197,6 +197,20 @@ describe('moduleDocumentTabs', () => {
     }
   })
 
+  it('puts discount and tax under line total on quotation pricing lines', () => {
+    const inlineFields = [
+      { key: 'discountAmount', label: 'Disc.', labelKm: 'បញ្ចុះ.', labelKey: 'freight.ui.discountCol' },
+      { key: 'taxAmount', label: 'Tax', labelKm: 'ពន្ធ', labelKey: 'freight.ui.taxCol' },
+    ]
+    const field = moduleDocumentTabs(getFreightModule('/quotations')!)
+      .find(tab => tab.id === 'pricing')?.sections[0]?.fields[0]
+    expect(field?.meta?.showPricingTotals).toBe(true)
+    const lineTotal = (field?.meta?.table as { columns: Array<{ key: string, inlineFields?: unknown[], labelKey?: string }> })
+      .columns.find(column => column.key === 'lineTotal')
+    expect(lineTotal?.labelKey).toBe('freight.ui.lineTotal')
+    expect(lineTotal?.inlineFields).toEqual(inlineFields)
+  })
+
   it('puts discount and tax under grand total on charge fee lines with or without a job', () => {
     const inlineFields = [
       { key: 'discount', label: 'Disc.', labelKm: 'បញ្ចុះ.', labelKey: 'freight.ui.discountCol' },
