@@ -40,7 +40,9 @@ const TableMenu = UDropdownMenu as Component
 const TableSelect = USelect as Component
 
 const isFileTable = computed(() => props.table.kind === 'files' || props.table.key === 'attachments')
-const cellSize = computed(() => props.compact ? 'xs' : 'sm')
+const cellSize = 'sm' as const
+const cellInputUi = { base: 'text-sm' }
+const cellNumberInputUi = { base: 'text-sm text-right tabular-nums' }
 const tableUi = computed(() => props.compact ? freightTableUiCompactReadonly : freightTableUiLine)
 
 const moneyKeys = new Set(['unitPrice', 'discountPercent', 'taxPercent', 'discountAmount', 'discount', 'taxAmount', 'lineTotal', 'total', 'amount'])
@@ -113,7 +115,7 @@ function inlineNumberFieldsCell(column: FreightLineColumn, row: Record<string, u
     .map(field => formatInlineNumber(row[field.key]))
     .join(' / ')
   const main = h('span', {
-    class: [columnCellClass(column), 'block truncate tabular-nums text-xs'],
+    class: [columnCellClass(column), 'block truncate tabular-nums text-sm'],
     title: summary,
   }, summary || '—')
   if (!inlineFields.length) return main
@@ -126,9 +128,9 @@ function inlineNumberFieldsCell(column: FreightLineColumn, row: Record<string, u
           'modelValue': Number(row[field.key] || 0),
           'increment': false,
           'decrement': false,
-          'size': cellSize.value,
+          'size': cellSize,
           'class': 'w-20',
-          'ui': { base: 'text-right tabular-nums' },
+          'ui': cellNumberInputUi,
           'aria-label': fieldLabel(field),
           'onUpdate:modelValue': (value: number | null) => updateCell(index, field.key, value ?? 0),
         }),
@@ -140,7 +142,7 @@ function inlineNumberFieldsCell(column: FreightLineColumn, row: Record<string, u
 function inlineMoneyCell(column: FreightLineColumn, row: Record<string, unknown>, index: number) {
   const inlineFields = column.inlineFields || []
   const main = h('span', {
-    class: [columnCellClass(column), 'block truncate text-xs'],
+    class: [columnCellClass(column), 'block truncate text-sm'],
     title: String(row[column.key] ?? ''),
   }, displayValue(column, row[column.key], row))
   if (!inlineFields.length) return main
@@ -166,9 +168,9 @@ function inlineMoneyCell(column: FreightLineColumn, row: Record<string, unknown>
           'modelValue': Number(row[field.key] || 0),
           'increment': false,
           'decrement': false,
-          'size': cellSize.value,
+          'size': cellSize,
           'class': 'w-20',
-          'ui': { base: 'text-right tabular-nums' },
+          'ui': cellNumberInputUi,
           'aria-label': fieldLabel(field),
           'onUpdate:modelValue': (value: number | null) => updateCell(index, field.key, value ?? 0),
         }),
@@ -280,9 +282,7 @@ function fileNameCell(row: Record<string, unknown>) {
   const name = fileTableRowName(row) || '—'
   const icon = fileTypeIcon({ name, mimeType: String(row.mimeType || '') })
   const href = name === '—' ? null : filePreviewHref(row)
-  const labelClass = props.compact
-    ? 'block min-w-0 truncate text-xs font-medium text-highlighted'
-    : 'block min-w-0 truncate text-sm font-medium text-highlighted'
+  const labelClass = 'block min-w-0 truncate text-sm font-medium text-highlighted'
   const label = href
     ? h('a', {
       href,
@@ -332,7 +332,7 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
             'trueValue': String(column.options?.[0] ?? 'Yes'),
             'falseValue': String(column.options?.[1] ?? 'No'),
             'disabled': props.disabled || column.computed,
-            'size': cellSize.value,
+            'size': cellSize,
             'aria-label': fieldLabel(column),
             'onUpdate:modelValue': (value: unknown) => updateCell(index, column.key, value),
           })
@@ -345,8 +345,9 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
             'modelValue': String(row.original[column.key] || '') || undefined,
             'items': items,
             'disabled': props.disabled || column.computed,
-            'size': cellSize.value,
+            'size': cellSize,
             'class': ['w-full', columnCellClass(column)],
+            'ui': cellInputUi,
             'onUpdate:modelValue': (value: unknown) => updateCell(index, column.key, value),
           })
         }
@@ -356,9 +357,9 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
             'disabled': props.disabled || column.computed,
             'increment': false,
             'decrement': false,
-            'size': cellSize.value,
+            'size': cellSize,
             'class': ['w-full', columnCellClass(column)],
-            'ui': { base: 'text-right tabular-nums' },
+            'ui': cellNumberInputUi,
             'onUpdate:modelValue': (value: number | null) => updateCell(index, column.key, value ?? 0),
           })
         }
@@ -368,7 +369,7 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
             'modelValue': String(row.original[column.key] ?? ''),
             'granularity': dateGranularity,
             'disabled': props.disabled || column.computed,
-            'size': cellSize.value,
+            'size': cellSize,
             'class': `w-full ${columnCellClass(column)}`,
             'onUpdate:modelValue': (value: string) => updateCell(index, column.key, value),
           })
@@ -376,8 +377,9 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
         return h(TableInput, {
           'modelValue': String(row.original[column.key] ?? ''),
           'disabled': props.disabled || column.computed,
-          'size': cellSize.value,
+          'size': cellSize,
           'class': `w-full ${columnCellClass(column)}`,
+          'ui': cellInputUi,
           'onUpdate:modelValue': (value: string) => updateCell(index, column.key, value),
         })
       },
