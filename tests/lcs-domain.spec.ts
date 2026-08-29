@@ -11,6 +11,7 @@ import {
   issueServiceCharge,
   postFinancialDocument,
   sendQuotationRevision,
+  submitQuotationRevision,
 } from '../app/utils/lcs/commands'
 import { isLcsDomainError } from '../app/utils/lcs/errors'
 import { filterScopedRecords } from '../app/utils/lcs/scope'
@@ -45,6 +46,28 @@ describe('quotation states', () => {
     expect(canConvertQuotation('Rejected')).toBe(false)
   })
 
+  it('submits a saved draft quotation into a service order', () => {
+    const data = db()
+    data.quotations.push({
+      id: 'qt-submit',
+      quotationNo: 'QT-TEST-SUBMIT',
+      status: 'Draft',
+      organizationId: 1,
+      branchId: 1,
+      direction: 'Import',
+      customer: 'Manhattan SEZ Co., Ltd.',
+      revisionNo: 1,
+      currency: 'USD',
+      total: 1850,
+      containerRequirements: [{ id: 'qrc-submit', containerType: '40HC', quantity: 1, description: 'Submit test' }],
+      pricingLines: [{ feeType: 'Trucking Fee', description: 'Freight', quantity: 1, unitPrice: 1850, taxPercent: 0 }],
+    })
+    const job = submitQuotationRevision(data, adminSession(), 'qt-submit', 'idem-submit-1')
+    expect(String(job.jobNo)).toMatch(/^LCS-/)
+    expect(data.quotations.find(row => row.id === 'qt-submit')?.status).toBe('Converted')
+    expect(submitQuotationRevision(data, adminSession(), 'qt-submit', 'idem-submit-1').id).toBe(job.id)
+  })
+
   it('sends a draft quotation and converts an accepted revision once', () => {
     const data = db()
     const sent = sendQuotationRevision(data, adminSession(), 'qt-003', 'idem-send-1')
@@ -62,6 +85,12 @@ describe('quotation states', () => {
       revisionNo: 1,
       currency: 'USD',
       total: 1100,
+      places: [
+        { placeRole: 'Pickup', place: 'Cat Lai', plannedActual: '2026-08-30', notes: 'Collect cargo' },
+        { placeRole: 'Transit / Border', place: 'Moc Bai / Bavet', plannedActual: '2026-08-31' },
+        { placeRole: 'Delivery', place: 'Manhattan SEZ', plannedActual: '2026-09-01' },
+      ],
+      attachments: [{ fileName: 'quotation-support.pdf', uploadedBy: 'Sales User' }],
       containerRequirements: [{ id: 'qrc-acc', containerType: '40HC', quantity: 1, description: 'Test box' }],
       pricingLines: [{ feeType: 'Trucking Fee', description: 'Freight', quantity: 1, unitPrice: 1000, taxPercent: 10 }],
     })
@@ -74,6 +103,15 @@ describe('quotation states', () => {
     expect(job.containerPayments).toEqual(expect.arrayContaining([
       expect.objectContaining({ feeType: 'Trucking Fee', lineTotal: 1100 }),
     ]))
+    expect(job.places).toEqual(expect.arrayContaining([
+      expect.objectContaining({ placeRole: 'Delivery', place: 'Manhattan SEZ' }),
+    ]))
+    expect(job.destination).toBe('Manhattan SEZ')
+    expect(job.etaBorder).toBe('2026-08-31')
+    expect(job.attachments).toEqual([
+      expect.objectContaining({ fileName: 'quotation-support.pdf', uploadedBy: 'Sales User' }),
+    ])
+    expect(job.attachments).not.toBe(data.quotations.find(row => row.id === 'qt-acc')?.attachments)
     expect(data.quotations.find(row => row.id === 'qt-acc')?.status).toBe('Converted')
 
     try {

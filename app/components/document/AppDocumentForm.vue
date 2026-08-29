@@ -39,7 +39,8 @@ const wideForm = computed(() =>
         field.type === 'telegram-destinations'
         || field.type === 'notification-rules'
         || field.type === 'line-table'
-        || field.type === 'related-records',
+        || field.type === 'related-records'
+        || field.type === 'dynamic-table',
       ),
     ),
   ),

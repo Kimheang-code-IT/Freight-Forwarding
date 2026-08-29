@@ -594,14 +594,16 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       stamp({ id: 'cg-006', code: 'TRANSPORT', name: 'Transport', description: 'Truck dispatch and border crossing execution', displayOrder: 60, showOnJobWorkspace: 'Yes', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ],
     componentTemplates: [
-      stamp({ id: 'tpl-001', code: 'COMMERCIAL_INVOICE', name: 'Commercial Invoice', group: 'INVOICE', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'invoice_no', label: 'Invoice No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'invoice_date', label: 'Invoice Date', dataType: 'Date', inputType: 'Date', required: 'Yes', displayOrder: 20, validation: '' }, { code: 'seller', label: 'Seller', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }, { code: 'invoice_amount', label: 'Invoice Amount', dataType: 'Number', inputType: 'Currency', required: 'No', displayOrder: 40, validation: 'Minimum 0' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
-      stamp({ id: 'tpl-002', code: 'PACKING_LIST', name: 'Packing List', group: 'PACKING_LIST', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'packing_list_no', label: 'Packing List No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'packages', label: 'Packages', dataType: 'Number', inputType: 'Number', required: 'No', displayOrder: 20, validation: '' }, { code: 'gross_weight', label: 'Gross Weight (kg)', dataType: 'Number', inputType: 'Number', required: 'No', displayOrder: 30, validation: '' }, { code: 'net_weight', label: 'Net Weight (kg)', dataType: 'Number', inputType: 'Number', required: 'No', displayOrder: 40, validation: '' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'tpl-001', code: 'COMMERCIAL_INVOICE', name: 'Commercial Invoice', group: 'INVOICE', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'Yes', instanceMode: 'REPEATABLE', minimumInstances: 1, status: 'Active', attributes: [{ code: 'invoice_no', label: 'Invoice No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, showInSummary: 'Yes', validation: '' }, { code: 'invoice_date', label: 'Invoice Date', dataType: 'Date', inputType: 'Date', required: 'Yes', displayOrder: 20, showInSummary: 'Yes', validation: '' }, { code: 'seller', label: 'Seller', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }, { code: 'invoice_amount', label: 'Invoice Amount', dataType: 'Number', inputType: 'Currency', required: 'No', displayOrder: 40, validation: 'Minimum 0' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({ id: 'tpl-002', code: 'PACKING_LIST', name: 'Packing List', group: 'PACKING_LIST', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'packing_list_no', label: 'Packing List No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'packages', label: 'Packages', dataType: 'Number', inputType: 'Number', required: 'No', displayOrder: 20, validation: '' }, { code: 'gross_weight', label: 'Gross Weight (kg)', dataType: 'Number', inputType: 'Number', required: 'No', displayOrder: 30, validation: '' }, { code: 'net_weight', label: 'Net Weight (kg)', dataType: 'Number', inputType: 'Number', required: 'No', displayOrder: 40, validation: '' }, { code: 'package_lines', label: 'Package Lines', dataType: 'Table', inputType: 'Table', required: 'No', displayOrder: 50, helpText: 'Add one row per package line on the packing list.', tableColumns: [{ key: 'description', label: 'Description', type: 'text', order: 1 }, { key: 'quantity', label: 'Qty', type: 'number', order: 2 }, { key: 'weight_kg', label: 'Weight (kg)', type: 'number', order: 3 }] }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tpl-003', code: 'SHIPMENT_REGISTRATION', name: 'Shipment Registration', group: 'SHIPMENT_REGISTRATION', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'registration_no', label: 'Registration No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'registered_at', label: 'Registered At', dataType: 'Date', inputType: 'Date', required: 'No', displayOrder: 20, validation: '' }, { code: 'issuing_office', label: 'Issuing Office', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tpl-004', code: 'TRANSPORT_BILL', name: 'Bill', group: 'BILL', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'bill_no', label: 'Bill / B/L No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'bill_date', label: 'Bill Date', dataType: 'Date', inputType: 'Date', required: 'No', displayOrder: 20, validation: '' }, { code: 'carrier', label: 'Carrier', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tpl-005', code: 'CUSTOMS_CLEARANCE', name: 'Customs Clearance', group: 'CUSTOMS', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'declaration_no', label: 'Declaration No.', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: 'Unique within organization' }, { code: 'cleared_at', label: 'Cleared At', dataType: 'Date', inputType: 'Date', required: 'Yes', displayOrder: 20, validation: '' }, { code: 'customs_fee', label: 'Customs Fee', dataType: 'Number', inputType: 'Currency', required: 'No', displayOrder: 30, validation: 'Minimum 0' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tpl-006', code: 'TRUCK_DISPATCH', name: 'Truck Dispatch', group: 'TRANSPORT', version: '2026.08', direction: 'Import', required: 'Yes', repeatable: 'No', status: 'Active', attributes: [{ code: 'truck_plate', label: 'Truck Plate', dataType: 'Text', inputType: 'Text', required: 'Yes', displayOrder: 10, validation: '' }, { code: 'driver_name', label: 'Driver Name', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 20, validation: '' }, { code: 'driver_phone', label: 'Driver Phone', dataType: 'Text', inputType: 'Text', required: 'No', displayOrder: 30, validation: '' }, { code: 'border_eta', label: 'Border ETA', dataType: 'Date', inputType: 'Date', required: 'No', displayOrder: 40, validation: '' }, { code: 'factory_eta', label: 'Factory ETA', dataType: 'Date', inputType: 'Date', required: 'No', displayOrder: 50, validation: '' }] } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
     ].map(row => ({
       ...row,
+      instanceMode: row.instanceMode || 'SINGLE',
+      minimumInstances: row.minimumInstances ?? (row.required === 'Yes' ? 1 : 0),
       description: row.description || `${row.name} component template`,
       attributeCount: Array.isArray(row.attributes) ? row.attributes.length : 0,
       attributes: (Array.isArray(row.attributes) ? row.attributes as Array<Record<string, unknown>> : []).map((attribute) => {
@@ -653,7 +655,7 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
       stamp({ id: 'tdc-010', tradeDirection: 'Export', componentGroup: 'Customs', componentTemplate: 'Customs Clearance', templateVersion: '2026.08', required: 'Yes', repeatable: 'No', displayOrder: 50, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tdc-011', tradeDirection: 'Import', componentGroup: 'Transport', componentTemplate: 'Truck Dispatch', templateVersion: '2026.08', required: 'Yes', repeatable: 'No', displayOrder: 60, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'tdc-012', tradeDirection: 'Export', componentGroup: 'Transport', componentTemplate: 'Truck Dispatch', templateVersion: '2026.08', required: 'Yes', repeatable: 'No', displayOrder: 60, status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
-    ],
+    ].map(row => ({ ...row, instanceModeOverride: 'INHERIT' })),
     postingRules: [
       stamp({ id: 'pr-001', documentType: 'CUSTOMER_INVOICE', feeType: 'FREIGHT_SERVICE', debitAccount: '1100 · Accounts Receivable', creditAccount: '4010 · Service Revenue', taxAccount: '2020 · Output Tax', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({ id: 'pr-002', documentType: 'SUPPLIER_BILL', feeType: 'TRANSPORT', debitAccount: '5010 · Transport Expense', creditAccount: '2010 · Accounts Payable', taxAccount: '1210 · Input Tax', status: 'Active' } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
@@ -745,6 +747,25 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
         ],
       } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({
+        id: id('cmp', 8),
+        jobNo: 'LCS-IM-260821',
+        serviceOrderId: 'job-001',
+        templateCode: 'COMMERCIAL_INVOICE',
+        templateVersion: '2026.08',
+        latestTemplateVersion: '2026.08',
+        groupCode: 'INVOICE',
+        status: 'PENDING',
+        required: true,
+        resolvedInstanceMode: 'REPEATABLE',
+        sequenceNo: 2,
+        values: [
+          { code: 'invoice_no', label: 'Invoice No.', dataType: 'text', required: true, valueText: 'INV-2608-118-B', helpText: 'Commercial invoice number for this shipment.' },
+          { code: 'invoice_date', label: 'Invoice Date', dataType: 'date', required: true, valueDate: '2026-08-19', helpText: 'Date printed on the commercial invoice.' },
+          { code: 'seller', label: 'Seller', dataType: 'text', required: false, valueText: 'Second Supplier', helpText: 'Seller or shipper named on the invoice.' },
+          { code: 'invoice_amount', label: 'Invoice Amount', dataType: 'number', required: false, valueNumber: 4200, helpText: 'Invoice amount. Must be zero or greater.' },
+        ],
+      } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
+      stamp({
         id: id('cmp', 4),
         jobNo: 'LCS-IM-260821',
         serviceOrderId: 'job-001',
@@ -760,6 +781,7 @@ export function createLcsFreightSeed(): Record<string, FreightRecord[]> {
           { code: 'packages', label: 'Packages', dataType: 'number', required: false, valueNumber: 18, helpText: 'Number of packages on the packing list.' },
           { code: 'gross_weight', label: 'Gross Weight (kg)', dataType: 'number', required: false, valueNumber: 21800, helpText: 'Gross weight in kilograms.' },
           { code: 'net_weight', label: 'Net Weight (kg)', dataType: 'number', required: false, valueNumber: 20150, helpText: 'Net weight in kilograms.' },
+          { code: 'package_lines', label: 'Package Lines', dataType: 'table', inputType: 'table', required: false, helpText: 'Add one row per package line on the packing list.', tableColumns: [{ key: 'description', label: 'Description', type: 'text', order: 1 }, { key: 'quantity', label: 'Qty', type: 'number', order: 2 }, { key: 'weight_kg', label: 'Weight (kg)', type: 'number', order: 3 }], valueJson: [{ description: 'Cartons on pallet A', quantity: 10, weight_kg: 9800 }, { description: 'Cartons on pallet B', quantity: 8, weight_kg: 12000 }] },
         ],
       } as FreightRecord, LCS_ORG_ID, BRANCH_BAVET_ID),
       stamp({

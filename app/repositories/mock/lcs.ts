@@ -26,10 +26,13 @@ import {
   createFinanceInvoiceFromCharge,
   createQuotationRevision,
   ensureServiceComponent,
+  removeServiceComponent,
+  saveServiceComponentValues,
   issueServiceCharge,
   postFinancialDocument,
   reverseFinancialDocument,
   sendQuotationRevision,
+  submitQuotationRevision,
   type LcsCollections,
 } from '~/utils/lcs/commands'
 import { assertRecordAccess, filterScopedRecords, stampTenant } from '~/utils/lcs/scope'
@@ -94,6 +97,7 @@ export function createMockQuotationRepository(): QuotationRepository {
     send: (revisionId, key) => run(db => sendQuotationRevision(db, currentLcsSession(), revisionId, key)),
     accept: (revisionId, key) => run(db => acceptQuotationRevision(db, currentLcsSession(), revisionId, key)),
     createRevision: quotationId => run(db => createQuotationRevision(db, currentLcsSession(), quotationId)),
+    submit: (revisionId, key) => run(db => submitQuotationRevision(db, currentLcsSession(), revisionId, key)),
     convert: (revisionId, key) => run(db => convertQuotationRevision(db, currentLcsSession(), revisionId, key)),
   }
 }
@@ -128,17 +132,10 @@ export function createMockComponentRepository(): ComponentRepository {
     },
     complete: (componentId, key) =>
       run(db => completeServiceComponent(db, currentLcsSession(), componentId, key)),
-    saveValues: async (componentId, values) => {
-      return run((db) => {
-        const component = getScoped('serviceComponents', componentId)
-        const list = [...(db.serviceComponents || [])]
-        const index = list.findIndex(row => row.id === componentId)
-        const next = { ...component, values, templateVersion: component.templateVersion }
-        list[index] = next
-        db.serviceComponents = list
-        return next
-      })
-    },
+    saveValues: (componentId, values) =>
+      run(db => saveServiceComponentValues(db, currentLcsSession(), componentId, values)),
+    remove: (componentId, key) =>
+      run(db => removeServiceComponent(db, currentLcsSession(), componentId, key)),
     ensureForJob: async (jobNo, payload) =>
       run(db => ensureServiceComponent(db, currentLcsSession(), { ...payload, jobNo })),
   }

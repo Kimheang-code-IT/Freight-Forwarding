@@ -49,6 +49,7 @@ function seedAppInfo(): AppInfo {
     branding: {
       primaryColor: '#e8472a',
       secondaryColor: '#1b2b5e',
+      mainLogoUrl: '/lcs-invoice-logo.png',
     },
     footer: {
       copyrightText: `© ${new Date().getFullYear()} Docetra`,

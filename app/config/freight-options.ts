@@ -133,3 +133,5 @@ export const TRANSPORT_TYPES = ['Truck', 'Vessel', 'Air', 'Rail', 'Multimodal'] 
 export const PARTY_ROLES = ['Customer', 'Supplier', 'Carrier', 'Customs Broker', 'Transport Operator'] as const
 export const ACCOUNT_TYPES = ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'] as const
 export const PERIOD_STATUS = ['OPEN', 'CLOSED'] as const
+export const COMPONENT_INSTANCE_MODES = ['SINGLE', 'REPEATABLE'] as const
+export const COMPONENT_INSTANCE_MODE_OVERRIDES = ['INHERIT', 'SINGLE', 'REPEATABLE'] as const

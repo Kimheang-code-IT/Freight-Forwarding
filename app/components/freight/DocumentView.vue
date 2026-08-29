@@ -23,10 +23,18 @@ import { documentSequencePreview, documentSequenceTypeLabel } from '~/utils/docu
 import { jobForQuotation } from '~/utils/freight/job-workspace'
 import {
   freightDocumentLineActionKey,
+  freightDocumentModelKey,
+  freightDocumentRecordKey,
   moduleDocumentTabs,
   RELATED_FIELD_KEY,
 } from '~/utils/freight/document-tabs'
 import { resolveDocumentTraceability } from '~/utils/freight/traceability'
+import {
+  normalizeComponentAssignmentRecord,
+  normalizeComponentTemplateRecord,
+} from '~/utils/freight/component-instance-mode'
+import { PRINT_SUPPORTED_COLLECTIONS } from '~/config/print-templates'
+import type { PrintTemplateId } from '~/config/print-templates'
 
 const { module, isCreate, recordId, route } = useFreightRouteModule()
 const store = useFreightStore()
@@ -40,6 +48,7 @@ const lcs = useLcs()
 
 const saving = ref(false)
 const activeTab = ref('general')
+const printOpen = ref(false)
 const model = ref<FreightRecord>({ id: '' } as FreightRecord)
 const originalModel = ref<FreightRecord | null>(null)
 const notFound = ref(false)
@@ -193,7 +202,19 @@ const reverseDraft = reactive<Record<string, unknown>>({ reason: '' })
 const reversing = ref(false)
 const canMutateRecord = computed(() => Boolean(module.value) && !readOnly.value && !isCreate.value && Boolean(model.value.id))
 const deactivationOnly = computed(() => module.value?.group === 'master' || module.value?.collection === 'documentSequences')
-const quotationOverflowKeys = new Set(['convertJob', 'createRevision', 'reject', 'cancel'])
+const quotationOverflowKeys = new Set(['convertJob', 'createRevision', 'reject', 'cancel', 'send', 'accept'])
+
+function quotationDraftSnapshot(record: FreightRecord) {
+  const { comments, activity, updatedAt, createdAt, ...rest } = record
+  return JSON.stringify(rest)
+}
+
+const quotationDraftDirty = computed(() => {
+  if (module.value?.collection !== 'quotations') return false
+  if (isCreate.value || !originalModel.value) return true
+  return quotationDraftSnapshot(model.value) !== quotationDraftSnapshot(originalModel.value)
+})
+
 const headerActions = computed(() => {
   const collection = module.value?.collection
   const status = String(model.value.status || '')
@@ -201,8 +222,18 @@ const headerActions = computed(() => {
     if (['save', 'delete'].includes(action.key)) return false
     if (collection === 'quotations') {
       const domain = quotationDomainStatus(status)
-      if (action.key === 'saveDraft') return domain === 'DRAFT' && lcs.can('quotation.update_draft')
-      if (action.key === 'send') return domain === 'DRAFT' && lcs.can('quotation.send')
+      if (action.key === 'saveDraft') {
+        return domain === 'DRAFT'
+          && (isCreate.value || quotationDraftDirty.value)
+          && lcs.can('quotation.update_draft')
+      }
+      if (action.key === 'submit') {
+        return domain === 'DRAFT'
+          && !isCreate.value
+          && !quotationDraftDirty.value
+          && lcs.can('quotation.convert')
+      }
+      if (action.key === 'send') return false
       if (action.key === 'accept') return domain === 'SENT' && lcs.can('quotation.accept')
       if (action.key === 'reject') return domain === 'SENT' && lcs.can('quotation.accept')
       if (action.key === 'createRevision') return domain === 'SENT' && lcs.can('quotation.create')
@@ -258,6 +289,7 @@ watch(tabs, (value) => {
 provide(freightDocumentLineActionKey, (action, row) => {
   void onLineRowAction(action, row)
 })
+provide(freightDocumentModelKey, model)
 
 function traceLookups() {
   return {
@@ -360,7 +392,7 @@ const moreItems = computed<DropdownMenuItem[][]>(() => {
         onSelect: () => { void openRelatedServiceOrder() },
       })
     }
-    else if (lcs.can('quotation.convert') && !convertClosed) {
+    else if (lcs.can('quotation.convert') && !convertClosed && quotationDomainStatus(model.value.status) === 'ACCEPTED') {
       items.push({
         label: t('freight.ui.convertServiceOrder'),
         icon: 'i-lucide-arrow-right',
@@ -568,6 +600,29 @@ async function save(status?: string) {
     recalculate()
     const payload = { ...model.value }
     if (status) payload.status = status
+    if (module.value.collection === 'componentTemplates') {
+      Object.assign(payload, normalizeComponentTemplateRecord(payload))
+      const minimum = Number(payload.minimumInstances || 0)
+      const maximum = Number(payload.maximumInstances || 0)
+      if (minimum < 0 || maximum < 0 || (maximum > 0 && maximum < minimum)) {
+        toast.add({ title: t('freight.ui.invalidInstanceLimits'), color: 'error' })
+        return
+      }
+      if (!isCreate.value && originalModel.value
+        && String(payload.instanceMode) !== String(originalModel.value.instanceMode || 'SINGLE')) {
+        const used = store.list('serviceComponents').some(row =>
+          String(row.templateCode) === String(payload.code)
+          && String(row.templateVersion) === String(payload.version),
+        )
+        if (used) {
+          toast.add({ title: t('freight.ui.cardinalityVersionRequired'), color: 'error' })
+          return
+        }
+      }
+    }
+    if (module.value.collection === 'tradeDirectionComponents') {
+      Object.assign(payload, normalizeComponentAssignmentRecord(payload))
+    }
     if (module.value.collection === 'documentSequences') {
       payload.prefix = String(payload.prefix || '').trim()
       const sequenceYear = Number(payload.year)
@@ -676,12 +731,27 @@ async function setDocumentSequenceStatus(status: 'ACTIVE' | 'INACTIVE') {
   toast.add({ title: t(status === 'ACTIVE' ? 'docetra.common.activated' : 'docetra.common.deactivated'), color: 'success' })
 }
 
+async function openPrintPreview(templateId: PrintTemplateId) {
+  if (!module.value || !model.value.id) return
+  await navigateTo({
+    path: `/print/${module.value.collection}/${model.value.id}`,
+    query: { template: templateId },
+  })
+}
+
 async function runAction(key: string) {
   if (!module.value) return
   try {
   if (key === 'save' || key === 'saveDraft') return save(key === 'saveDraft' ? 'Draft' : undefined)
   if (key === 'print') {
-    window.print()
+    if (module.value.collection === 'quotations') {
+      activeTab.value = 'invoice'
+      return
+    }
+    if (PRINT_SUPPORTED_COLLECTIONS.includes(module.value.collection)) {
+      printOpen.value = true
+      return
+    }
     return
   }
   if (key === 'send' && module.value.collection === 'quotations') {
@@ -690,6 +760,26 @@ async function runAction(key: string) {
     )
     model.value = saved
     toast.add({ title: t('freight.ui.quotationSent'), color: 'success' })
+    return
+  }
+  if (key === 'submit' && module.value.collection === 'quotations') {
+    if (quotationDraftDirty.value) {
+      toast.add({ title: t('freight.ui.missingRequired'), description: t('freight.ui.quotationSaveBeforeSubmit'), color: 'warning' })
+      return
+    }
+    const ok = await confirm({
+      kind: 'submit',
+      title: t('freight.ui.quotationSubmitTitle'),
+      description: t('freight.ui.quotationSubmitDescription'),
+      confirmLabel: t('freight.ui.quotationSubmit'),
+    })
+    if (!ok) return
+    const job = await lcs.runCommand('quotation.submit', String(model.value.id), keyValue =>
+      lcs.quotations.submit(String(model.value.id), keyValue),
+    )
+    store.reload()
+    toast.add({ title: t('freight.ui.quotationSubmitted'), color: 'success' })
+    await navigateTo(`/service-orders/${job.id}`)
     return
   }
   if (key === 'accept' && module.value.collection === 'quotations') {
@@ -982,6 +1072,13 @@ async function confirmReverse() {
       </div>
     </template>
   </UModal>
+  <PrintTemplateModal
+    v-if="module"
+    v-model:open="printOpen"
+    :collection="module.collection"
+    :record="model"
+    @preview="openPrintPreview"
+  />
   </template>
   <div v-else class="p-6 text-sm text-muted">{{ t('docetra.document.notFound') || 'Record not found.' }}</div>
 </template>

@@ -1,5 +1,6 @@
 import type { FreightRecord } from '~/config/freight-seed'
 import type { LcsPaged } from '~/types/lcs/domain'
+import type { ComponentInstanceMode } from '~/utils/freight/component-instance-mode'
 
 export type LcsListQuery = {
   q?: string
@@ -16,6 +17,7 @@ export interface QuotationRepository {
   send: (revisionId: string, idempotencyKey: string) => Promise<FreightRecord>
   accept: (revisionId: string, idempotencyKey: string) => Promise<FreightRecord>
   createRevision: (quotationId: string) => Promise<FreightRecord>
+  submit: (revisionId: string, idempotencyKey: string) => Promise<FreightRecord>
   convert: (revisionId: string, idempotencyKey: string) => Promise<FreightRecord>
 }
 
@@ -35,6 +37,8 @@ export type EnsureServiceComponentPayload = {
   latestTemplateVersion?: string
   required?: boolean
   repeatable?: boolean
+  instanceMode?: ComponentInstanceMode
+  maximumInstances?: number
   values?: unknown[]
   forceNew?: boolean
 }
@@ -43,6 +47,7 @@ export interface ComponentRepository {
   listForJob: (jobNo: string) => Promise<FreightRecord[]>
   complete: (componentId: string, idempotencyKey: string) => Promise<FreightRecord>
   saveValues: (componentId: string, values: unknown[]) => Promise<FreightRecord>
+  remove: (componentId: string, idempotencyKey: string) => Promise<FreightRecord>
   ensureForJob: (jobNo: string, payload: EnsureServiceComponentPayload) => Promise<FreightRecord>
 }
 

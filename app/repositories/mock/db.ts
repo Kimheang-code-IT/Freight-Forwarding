@@ -1,6 +1,12 @@
 import type { FreightRecord } from '~/config/freight-seed'
 import { createLcsFreightSeed } from '~/config/lcs-seed'
 import { normalizeDocumentSequenceRecord } from '~/utils/document-sequences'
+import {
+  normalizeComponentAssignmentRecord,
+  normalizeComponentTemplateRecord,
+  resolveComponentInstanceMode,
+} from '~/utils/freight/component-instance-mode'
+import { backfillConvertedJobOperationalFields } from '~/utils/freight/quotation-conversion'
 
 export const LCS_FREIGHT_STORAGE_KEY = 'lcs-freight-data-v5'
 
@@ -27,7 +33,7 @@ export function getLcsDb(): Record<string, FreightRecord[]> {
         for (const [collection, rows] of Object.entries(fresh)) {
           if (!Array.isArray(memory[collection])) memory[collection] = clone(rows)
         }
-        for (const collection of ['debitNotes', 'jobCharges', 'quotations', 'users', 'componentTemplates', 'auditLogs', 'journals', 'chartOfAccounts', 'financialAccounts', 'postingRules', 'actualContainers', 'cashAccounts']) {
+        for (const collection of ['debitNotes', 'jobCharges', 'quotations', 'users', 'componentTemplates', 'tradeDirectionComponents', 'serviceComponents', 'auditLogs', 'journals', 'chartOfAccounts', 'financialAccounts', 'postingRules', 'actualContainers', 'cashAccounts']) {
           const freshRows = fresh[collection] || []
           const existingRows = memory[collection] || []
           const merged = freshRows.map((freshRow) => {
@@ -37,6 +43,30 @@ export function getLcsDb(): Record<string, FreightRecord[]> {
           memory[collection] = [...merged, ...existingRows.filter(row => !freshRows.some(freshRow => freshRow.id === row.id))]
         }
         memory.documentSequences = (memory.documentSequences || []).map(normalizeDocumentSequenceRecord)
+        memory.componentTemplates = (memory.componentTemplates || []).map(normalizeComponentTemplateRecord)
+        memory.tradeDirectionComponents = (memory.tradeDirectionComponents || []).map(normalizeComponentAssignmentRecord)
+        const componentTemplates = memory.componentTemplates || []
+        const componentAssignments = memory.tradeDirectionComponents || []
+        memory.serviceComponents = (memory.serviceComponents || []).map((component) => {
+          const template = componentTemplates.find(row =>
+            String(row.code || row.name) === String(component.templateCode),
+          )
+          const assignment = componentAssignments.find(row =>
+            String(row.componentTemplate) === String(template?.name || component.templateCode),
+          )
+          return {
+            ...component,
+            resolvedInstanceMode: component.resolvedInstanceMode
+              || resolveComponentInstanceMode(assignment, template),
+          }
+        })
+        const quotations = memory.quotations || []
+        memory.jobs = (memory.jobs || []).map((job) => {
+          const quotation = quotations.find(row =>
+            String(row.quotationNo || '') === String(job.quotationNo || ''),
+          )
+          return quotation ? backfillConvertedJobOperationalFields(job, quotation) as FreightRecord : job
+        })
         if (!memory.idempotency) memory.idempotency = []
         return memory
       }

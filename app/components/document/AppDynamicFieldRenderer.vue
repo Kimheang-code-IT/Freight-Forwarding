@@ -27,6 +27,7 @@ import { asNumber } from '~/composables/freight/useFreight'
 import { useAppLocalization } from '~/composables/settings/useAppLocalization'
 import {
   freightDocumentLineActionKey,
+  freightDocumentModelKey,
   freightDocumentRecordKey,
 } from '~/utils/freight/document-tabs'
 
@@ -231,10 +232,19 @@ const isOptionsBuilder = computed(() => props.field.type === 'options-builder')
 const isVisibilityBuilder = computed(() => props.field.type === 'visibility-builder')
 const isLineTable = computed(() => props.field.type === 'line-table')
 const isRelatedRecords = computed(() => props.field.type === 'related-records')
+const isQuotationInvoicePrint = computed(() => props.field.type === 'quotation-invoice-print')
+const isDynamicTable = computed(() => props.field.type === 'dynamic-table')
 const isFile = computed(() => props.field.type === 'file')
+
+const dynamicTable = computed(() => props.field.meta?.table as FreightTable | undefined)
+const dynamicTableRows = computed({
+  get: () => (Array.isArray(props.modelValue) ? props.modelValue as Array<Record<string, unknown>> : []),
+  set: (rows: Array<Record<string, unknown>>) => emit('update:modelValue', rows),
+})
 
 const lineAction = inject(freightDocumentLineActionKey, undefined)
 const recordAccess = inject(freightDocumentRecordKey, null)
+const documentModel = inject(freightDocumentModelKey, null)
 
 const lineTable = computed(() => props.field.meta?.table as FreightTable | undefined)
 const lineRows = computed({
@@ -512,6 +522,26 @@ function removeDestination(id: string) {
     class="md:col-span-2"
     :groups="relatedGroups"
   />
+
+  <FreightQuotationInvoicePrint
+    v-else-if="isQuotationInvoicePrint && documentModel"
+    :record="documentModel"
+    :disabled="disabled"
+  />
+
+  <UFormField
+    v-else-if="isDynamicTable && dynamicTable"
+    :label="labelText"
+    :help="helpText"
+    :required="field.required"
+    class="md:col-span-2"
+  >
+    <DocumentAppDynamicTableField
+      v-model="dynamicTableRows"
+      :table="dynamicTable"
+      :disabled="disabled || field.readOnly"
+    />
+  </UFormField>
 
   <UAlert
     v-else-if="isAlert"

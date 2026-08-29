@@ -25,6 +25,20 @@ export type AttributeDataType =
   | 'officer'
   | 'user'
   | 'record_reference'
+  | 'table'
+
+export type DynamicTableColumnType = 'text' | 'number' | 'date' | 'select'
+
+export interface DynamicTableColumnDef {
+  id: string
+  key: string
+  label: string
+  labelKm?: string
+  type: DynamicTableColumnType
+  options?: string[]
+  required?: boolean
+  order: number
+}
 
 export type VisibilityOperator =
   | 'equals'
@@ -220,6 +234,7 @@ export const ATTRIBUTE_DATA_TYPES: AttributeDataType[] = [
   'officer',
   'user',
   'record_reference',
+  'table',
 ]
 
 export const OPTION_DATA_TYPES: AttributeDataType[] = [

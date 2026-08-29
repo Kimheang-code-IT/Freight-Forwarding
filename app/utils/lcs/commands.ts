@@ -13,7 +13,13 @@ import {
 } from '~/utils/lcs/states'
 import { assertPermission, assertRecordAccess, stampTenant } from '~/utils/lcs/scope'
 import { serviceOrderContainersFromQuotation } from '~/utils/freight/job-containers'
+import { quotationOperationalFields } from '~/utils/freight/quotation-conversion'
 import { missingRequiredValues } from '~/utils/freight/job-task-fields'
+import {
+  normalizeComponentInstanceMode,
+  resolveComponentInstanceMode,
+  type ComponentInstanceMode,
+} from '~/utils/freight/component-instance-mode'
 
 export type LcsCollections = Record<string, FreightRecord[]>
 
@@ -211,6 +217,26 @@ function recordBranchFallback(record: FreightRecord) {
   return Number(record.branchId || 0) || undefined
 }
 
+export function submitQuotationRevision(
+  db: LcsCollections,
+  session: LcsSession,
+  revisionId: string,
+  idempotencyKey: string,
+) {
+  assertPermission(session, 'quotation.convert')
+  const cached = existingIdempotent(db, idempotencyKey)
+  if (cached) return cached
+  const quotation = findById(db, 'quotations', revisionId)
+  assertRecordAccess(quotation, session)
+  if (quotationDomainStatus(quotation!.status) !== 'DRAFT') {
+    throw domainError('INVALID_STATE_TRANSITION', 'Only draft quotations can be submitted.')
+  }
+  replace(db, 'quotations', { ...quotation!, status: 'Accepted' })
+  const job = convertQuotationRevision(db, session, revisionId, `${idempotencyKey}:convert`)
+  audit(db, session, 'Submitted quotation', 'Quotations', String(quotation!.quotationNo || quotation!.id), String(job.jobNo || job.id))
+  return rememberIdempotent(db, idempotencyKey, 'quotation.submit', revisionId, job)
+}
+
 export function convertQuotationRevision(
   db: LcsCollections,
   session: LcsSession,
@@ -237,6 +263,7 @@ export function convertQuotationRevision(
   }
   const direction = String(quotation!.direction || 'Import') === 'Export' ? 'EX' : 'IM'
   const branch = recordBranchFallback(quotation!)
+  const operationalFields = quotationOperationalFields(quotation!)
   const created = replace(db, 'jobs', stampTenant({
     id: newId('job'),
     jobNo: `LCS-${direction}-${Date.now().toString().slice(-6)}`,
@@ -244,14 +271,15 @@ export function convertQuotationRevision(
     customer: quotation!.customer,
     direction: quotation!.direction,
     quotationNo: quotation!.quotationNo,
-    pickup: quotation!.pickup,
-    border: quotation!.border,
-    deliveryLocation: quotation!.delivery,
+    ...operationalFields,
     currency: quotation!.currency || 'USD',
     branchName: quotation!.branchName,
     status: 'Job Created',
     workflowStatus: 'OPEN',
     contact: quotation!.attention,
+    description: quotation!.description,
+    remarks: quotation!.notes,
+    sourceQuotationId: quotation!.id,
     templateVersion: '2026.08',
     amount: quotation!.total || quotation!.amount,
   } as FreightRecord, session, branch))
@@ -527,6 +555,8 @@ export type EnsureServiceComponentPayload = {
   latestTemplateVersion?: string
   required?: boolean
   repeatable?: boolean
+  instanceMode?: ComponentInstanceMode
+  maximumInstances?: number
   values?: unknown[]
   forceNew?: boolean
 }
@@ -547,8 +577,24 @@ export function ensureServiceComponent(
   const existing = rows(db, 'serviceComponents').filter(row =>
     String(row.jobNo || '') === jobNo && String(row.groupCode || '').toUpperCase() === groupCode,
   )
-  const repeatable = Boolean(payload.repeatable)
-  if (!payload.forceNew && !repeatable && existing.length) return existing[0] as FreightRecord
+  const template = rows(db, 'componentTemplates').find(row =>
+    String(row.code || '').toUpperCase() === String(payload.templateCode || '').toUpperCase()
+    || String(row.name || '').toUpperCase() === String(payload.templateCode || '').toUpperCase(),
+  )
+  const assignment = rows(db, 'tradeDirectionComponents').find(row =>
+    String(row.tradeDirection || '').toUpperCase() === String(job!.direction || '').toUpperCase()
+    && (String(row.componentTemplate || '').toUpperCase() === String(template?.name || payload.templateCode).toUpperCase()
+      || String(row.componentGroup || '').toUpperCase().replace(/\s+/g, '_') === groupCode),
+  )
+  const instanceMode = template || assignment
+    ? resolveComponentInstanceMode(assignment, template)
+    : normalizeComponentInstanceMode(payload.instanceMode, payload.repeatable)
+  if (instanceMode === 'SINGLE' && existing.length) return existing[0] as FreightRecord
+
+  const configuredMaximum = Number(assignment?.maximumInstances ?? template?.maximumInstances ?? payload.maximumInstances)
+  if (Number.isFinite(configuredMaximum) && configuredMaximum > 0 && existing.length >= configuredMaximum) {
+    throw domainError('INVALID_STATE_TRANSITION', `Maximum ${configuredMaximum} component records allowed.`)
+  }
 
   const created = stampTenant({
     id: newId('cmp'),
@@ -560,12 +606,49 @@ export function ensureServiceComponent(
     groupCode,
     status: 'PENDING',
     required: payload.required !== false,
-    sequenceNo: existing.length + 1,
+    resolvedInstanceMode: instanceMode,
+    sequenceNo: Math.max(0, ...existing.map(row => Number(row.sequenceNo || 0))) + 1,
     values: Array.isArray(payload.values) ? payload.values : [],
   } as FreightRecord, session)
   const saved = replace(db, 'serviceComponents', created)
   audit(db, session, 'Created service component', 'Jobs', String(saved.templateCode), jobNo)
   return saved
+}
+
+export function saveServiceComponentValues(
+  db: LcsCollections,
+  session: LcsSession,
+  componentId: string,
+  values: unknown[],
+) {
+  assertPermission(session, 'service_order.update')
+  const component = findById(db, 'serviceComponents', componentId)
+  assertRecordAccess(component, session)
+  if (String(component!.status || '').toUpperCase() === 'COMPLETED') {
+    throw domainError('INVALID_STATE_TRANSITION', 'Completed component records cannot be edited.')
+  }
+  const saved = replace(db, 'serviceComponents', { ...component!, values })
+  audit(db, session, 'Updated service component', 'Jobs', String(saved.templateCode), String(saved.jobNo))
+  return saved
+}
+
+export function removeServiceComponent(
+  db: LcsCollections,
+  session: LcsSession,
+  componentId: string,
+  idempotencyKey: string,
+) {
+  assertPermission(session, 'service_order.update')
+  const cached = existingIdempotent(db, idempotencyKey)
+  if (cached) return cached
+  const component = findById(db, 'serviceComponents', componentId)
+  assertRecordAccess(component, session)
+  if (String(component!.status || '').toUpperCase() === 'COMPLETED') {
+    throw domainError('INVALID_STATE_TRANSITION', 'Completed component records cannot be deleted.')
+  }
+  db.serviceComponents = rows(db, 'serviceComponents').filter(row => row.id !== componentId)
+  audit(db, session, 'Deleted service component', 'Jobs', String(component!.templateCode), String(component!.jobNo))
+  return rememberIdempotent(db, idempotencyKey, 'component.remove', componentId, component!)
 }
 
 export function addActualContainer(

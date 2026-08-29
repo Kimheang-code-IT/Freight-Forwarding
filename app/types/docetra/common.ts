@@ -137,6 +137,9 @@ export type FieldType =
   | 'visibility-builder'
   | 'line-table'
   | 'related-records'
+  | 'quotation-invoice-print'
+  | 'dynamic-table'
+  | 'table-columns-builder'
 
 export interface FieldOption {
   label: string

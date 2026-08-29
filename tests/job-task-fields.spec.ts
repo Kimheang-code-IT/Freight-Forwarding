@@ -14,6 +14,7 @@ describe('job task template fields', () => {
     expect(taskValueStorageKey({ dataType: 'integer' })).toBe('valueNumber')
     expect(taskValueStorageKey({ dataType: 'boolean' })).toBe('valueBoolean')
     expect(taskValueStorageKey({ dataType: 'json' })).toBe('valueText')
+    expect(taskValueStorageKey({ dataType: 'Table' })).toBe('valueJson')
   })
 
   it('maps template attributes to document field types without a per-task form', () => {
@@ -22,6 +23,11 @@ describe('job task template fields', () => {
     expect(taskValueToDocumentField({ code: 'qty', dataType: 'Number' }).type).toBe('number')
     expect(taskValueToDocumentField({ code: 'done', dataType: 'boolean' }).type).toBe('boolean')
     expect(taskValueToDocumentField({ code: 'payload', dataType: 'JSON' }).type).toBe('textarea')
+    expect(taskValueToDocumentField({
+      code: 'package_lines',
+      dataType: 'Table',
+      tableColumns: [{ key: 'description', label: 'Description', type: 'text', order: 1 }],
+    }).type).toBe('dynamic-table')
     expect(taskValueToDocumentField({
       code: 'mode',
       dataType: 'select',

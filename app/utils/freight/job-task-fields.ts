@@ -1,5 +1,12 @@
 import type { DocumentFieldSchema, FieldOption, FieldType } from '~/types/docetra/common'
 import { isConfigFlagYes } from '~/utils/freight/job-component-tabs'
+import {
+  dynamicTableColumnsToFreightTable,
+  isTableAttribute,
+  parseDynamicTableRows,
+  tableColumnsFromAttribute,
+  tableRowsFromValue,
+} from '~/utils/freight/dynamic-table'
 
 function normalizeKind(value: unknown) {
   return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
@@ -14,6 +21,7 @@ export function isAttributeRequired(value: Record<string, unknown> | unknown) {
 
 export function taskValueStorageKey(value: Record<string, unknown>) {
   const kind = normalizeKind(value.dataType || value.inputType || 'text')
+  if (kind === 'table') return 'valueJson'
   if (['number', 'decimal', 'integer', 'currency'].includes(kind)) return 'valueNumber'
   if (['date', 'datetime', 'time'].includes(kind)) return 'valueDate'
   if (['boolean', 'checkbox'].includes(kind)) return 'valueBoolean'
@@ -56,6 +64,7 @@ function fieldTypeFromAttribute(value: Record<string, unknown>, hasOptions: bool
   }
   if (kind === 'file' || data === 'file' || data === 'image') return 'file'
   if (kind === 'url' || data === 'url') return 'url'
+  if (kind === 'table' || data === 'table') return 'dynamic-table'
   return 'text'
 }
 
@@ -68,6 +77,10 @@ export function taskValueToDocumentField(
   const options = optionList(value)
   const type = fieldTypeFromAttribute(value, Boolean(options?.length))
   const help = String(value.helpText || value.help || '')
+  const tableColumns = tableColumnsFromAttribute(value)
+  const table = type === 'dynamic-table'
+    ? dynamicTableColumnsToFreightTable(tableColumns, code, String(value.label || code))
+    : undefined
   return {
     key: code,
     labelKey: '',
@@ -78,15 +91,26 @@ export function taskValueToDocumentField(
     help: help || undefined,
     options,
     rows: type === 'textarea' ? 4 : undefined,
-    meta: { dataType: value.dataType, inputType: value.inputType },
+    colSpan: type === 'dynamic-table' ? 2 : undefined,
+    meta: {
+      dataType: value.dataType,
+      inputType: value.inputType,
+      table,
+      tableColumns,
+    },
   }
 }
 
 export function taskValueModel(value: Record<string, unknown>) {
+  if (isTableAttribute(value)) return tableRowsFromValue(value)
   return value[taskValueStorageKey(value)]
 }
 
 export function applyTaskValue(value: Record<string, unknown>, next: unknown) {
+  if (isTableAttribute(value)) {
+    value.valueJson = parseDynamicTableRows(next)
+    return
+  }
   value[taskValueStorageKey(value)] = next
 }
 
@@ -108,6 +132,7 @@ function normalizeValueRecord(attr: Record<string, unknown>, existing?: Record<s
     required: isAttributeRequired(requiredSource),
     helpText: String(existing?.helpText || attr.helpText || attr.help || ''),
     options: existing?.options || attr.options,
+    tableColumns: existing?.tableColumns || attr.tableColumns,
   }
 }
 
@@ -143,6 +168,7 @@ export function mergeTemplateValues(
 export function missingRequiredValues(values: Array<Record<string, unknown>>) {
   return values.filter((value) => {
     if (!isAttributeRequired(value)) return false
+    if (isTableAttribute(value)) return !tableRowsFromValue(value).length
     return !String(value.valueText || value.valueDate || '').trim()
       && value.valueNumber == null
       && value.valueBoolean == null

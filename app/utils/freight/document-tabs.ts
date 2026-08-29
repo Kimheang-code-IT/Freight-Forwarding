@@ -1,4 +1,4 @@
-import type { InjectionKey } from 'vue'
+import type { InjectionKey, Ref } from 'vue'
 import type {
   DocumentFieldSchema,
   DocumentSectionSchema,
@@ -12,6 +12,7 @@ import type {
   FreightModule,
   FreightTable,
 } from '~/config/freight-modules'
+import type { FreightRecord } from '~/config/freight-seed'
 
 export const RELATED_FIELD_KEY = '__related'
 
@@ -22,6 +23,8 @@ export const freightDocumentLineActionKey: InjectionKey<
 export const freightDocumentRecordKey: InjectionKey<{
   get: (key: string) => unknown
 }> = Symbol('freightDocumentRecord')
+
+export const freightDocumentModelKey: InjectionKey<Ref<FreightRecord>> = Symbol('freightDocumentModel')
 
 const TYPE_MAP: Record<FreightFieldType, FieldType> = {
   text: 'text',
@@ -264,7 +267,7 @@ function tableOrThrow(module: FreightModule, key: string) {
 }
 
 function quotationTabs(module: FreightModule, options: ModuleDocumentTabsOptions): DocumentTabSchema[] {
-  return [
+  const tabs: DocumentTabSchema[] = [
     fieldsTab('overview', 'freight.quotationTabs.overview', fieldsByKeys(module, QUOTATION_OVERVIEW_KEYS, options.readOnlyKeys)),
     {
       id: 'route',
@@ -292,6 +295,25 @@ function quotationTabs(module: FreightModule, options: ModuleDocumentTabsOptions
       sections: [{ id: 'revisions', fields: [lineTableField(tableOrThrow(module, 'revisionHistory'), options)] }],
     },
   ]
+
+  if (!options.isCreate) {
+    tabs.splice(5, 0, {
+      id: 'invoice',
+      labelKey: 'freight.quotationTabs.invoice',
+      sections: [{
+        id: 'invoice',
+        fields: [{
+          key: 'invoicePrint',
+          labelKey: 'freight.quotationTabs.invoice',
+          type: 'quotation-invoice-print',
+          colSpan: 2,
+          readOnly: true,
+        }],
+      }],
+    })
+  }
+
+  return tabs
 }
 
 function chargeTabs(module: FreightModule, options: ModuleDocumentTabsOptions): DocumentTabSchema[] {

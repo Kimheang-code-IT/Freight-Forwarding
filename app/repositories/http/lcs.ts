@@ -35,6 +35,7 @@ export function createHttpQuotationRepository(): QuotationRepository {
     send: async (revisionId, key) => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATION_SEND(revisionId), {}, withIdempotency(key))),
     accept: async (revisionId, key) => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATION_ACCEPT(revisionId), {}, withIdempotency(key))),
     createRevision: async quotationId => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATION_REVISIONS(quotationId), {})),
+    submit: async (revisionId, key) => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATION_SUBMIT(revisionId), {}, withIdempotency(key))),
     convert: async (revisionId, key) => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATION_CONVERT(revisionId), {}, withIdempotency(key))),
   }
 }
@@ -61,6 +62,8 @@ export function createHttpComponentRepository(): ComponentRepository {
       unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.COMPONENT_COMPLETE(componentId), {}, withIdempotency(key))),
     saveValues: async (componentId, values) =>
       unwrapApiData(await api.put<ApiResponse<FreightRecord>>(ApiV1Endpoints.COMPONENT_VALUES(componentId), { values })),
+    remove: async (componentId, key) =>
+      unwrapApiData(await api.delete<ApiResponse<FreightRecord>>(ApiV1Endpoints.COMPONENT(componentId), withIdempotency(key))),
     ensureForJob: async (jobNo, payload) =>
       unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.SERVICE_ORDER_COMPONENTS(jobNo), payload)),
   }

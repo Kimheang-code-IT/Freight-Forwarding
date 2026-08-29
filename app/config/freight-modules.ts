@@ -55,7 +55,7 @@ export type FreightLineColumn = {
   key: string
   label: string
   labelKm?: string
-  type?: 'text' | 'number' | 'select' | 'textarea' | 'checkbox' | 'date' | 'datetime'
+  type?: 'text' | 'number' | 'select' | 'textarea' | 'checkbox' | 'date' | 'datetime' | 'table-columns'
   options?: readonly string[] | string[]
   /** Select labels when they differ from stored values (e.g. container requirement id). */
   optionItems?: Array<{ label: string, value: string }>
@@ -426,7 +426,7 @@ export const freightModules: FreightModule[] = [
       f('factory', 'Factory', 'រោងចក្រ', 'Job Information', 'ព័ត៌មានការងារ'),
       f('zone', 'Zone', 'តំបន់', 'Job Information', 'ព័ត៌មានការងារ'),
       f('contact', 'Contact Person', 'អ្នកទំនាក់ទំនង', 'Job Information', 'ព័ត៌មានការងារ'),
-      f('direction', 'Import / Export', 'នាំចូល / នាំចេញ', 'Job Information', 'ព័ត៌មានការងារ', 'select', DIRECTIONS),
+      f('direction', 'Trade Directions', 'ទិសដៅពាណិជ្ជកម្ម', 'Job Information', 'ព័ត៌មានការងារ', 'select', DIRECTIONS, { labelKey: 'freight.ui.cols.direction' }),
       f('serviceType', 'Service Type', 'ប្រភេទសេវា', 'Job Information', 'ព័ត៌មានការងារ', 'select', SERVICE_TYPES),
       f('status', 'Job Status', 'ស្ថានភាពការងារ', 'Job Information', 'ព័ត៌មានការងារ', 'select', JOB_STATUS),
       f('workflowStatus', 'Workflow Status', 'ស្ថានភាពលំហូរ', 'Job Information', 'ព័ត៌មានការងារ', 'select', JOB_WORKFLOW_STATUS),
@@ -1302,13 +1302,13 @@ if (quotationModule) freightModules.push({
   documentForm: 'quotation',
   columns: [
     col('quotationNo', 'Quotation No.', 'លេខសម្រង់'), col('customer', 'Customer', 'អតិថិជន'), col('branchName', 'Branch', 'សាខា'),
-    col('direction', 'Trade Direction', 'ទិសដៅពាណិជ្ជកម្ម'), col('revisionNo', 'Current Revision', 'កំណែបច្ចុប្បន្ន'), col('date', 'Quotation Date', 'កាលបរិច្ឆេទសម្រង់'),
+    col('direction', 'Trade Directions', 'ទិសដៅពាណិជ្ជកម្ម', { labelKey: 'freight.ui.cols.direction' }), col('revisionNo', 'Current Revision', 'កំណែបច្ចុប្បន្ន'), col('date', 'Quotation Date', 'កាលបរិច្ឆេទសម្រង់'),
     col('validUntil', 'Valid Until', 'មានសុពលភាពដល់'), col('currency', 'Currency', 'រូបិយប័ណ្ណ'), col('total', 'Total', 'សរុប'), col('status', 'Status', 'ស្ថានភាព'), col('createdAt', 'Created At', 'បង្កើតនៅ'),
   ],
   fields: [
     f('quotationNo', 'Quotation No.', 'លេខសម្រង់', 'Header', 'ក្បាល', 'text', undefined, { required: true, computed: true }),
     f('customer', 'Customer', 'អតិថិជន', 'Header', 'ក្បាល', 'text', undefined, { required: true }), f('branchName', 'Branch', 'សាខា', 'Header', 'ក្បាល', 'text', undefined, { required: true }),
-    f('direction', 'Trade Direction', 'ទិសដៅពាណិជ្ជកម្ម', 'Header', 'ក្បាល', 'select', DIRECTIONS, { required: true }), f('revisionNo', 'Revision No.', 'លេខកំណែ', 'Header', 'ក្បាល', 'number', undefined, { computed: true }),
+    f('direction', 'Trade Directions', 'ទិសដៅពាណិជ្ជកម្ម', 'Header', 'ក្បាល', 'select', DIRECTIONS, { required: true, labelKey: 'freight.ui.cols.direction' }), f('revisionNo', 'Revision No.', 'លេខកំណែ', 'Header', 'ក្បាល', 'number', undefined, { computed: true }),
     f('date', 'Quotation Date', 'កាលបរិច្ឆេទសម្រង់', 'Header', 'ក្បាល', 'date', undefined, { required: true }), f('validUntil', 'Valid Until', 'មានសុពលភាពដល់', 'Header', 'ក្បាល', 'date'),
     f('currency', 'Currency', 'រូបិយប័ណ្ណ', 'Header', 'ក្បាល', 'select', CURRENCIES, { required: true }), f('description', 'Description', 'បរិយាយ', 'Header', 'ក្បាល', 'textarea', undefined, { colSpan: 2 }), f('notes', 'Notes', 'កំណត់សម្គាល់', 'Header', 'ក្បាល', 'textarea', undefined, { colSpan: 2 }),
     f('status', 'Status', 'ស្ថានភាព', 'Header', 'ក្បាល', 'select', QUOTATION_STATUS),
@@ -1343,10 +1343,16 @@ if (quotationModule) freightModules.push({
     ] },
   ],
   actions: [
-    { key: 'saveDraft', label: 'Save Draft', labelKm: 'រក្សាទុកព្រាង', icon: 'i-lucide-save' }, { key: 'send', label: 'Send', labelKm: 'ផ្ញើ', icon: 'i-lucide-send' }, { key: 'createRevision', label: 'Create Revision', labelKm: 'បង្កើតកំណែ', icon: 'i-lucide-git-branch' },
-    { key: 'accept', label: 'Accept', labelKm: 'ទទួលយក', icon: 'i-lucide-check', color: 'success' }, { key: 'reject', label: 'Reject', labelKm: 'បដិសេធ', icon: 'i-lucide-x', color: 'error' }, { key: 'convertJob', label: 'Convert to Service Order', labelKm: 'បម្លែងទៅបញ្ជាសេវាកម្ម', icon: 'i-lucide-arrow-right', color: 'primary' }, { key: 'cancel', label: 'Cancel', labelKm: 'បោះបង់', icon: 'i-lucide-ban', color: 'warning' },
+    { key: 'saveDraft', label: 'Save Draft', labelKm: 'រក្សាទុកព្រាង', icon: 'i-lucide-save' },
+    { key: 'submit', label: 'Submit', labelKm: 'ដាក់ស្នើ', icon: 'i-lucide-check-circle', color: 'primary' },
+    { key: 'send', label: 'Send', labelKm: 'ផ្ញើ', icon: 'i-lucide-send' },
+    { key: 'createRevision', label: 'Create Revision', labelKm: 'បង្កើតកំណែ', icon: 'i-lucide-git-branch' },
+    { key: 'accept', label: 'Accept', labelKm: 'ទទួលយក', icon: 'i-lucide-check', color: 'success' },
+    { key: 'reject', label: 'Reject', labelKm: 'បដិសេធ', icon: 'i-lucide-x', color: 'error' },
+    { key: 'convertJob', label: 'Convert to Service Order', labelKm: 'បម្លែងទៅបញ្ជាសេវាកម្ម', icon: 'i-lucide-arrow-right', color: 'primary' },
+    { key: 'cancel', label: 'Cancel', labelKm: 'បោះបង់', icon: 'i-lucide-ban', color: 'warning' },
   ],
-  filters: [f('customer', 'Customer', 'អតិថិជន', '', '', 'select'), f('branchName', 'Branch', 'សាខា', '', '', 'select'), f('direction', 'Trade Direction', 'ទិសដៅពាណិជ្ជកម្ម', '', '', 'select', DIRECTIONS)],
+  filters: [f('customer', 'Customer', 'អតិថិជន', '', '', 'select'), f('branchName', 'Branch', 'សាខា', '', '', 'select'), f('direction', 'Trade Directions', 'ទិសដៅពាណិជ្ជកម្ម', '', '', 'select', DIRECTIONS, { labelKey: 'freight.ui.cols.direction' })],
 })
 
 if (jobsModule) freightModules.push({
@@ -1363,7 +1369,7 @@ if (jobsModule) freightModules.push({
   columns: [
     col('jobNo', 'Job No.', 'លេខការងារ', { labelKey: 'freight.ui.cols.jobNo' }),
     col('customer', 'Customer', 'អតិថិជន', { labelKey: 'freight.ui.cols.customer' }),
-    col('direction', 'Import / Export', 'នាំចូល / នាំចេញ', { labelKey: 'freight.ui.cols.direction' }),
+    col('direction', 'Trade Directions', 'ទិសដៅពាណិជ្ជកម្ម', { labelKey: 'freight.ui.cols.direction' }),
     col('branchName', 'Branch', 'សាខា', { labelKey: 'freight.ui.branchCol' }),
     col('containersCount', 'Containers', 'កុងតឺន័រ', { labelKey: 'freight.jobSections.containers' }),
     col('tasksProgress', 'Documents', 'ឯកសារ', { labelKey: 'freight.jobSections.documents' }),
@@ -1377,7 +1383,7 @@ if (jobsModule) freightModules.push({
   filters: [
     f('customer', 'Customer', 'អតិថិជន', '', '', 'select', undefined, { labelKey: 'freight.ui.cols.customer' }),
     f('branchName', 'Branch', 'សាខា', '', '', 'select', undefined, { labelKey: 'freight.ui.branchCol' }),
-    f('direction', 'Trade Direction', 'ទិសដៅពាណិជ្ជកម្ម', '', '', 'select', DIRECTIONS, { labelKey: 'freight.ui.cols.direction' }),
+    f('direction', 'Trade Directions', 'ទិសដៅពាណិជ្ជកម្ម', '', '', 'select', DIRECTIONS, { labelKey: 'freight.ui.cols.direction' }),
   ],
   statuses: JOB_WORKFLOW_STATUS,
   actions: [

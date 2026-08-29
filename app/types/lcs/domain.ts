@@ -26,6 +26,8 @@ export type FinancialDocumentStatus = 'DRAFT' | 'POSTED' | 'REVERSED' | 'CANCELL
 export type JournalStatus = 'DRAFT' | 'POSTED' | 'REVERSED' | 'VOIDED'
 
 export type ComponentStatus = 'PENDING' | 'COMPLETED'
+export type ComponentInstanceMode = 'SINGLE' | 'REPEATABLE'
+export type ComponentInstanceModeOverride = 'INHERIT' | ComponentInstanceMode
 
 export type FinancialDocumentType =
   | 'CUSTOMER_INVOICE'
@@ -97,6 +99,7 @@ export interface LcsComponentValue {
   label: string
   data_type: 'text' | 'number' | 'date' | 'datetime' | 'boolean' | 'reference'
   required: boolean
+  resolved_instance_mode: ComponentInstanceMode
   value_text?: string
   value_number?: number
   value_date?: string

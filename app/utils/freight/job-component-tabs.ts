@@ -1,3 +1,5 @@
+import { resolveComponentInstanceMode } from '~/utils/freight/component-instance-mode'
+
 /** Core service-order tabs are fixed Vue sections. Extra tabs come from Component Groups. */
 
 export const JOB_FIXED_WORKSPACE_SECTIONS = ['overview', 'route', 'containers'] as const
@@ -187,7 +189,7 @@ export function assignmentForGroup(params: {
 }
 
 export function isRepeatableComponent(assignment: Record<string, unknown> | null, template: Record<string, unknown> | null) {
-  return isConfigFlagYes(assignment?.repeatable) || isConfigFlagYes(template?.repeatable)
+  return resolveComponentInstanceMode(assignment, template) === 'REPEATABLE'
 }
 
 export function jobWorkspaceSectionIcon(id: string) {
