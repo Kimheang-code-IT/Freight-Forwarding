@@ -10,9 +10,12 @@ export type LcsListQuery = {
   status?: string
 }
 
+export type CreateRecordInput = Record<string, unknown>
+
 export interface QuotationRepository {
   list: (query?: LcsListQuery) => Promise<LcsPaged<FreightRecord>>
   get: (id: string) => Promise<FreightRecord>
+  create: (input: CreateRecordInput) => Promise<FreightRecord>
   saveDraft: (record: FreightRecord) => Promise<FreightRecord>
   send: (revisionId: string, idempotencyKey: string) => Promise<FreightRecord>
   accept: (revisionId: string, idempotencyKey: string) => Promise<FreightRecord>
@@ -54,6 +57,7 @@ export interface ComponentRepository {
 export interface ServiceChargeRepository {
   list: (query?: LcsListQuery) => Promise<LcsPaged<FreightRecord>>
   get: (id: string) => Promise<FreightRecord>
+  create: (input: CreateRecordInput) => Promise<FreightRecord>
   saveDraft: (record: FreightRecord) => Promise<FreightRecord>
   issue: (chargeId: string, idempotencyKey: string) => Promise<FreightRecord>
   createFinanceInvoice: (chargeId: string, idempotencyKey: string) => Promise<FreightRecord>
@@ -62,11 +66,15 @@ export interface ServiceChargeRepository {
 export interface FinanceRepository {
   listDocuments: (query?: LcsListQuery) => Promise<LcsPaged<FreightRecord>>
   getDocument: (id: string) => Promise<FreightRecord>
+  createDocument: (input: CreateRecordInput) => Promise<FreightRecord>
   saveDraft: (record: FreightRecord) => Promise<FreightRecord>
   post: (documentId: string, idempotencyKey: string) => Promise<FreightRecord>
   reverse: (documentId: string, reason: string, idempotencyKey: string) => Promise<FreightRecord>
   allocate: (paymentId: string, targetDocumentId: string, amount: number, idempotencyKey: string) => Promise<FreightRecord>
   listJournals: (query?: LcsListQuery) => Promise<LcsPaged<FreightRecord>>
+  getJournal: (id: string) => Promise<FreightRecord>
+  createJournal: (input: CreateRecordInput) => Promise<FreightRecord>
+  saveJournal: (record: FreightRecord) => Promise<FreightRecord>
   listPeriods: () => Promise<FreightRecord[]>
   closePeriod: (periodId: string, idempotencyKey: string) => Promise<FreightRecord>
 }
@@ -88,3 +96,5 @@ export interface AttachmentRepository {
 export interface UiSchemaRepository {
   getPageSchema: (page: string) => Promise<FreightRecord | null>
 }
+
+export type { CreateRecordInput as LcsCreateRecordInput }

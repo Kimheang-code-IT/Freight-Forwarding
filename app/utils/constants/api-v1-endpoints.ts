@@ -21,6 +21,7 @@ export const ApiV1Endpoints = {
   COMPONENT_VALUES: (id: number | string) => `/api/v1/service-order-components/${id}/values`,
   COMPONENT_COMPLETE: (id: number | string) => `/api/v1/service-order-components/${id}/complete`,
   SERVICE_ORDER_CHARGES: (id: number | string) => `/api/v1/service-orders/${id}/charges`,
+  SERVICE_CHARGES: '/api/v1/service-charges',
   CHARGE_ISSUE: (id: number | string) => `/api/v1/service-charges/${id}/issue`,
   CHARGE_CREATE_INVOICE: (id: number | string) => `/api/v1/service-charges/${id}/create-finance-invoice`,
   FINANCIAL_DOCUMENTS: '/api/v1/financial-documents',
@@ -31,5 +32,7 @@ export const ApiV1Endpoints = {
   JOURNAL_POST: (id: number | string) => `/api/v1/journal-entries/${id}/post`,
   PERIOD_CLOSE: (id: number | string) => `/api/v1/accounting-periods/${id}/close`,
   ATTACHMENTS_PRESIGN: '/api/v1/attachments/presign',
+  ATTACHMENTS: '/api/v1/attachments',
+  UI_SCHEMA: (page: string) => `/api/v1/ui-schemas/${encodeURIComponent(page)}`,
   AUDIT_EVENTS: '/api/v1/audit-events',
 } as const

@@ -1,5 +1,6 @@
 import type { FreightRecord } from '~/config/freight-seed'
 import type { LcsPaged } from '~/types/lcs/domain'
+import type { SourcePermission } from '~/types/lcs/domain'
 import type {
   AttachmentRepository,
   AuditRepository,
@@ -37,6 +38,47 @@ import {
 } from '~/utils/lcs/commands'
 import { assertRecordAccess, filterScopedRecords, stampTenant } from '~/utils/lcs/scope'
 import { domainError } from '~/utils/lcs/errors'
+import {
+  allocateCollectionNumber,
+  COLLECTION_SEQUENCE_CONFIG,
+  stripOfficialNumberFields,
+} from '~/utils/lcs/sequences'
+
+function newRecordId(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+const CREATE_ID_PREFIX: Record<string, string> = {
+  quotations: 'quo',
+  jobCharges: 'chg',
+  debitNotes: 'dn',
+  journals: 'je',
+}
+
+function insertCreatedRecord(
+  db: LcsCollections,
+  session: ReturnType<typeof currentLcsSession>,
+  collection: keyof LcsCollections,
+  input: Record<string, unknown>,
+  permission: SourcePermission,
+  defaults: Record<string, unknown> = {},
+): FreightRecord {
+  assertCanSave(db, session, collection as string, { id: '' } as FreightRecord, permission)
+  const stripped = stripOfficialNumberFields(input, collection as string)
+  const allocation = allocateCollectionNumber(db, collection as string, stripped)
+  const config = COLLECTION_SEQUENCE_CONFIG[collection as string]
+  const stamped = stampTenant({
+    ...stripped,
+    ...(allocation && config ? { [config.numberField]: allocation.number } : {}),
+    ...defaults,
+    id: newRecordId(CREATE_ID_PREFIX[collection as string] || 'rec'),
+    createdAt: new Date().toISOString(),
+  } as FreightRecord, session)
+  const list = [...((db[collection] as FreightRecord[]) || [])]
+  list.unshift(stamped)
+  db[collection] = list as typeof db[typeof collection]
+  return stamped
+}
 
 function pageRows(items: FreightRecord[], query: LcsListQuery = {}): LcsPaged<FreightRecord> {
   const page = Math.max(1, query.page || 1)
@@ -81,6 +123,13 @@ export function createMockQuotationRepository(): QuotationRepository {
   return {
     list: async query => pageRows(scoped('quotations'), query),
     get: async id => getScoped('quotations', id),
+    create: async (input) => {
+      const session = currentLcsSession()
+      return run(db => insertCreatedRecord(db, session, 'quotations', input, 'quotation.create', {
+        status: input.status || 'Draft',
+        currency: input.currency || 'USD',
+      }))
+    },
     saveDraft: async (record) => {
       const session = currentLcsSession()
       return run((db) => {
@@ -145,6 +194,14 @@ export function createMockServiceChargeRepository(): ServiceChargeRepository {
   return {
     list: async query => pageRows(scoped('jobCharges'), query),
     get: async id => getScoped('jobCharges', id),
+    create: async (input) => {
+      const session = currentLcsSession()
+      return run(db => insertCreatedRecord(db, session, 'jobCharges', input, 'service_charge.create', {
+        status: input.status || 'Draft',
+        journalId: '',
+        posted: false,
+      }))
+    },
     saveDraft: async (record) => {
       const session = currentLcsSession()
       return run((db) => {
@@ -168,6 +225,12 @@ export function createMockFinanceRepository(): FinanceRepository {
   return {
     listDocuments: async query => pageRows(scoped('debitNotes'), query),
     getDocument: async id => getScoped('debitNotes', id),
+    createDocument: async (input) => {
+      const session = currentLcsSession()
+      return run(db => insertCreatedRecord(db, session, 'debitNotes', input, 'financial_document.create', {
+        status: input.status || 'Draft',
+      }))
+    },
     saveDraft: async (record) => {
       const session = currentLcsSession()
       return run((db) => {
@@ -187,6 +250,26 @@ export function createMockFinanceRepository(): FinanceRepository {
     allocate: (paymentId, targetDocumentId, amount, key) =>
       run(db => allocatePayment(db, currentLcsSession(), paymentId, targetDocumentId, amount, key)),
     listJournals: async query => pageRows(scoped('journals'), query),
+    getJournal: async id => getScoped('journals', id),
+    createJournal: async (input) => {
+      const session = currentLcsSession()
+      return run(db => insertCreatedRecord(db, session, 'journals', input, 'financial_document.create', {
+        status: input.status || 'DRAFT',
+      }))
+    },
+    saveJournal: async (record) => {
+      const session = currentLcsSession()
+      return run((db) => {
+        assertCanSave(db, session, 'journals', record, 'financial_document.update_draft')
+        const stamped = stampTenant({ ...record, status: record.status || 'DRAFT' }, session)
+        const list = [...(db.journals || [])]
+        const index = list.findIndex(row => row.id === stamped.id)
+        if (index >= 0) list[index] = stamped
+        else list.unshift(stamped)
+        db.journals = list
+        return stamped
+      })
+    },
     listPeriods: async () => scoped('accountingPeriods'),
     closePeriod: (periodId, key) => run(db => closeAccountingPeriod(db, currentLcsSession(), periodId, key)),
   }

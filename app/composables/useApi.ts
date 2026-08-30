@@ -1,7 +1,7 @@
 import { useAuthStore } from '~/stores/auth'
 import { ref } from 'vue'
 import type { TableQueryParams } from '~/types/api'
-import { compactQuery } from '~/utils/api/query'
+import { compactQuery, stableQueryString } from '~/utils/api/query'
 import { useAccessAlert } from '~/composables/common/useAccessAlert'
 import { csrfRequestHeaders } from '~/utils/security/csrf'
 
@@ -50,7 +50,8 @@ export function useApi() {
     const baseURL = String(config.public.apiBase)
 
     function getRequestKey(url: string, options: ApiRequestOptions): string {
-        return options.requestKey || `${options.method || 'GET'}:${url}`
+        const queryKey = stableQueryString(compactQuery(options.query) as Record<string, unknown> | undefined)
+        return options.requestKey || `${options.method || 'GET'}:${url}${queryKey ? `?${queryKey}` : ''}`
     }
 
     function cancelRequest(key: string) {

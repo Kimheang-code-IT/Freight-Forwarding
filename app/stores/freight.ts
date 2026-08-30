@@ -35,9 +35,13 @@ export const useFreightStore = defineStore('freight', () => {
     revision.value += 1
   })
 
+  function bumpRevision() {
+    revision.value += 1
+  }
+
   function persist() {
     persistLcsDb()
-    revision.value += 1
+    bumpRevision()
   }
 
   function hydrate() {
@@ -136,7 +140,7 @@ export const useFreightStore = defineStore('freight', () => {
     else rows.unshift({ ...next, createdAt: new Date().toISOString() })
     db[collection] = rows
     setLcsDb(db)
-    persist()
+    bumpRevision()
     return next
   }
 
@@ -156,7 +160,7 @@ export const useFreightStore = defineStore('freight', () => {
     })
     db[collection] = rows
     setLcsDb(db)
-    persist()
+    bumpRevision()
   }
 
   function addAudit(action: string, module: string, recordNo: string, remark = '') {

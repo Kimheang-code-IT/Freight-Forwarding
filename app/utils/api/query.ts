@@ -12,3 +12,12 @@ export function compactQuery<T extends Record<string, any>>(query: T | undefined
 
   return Object.keys(compacted).length ? compacted : undefined
 }
+
+export function stableQueryString(query: Record<string, unknown> | undefined) {
+  const compacted = compactQuery(query)
+  if (!compacted) return ''
+  return Object.keys(compacted)
+    .sort()
+    .map(key => `${key}=${encodeURIComponent(String(compacted[key as keyof typeof compacted]))}`)
+    .join('&')
+}

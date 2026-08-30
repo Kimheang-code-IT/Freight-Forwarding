@@ -39,7 +39,7 @@ describe('statusColor', () => {
 describe('freight option lists', () => {
   it('keeps supporting-document on DOCUMENT_TYPES and container workflow statuses in config', () => {
     expect(DOCUMENT_TYPES).toContain('Supporting Document')
-    expect([...CONTAINER_STATUSES]).toEqual(['Planned', 'Loaded', 'In Transit', 'Delivered', 'Returned'])
+    expect([...CONTAINER_STATUSES]).toEqual(['Expected', 'Planned', 'Loaded', 'In Transit', 'Delivered', 'Returned'])
     expect(JOB_WORKFLOW_STATUS).toContain('OPEN')
   })
 })

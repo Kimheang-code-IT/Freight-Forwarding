@@ -92,16 +92,16 @@ describe('dashboard summary — posted-only accounting', () => {
 
   it('derives revenue and expense from posted journal lines only', () => {
     const data = buildDashboardSummary(db(), adminSession())
-    // je-001 credit 4010 Service Revenue 1622.5 + je-002 credit 4000 1375.
-    expect(data.summary.revenue).toBe(2997.5)
+    // je-001 credit 4010 Service Revenue 1475 + je-002 credit 4010 1250.
+    expect(data.summary.revenue).toBe(2725)
     expect(data.charts.revenueExpense.length).toBeGreaterThan(0)
     const august = data.charts.revenueExpense.find(point => point.month === '2026-08')
-    expect(august?.revenue).toBe(2997.5)
+    expect(august?.revenue).toBe(2725)
   })
 
   it('uses cash/bank account balances for the Cash/Bank KPI', () => {
     const data = buildDashboardSummary(db(), adminSession())
-    expect(data.summary.cashBankBalance).toBeCloseTo(48250 + 12100, 2)
+    expect(data.summary.cashBankBalance).toBeCloseTo(40900 + 1375 + 2700, 2)
   })
 })
 
@@ -128,11 +128,11 @@ describe('dashboard summary — scope enforcement', () => {
       assignedBranchIds: [1],
     }))
     // je-002 (Phnom Penh) must not contribute revenue to Bavet users.
-    expect(bavet.summary.revenue).toBe(1622.5)
+    expect(bavet.summary.revenue).toBe(1475)
     // Phnom Penh ON_HOLD job-007 must not appear.
     expect(bavet.summary.onHoldOrders).toBe(0)
     // Phnom Penh cash account excluded.
-    expect(bavet.summary.cashBankBalance).toBe(48250)
+    expect(bavet.summary.cashBankBalance).toBe(40900 + 2700)
   })
 
   it('isolates other organizations completely', () => {
@@ -174,7 +174,7 @@ describe('dashboard summary — filters', () => {
     const beforeAugust = buildDashboardSummary(db(), adminSession(), { dateFrom: '2026-01-01', dateTo: '2026-07-31' })
     expect(beforeAugust.summary.revenue).toBe(0)
     const august = buildDashboardSummary(db(), adminSession(), { dateFrom: '2026-08-01', dateTo: '2026-08-31' })
-    expect(august.summary.revenue).toBe(2997.5)
+    expect(august.summary.revenue).toBe(2725)
   })
 
   it('exposes a stable customer option list independent of filters', () => {

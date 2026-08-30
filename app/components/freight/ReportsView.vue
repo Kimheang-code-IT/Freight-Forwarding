@@ -9,8 +9,8 @@ import { formatFreightCell, formatMoney, freightStatusBadge, labeledStatusOption
 import type { FreightRecord } from '~/config/freight-seed'
 import { CONTAINER_STATUSES, JOB_WORKFLOW_STATUS } from '~/config/freight-options'
 import { downloadCsv } from '~/utils/export/csv'
-import { paidAmountOf } from '~/utils/freight/finance'
-import { agingBucket, buildStatementGroups, daysSince, postedJournalLines, reportRowDate, statementDifference as statementDifferenceOf } from '~/utils/freight/report'
+import { buildStatementGroups, postedJournalLines, reportRowDate, statementDifference as statementDifferenceOf } from '~/utils/freight/report'
+import { buildReportRows } from '~/utils/freight/report-queries'
 import { isFilterValueActive } from '~/utils/filter/select-ui'
 import { limitFilterSelects, matchesFilter } from '~/utils/filter/values'
 import { listTableRowMetaColumn, listTableSelectColumn } from '~/utils/table/list-columns'
@@ -47,18 +47,7 @@ const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 20 })
 const rowSelection = ref<Record<string, boolean>>({})
 const postedLines = computed<FreightRecord[]>(() => postedJournalLines(store.list('journals'), store.list('chartOfAccounts')))
 function jobByNo(value: unknown) { return store.list('jobs').find(row => String(row.jobNo) === String(value)) }
-const rows = computed<FreightRecord[]>(() => {
-  const jobs = store.list('jobs'), charges = store.list('jobCharges'), documents = store.list('debitNotes'), components = store.list('serviceComponents')
-  if (['service-orders','service-order-status'].includes(slug.value)) return jobs.map(job => { const related = components.filter(r => r.jobNo === job.jobNo); return { ...job, workflowStatus: job.workflowStatus || job.status, containers: store.list('actualContainers').filter(r => r.jobNo === job.jobNo).length, components: related.length, chargeTotal: charges.filter(r => r.jobNo === job.jobNo).reduce((s,r) => s + Number(r.total || 0),0), invoiceTotal: documents.filter(r => r.jobNo === job.jobNo && String(r.status).toUpperCase() === 'POSTED').reduce((s,r) => s + Number(r.total || 0),0), daysOpen: daysSince(job.createdAt || job.date), pendingComponents: related.filter(r => String(r.status).toUpperCase() !== 'COMPLETED').length, lastActivity: job.updatedAt || job.createdAt || job.date } })
-  if (slug.value === 'containers') return store.list('actualContainers').map(row => { const job = jobByNo(row.jobNo); return { ...row, customer: job?.customer, branchName: job?.branchName, currentMilestone: job?.stage || job?.workflowStatus || job?.status } })
-  if (slug.value === 'profitability') return store.list('profitability').map(row => { const job = jobByNo(row.jobNo), serviceCharges = charges.filter(r => r.jobNo === row.jobNo).reduce((s,r) => s + Number(r.total || 0),0), postedRevenue = Number(row.postedRevenue || 0), postedCost = Number(row.totalCost || 0); return { ...row, branchName: job?.branchName, date: job?.date, currency: job?.currency || 'USD', quoted: Number(job?.quotationAmount || job?.amount || 0), serviceCharges, postedRevenue, postedCost, grossProfit: postedRevenue-postedCost, margin: postedRevenue ? (postedRevenue-postedCost)/postedRevenue*100 : 0 } })
-  if (slug.value === 'accounts-receivable') return store.list('receivables').map(row => ({ ...row, invoiceDate: row.date, paid: paidAmountOf(row), aging: agingBucket(row.dueDate, t, te) }))
-  if (slug.value === 'accounts-payable') return store.list('payables').map(row => ({ ...row, billDate: row.date, paid: paidAmountOf(row), aging: agingBucket(row.dueDate, t, te) }))
-  if (slug.value === 'revenue-expense') return postedLines.value.filter(r => ['Revenue','Expense'].includes(String(r.accountType))).map(r => ({ ...r, category: r.accountType, revenue: r.accountType === 'Revenue' ? Number(r.credit)-Number(r.debit) : 0, expense: r.accountType === 'Expense' ? Number(r.debit)-Number(r.credit) : 0 }))
-  if (slug.value === 'trial-balance') { const map = new Map<string,FreightRecord>(); for (const line of postedLines.value) { const key=String(line.accountCode), row=map.get(key)||{id:key,accountCode:key,accountName:line.accountName,openingDebit:0,openingCredit:0,periodDebit:0,periodCredit:0,closingDebit:0,closingCredit:0}; row.periodDebit=Number(row.periodDebit)+Number(line.debit); row.periodCredit=Number(row.periodCredit)+Number(line.credit); const balance=Number(row.periodDebit)-Number(row.periodCredit); row.closingDebit=Math.max(balance,0); row.closingCredit=Math.max(-balance,0); map.set(key,row) } return [...map.values()] }
-  if (slug.value === 'cash-flow') { let balance=0; const codes=new Set(store.list('financialAccounts').map(r=>String(r.ledgerCode))); return postedLines.value.filter(r=>codes.has(String(r.accountCode))).map(r=>{const cashIn=Number(r.debit),cashOut=Number(r.credit);balance+=cashIn-cashOut;return{...r,cashIn,cashOut,runningBalance:balance}}) }
-  return postedLines.value
-})
+const rows = computed<FreightRecord[]>(() => buildReportRows(slug.value, store, t, te))
 const filtered = computed(() => rows.value.filter((row) => {
   const text = Object.values(row).join(' ').toLowerCase()
   const day = reportRowDate(row)

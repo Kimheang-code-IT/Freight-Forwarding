@@ -38,6 +38,10 @@ import {
   createMockServiceChargeRepository,
   createMockUiSchemaRepository,
 } from '~/repositories/mock/lcs'
+import { createMockModuleRepository } from '~/repositories/mock/module'
+import { createHttpModuleRepository } from '~/repositories/http/module'
+import type { FreightModule } from '~/config/freight-modules'
+import type { ModuleRepository } from '~/repositories/contracts/module'
 
 let mode: 'mock' | 'http' | null = null
 let recordAttributeRepo: RecordAttributeRepository
@@ -99,4 +103,11 @@ export function useLcsRepositories() {
     attachments: attachmentRepo!,
     uiSchema: uiSchemaRepo!,
   }
+}
+
+export function useModuleRepository(module: FreightModule): ModuleRepository {
+  ensureRepositories()
+  return mode === 'mock'
+    ? createMockModuleRepository(module)
+    : createHttpModuleRepository(module)
 }

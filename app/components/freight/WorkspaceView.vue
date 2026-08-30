@@ -25,6 +25,7 @@ import { listTablePageSummary, listTableSelectedIds } from '~/utils/table/list-t
 import { documentSequenceTypeLabel, isDocumentSequenceType } from '~/utils/document-sequences'
 import { normalizeAuditLog, resolveAuditEntityPath } from '~/utils/freight/audit-logs'
 import type { ServiceOrderStatus } from '~/types/lcs/domain'
+import { useModuleList } from '~/composables/freight/useModuleList'
 
 const { module, route } = useFreightRouteModule()
 const store = useFreightStore()
@@ -46,6 +47,35 @@ const dateFrom = ref('')
 const dateTo = ref('')
 
 const current = computed(() => module.value)
+const moduleList = useModuleList(current)
+
+async function refreshList() {
+  if (!current.value) return
+  await moduleList.refresh({
+    q: q.value,
+    filters,
+    paginate: false,
+    dateField: dateField.value,
+    dateFrom: dateFrom.value,
+    dateTo: dateTo.value,
+  })
+}
+
+watch([current, q, filters, dateFrom, dateTo], () => { void refreshList() }, { immediate: true, deep: true })
+
+const result = computed(() => {
+  if (!current.value) return { rows: [], total: 0, all: [] }
+  let all = moduleList.items.value
+  if (isJobList.value) {
+    all = enrichJobListRows(all, {
+      containers: store.list('actualContainers'),
+      tasks: store.list('serviceComponents'),
+      charges: store.list('jobCharges'),
+      shipments: store.list('shipments'),
+    })
+  }
+  return { rows: all, total: moduleList.total.value || all.length, all }
+})
 const isJobList = computed(() => current.value?.collection === 'jobs')
 const isTableOnly = computed(() => Boolean(current.value?.tableOnly))
 const canManageModule = computed(() => {
@@ -70,25 +100,6 @@ const dateField = computed(() => {
     || current.value?.columns.find(column => /date/i.test(column.key))?.key
 })
 
-const result = computed(() => {
-  if (!current.value) return { rows: [], total: 0, all: [] }
-  const queried = store.query(current.value, {
-    q: q.value,
-    filters,
-    paginate: false,
-    dateField: dateField.value,
-    dateFrom: dateFrom.value,
-    dateTo: dateTo.value,
-  })
-  if (!isJobList.value) return queried
-  const all = enrichJobListRows(queried.all, {
-    containers: store.list('actualContainers'),
-    tasks: store.list('serviceComponents'),
-    charges: store.list('jobCharges'),
-    shipments: store.list('shipments'),
-  })
-  return { rows: all, total: all.length, all }
-})
 const selectedIds = computed(() => listTableSelectedIds(rowSelection.value))
 
 /** Lights the collapsed filter-menu button when any toolbar filter is set. */

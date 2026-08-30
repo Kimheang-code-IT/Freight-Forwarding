@@ -1,0 +1,73 @@
+import type { DocumentFieldSchema } from '~/types/docetra/common'
+
+export type DynamicFieldKind =
+  | 'permissionMatrix'
+  | 'lineTable'
+  | 'relatedRecords'
+  | 'dynamicTable'
+  | 'alert'
+  | 'secret'
+  | 'color'
+  | 'image'
+  | 'icon'
+  | 'numberingPreview'
+  | 'validationBuilder'
+  | 'optionsBuilder'
+  | 'visibilityBuilder'
+  | 'workflowBuilder'
+  | 'assignedAttributes'
+  | 'telegramDestinations'
+  | 'notificationRules'
+  | 'connectionStatus'
+  | 'boolean'
+  | 'file'
+  | 'standard'
+
+export function resolveDynamicFieldKind(field: DocumentFieldSchema): DynamicFieldKind {
+  const type = String(field.type || '')
+  if (type === 'permission-matrix') return 'permissionMatrix'
+  if (type === 'line-table') return 'lineTable'
+  if (type === 'related-records') return 'relatedRecords'
+  if (type === 'dynamic-table') return 'dynamicTable'
+  if (type === 'alert') return 'alert'
+  if (type === 'secret') return 'secret'
+  if (type === 'color') return 'color'
+  if (type === 'image') return 'image'
+  if (type === 'icon') return 'icon'
+  if (type === 'numbering-preview') return 'numberingPreview'
+  if (type === 'validation-rule-builder') return 'validationBuilder'
+  if (type === 'attribute-options-builder') return 'optionsBuilder'
+  if (type === 'visibility-rule-builder') return 'visibilityBuilder'
+  if (type === 'workflow-stage-builder') return 'workflowBuilder'
+  if (type === 'assigned-attributes') return 'assignedAttributes'
+  if (type === 'telegram-destinations') return 'telegramDestinations'
+  if (type === 'notification-rules') return 'notificationRules'
+  if (type === 'connection-status') return 'connectionStatus'
+  if (type === 'checkbox' || type === 'switch') return 'boolean'
+  if (type === 'file' || type === 'files') return 'file'
+  return 'standard'
+}
+
+export const DYNAMIC_FIELD_REGISTRY: Record<DynamicFieldKind, string> = {
+  permissionMatrix: 'AppRolePermissionMatrix',
+  lineTable: 'AppLineTable',
+  relatedRecords: 'AppRelatedRecords',
+  dynamicTable: 'AppDynamicTableField',
+  alert: 'UAlert',
+  secret: 'AppSecretInput',
+  color: 'AppColorPicker',
+  image: 'AppImageUploadField',
+  icon: 'AppIconPicker',
+  numberingPreview: 'ConfigurationAppNumberingPreview',
+  validationBuilder: 'ConfigurationAppValidationRuleBuilder',
+  optionsBuilder: 'ConfigurationAppAttributeOptionsBuilder',
+  visibilityBuilder: 'ConfigurationAppVisibilityRuleBuilder',
+  workflowBuilder: 'ConfigurationAppWorkflowStageBuilder',
+  assignedAttributes: 'assignedAttributes',
+  telegramDestinations: 'telegramDestinations',
+  notificationRules: 'notificationRules',
+  connectionStatus: 'AppConnectionStatusCard',
+  boolean: 'boolean',
+  file: 'file',
+  standard: 'standard',
+}

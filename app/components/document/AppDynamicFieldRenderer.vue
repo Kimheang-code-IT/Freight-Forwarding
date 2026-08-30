@@ -29,6 +29,7 @@ import {
   freightDocumentLineActionKey,
   freightDocumentRecordKey,
 } from '~/utils/freight/document-tabs'
+import { resolveDynamicFieldKind } from '~/composables/freight/useDynamicFieldRegistry'
 
 const props = defineProps<{
   field: DocumentFieldSchema
@@ -214,7 +215,8 @@ const placeholderText = computed(() => {
 })
 
 const isBoolean = computed(() => props.field.type === 'boolean')
-const isPermissionMatrix = computed(() => props.field.type === 'permission-matrix')
+const fieldKind = computed(() => resolveDynamicFieldKind(props.field))
+const isPermissionMatrix = computed(() => fieldKind.value === 'permissionMatrix')
 const isSecret = computed(() => props.field.type === 'secret')
 const isColor = computed(() => props.field.type === 'color')
 const isImage = computed(() => props.field.type === 'image')

@@ -14,6 +14,7 @@ import { unwrapApiData } from '~/repositories/http/response'
 import type { ApiResponse } from '~/types/docetra/common'
 import type { FreightRecord } from '~/config/freight-seed'
 import type { LcsPaged } from '~/types/lcs/domain'
+import { stripOfficialNumberFields } from '~/utils/lcs/sequences'
 
 function withIdempotency(key: string) {
   return { headers: { 'Idempotency-Key': key } }
@@ -31,6 +32,8 @@ export function createHttpQuotationRepository(): QuotationRepository {
   return {
     list: async query => asPaged(unwrapApiData(await api.get<ApiResponse<FreightRecord[]>>(ApiV1Endpoints.QUOTATIONS, { query }))),
     get: async id => unwrapApiData(await api.get<ApiResponse<FreightRecord>>(`${ApiV1Endpoints.QUOTATIONS}/${id}`)),
+    create: async input =>
+      unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATIONS, stripOfficialNumberFields(input, 'quotations'))),
     saveDraft: async record => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATIONS, record)),
     send: async (revisionId, key) => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATION_SEND(revisionId), {}, withIdempotency(key))),
     accept: async (revisionId, key) => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.QUOTATION_ACCEPT(revisionId), {}, withIdempotency(key))),
@@ -72,8 +75,10 @@ export function createHttpComponentRepository(): ComponentRepository {
 export function createHttpServiceChargeRepository(): ServiceChargeRepository {
   const api = useApi()
   return {
-    list: async query => asPaged(unwrapApiData(await api.get<ApiResponse<FreightRecord[]>>(ApiV1Endpoints.SERVICE_ORDERS, { query }))),
-    get: async id => unwrapApiData(await api.get<ApiResponse<FreightRecord>>(`/api/v1/service-charges/${id}`)),
+    list: async query => asPaged(unwrapApiData(await api.get<ApiResponse<FreightRecord[]>>(ApiV1Endpoints.SERVICE_CHARGES, { query }))),
+    get: async id => unwrapApiData(await api.get<ApiResponse<FreightRecord>>(`${ApiV1Endpoints.SERVICE_CHARGES}/${id}`)),
+    create: async input =>
+      unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.SERVICE_CHARGES, stripOfficialNumberFields(input, 'jobCharges'))),
     saveDraft: async record =>
       unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.SERVICE_ORDER_CHARGES(String(record.jobNo || record.id)), record)),
     issue: async (chargeId, key) =>
@@ -88,6 +93,8 @@ export function createHttpFinanceRepository(): FinanceRepository {
   return {
     listDocuments: async query => asPaged(unwrapApiData(await api.get<ApiResponse<FreightRecord[]>>(ApiV1Endpoints.FINANCIAL_DOCUMENTS, { query }))),
     getDocument: async id => unwrapApiData(await api.get<ApiResponse<FreightRecord>>(`${ApiV1Endpoints.FINANCIAL_DOCUMENTS}/${id}`)),
+    createDocument: async input =>
+      unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.FINANCIAL_DOCUMENTS, stripOfficialNumberFields(input, 'debitNotes'))),
     saveDraft: async record => unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.FINANCIAL_DOCUMENTS, record)),
     post: async (documentId, key) =>
       unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.FINANCIAL_POST(documentId), {}, withIdempotency(key))),
@@ -96,6 +103,11 @@ export function createHttpFinanceRepository(): FinanceRepository {
     allocate: async (paymentId, targetDocumentId, amount, key) =>
       unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.FINANCIAL_ALLOCATE(paymentId), { target_document_id: targetDocumentId, amount }, withIdempotency(key))),
     listJournals: async query => asPaged(unwrapApiData(await api.get<ApiResponse<FreightRecord[]>>(ApiV1Endpoints.JOURNALS, { query }))),
+    getJournal: async id => unwrapApiData(await api.get<ApiResponse<FreightRecord>>(`${ApiV1Endpoints.JOURNALS}/${id}`)),
+    createJournal: async input =>
+      unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.JOURNALS, stripOfficialNumberFields(input, 'journals'))),
+    saveJournal: async record =>
+      unwrapApiData(await api.put<ApiResponse<FreightRecord>>(`${ApiV1Endpoints.JOURNALS}/${record.id}`, record)),
     listPeriods: async () => unwrapApiData(await api.get<ApiResponse<FreightRecord[]>>('/api/v1/accounting-periods')),
     closePeriod: async (periodId, key) =>
       unwrapApiData(await api.post<ApiResponse<FreightRecord>>(ApiV1Endpoints.PERIOD_CLOSE(periodId), {}, withIdempotency(key))),
@@ -121,15 +133,23 @@ export function createHttpAuditRepository(): AuditRepository {
 export function createHttpAttachmentRepository(): AttachmentRepository {
   const api = useApi()
   return {
-    listForRecord: async (_module, recordNo) =>
-      unwrapApiData(await api.get<ApiResponse<FreightRecord[]>>(ApiV1Endpoints.AUDIT_EVENTS, { query: { record_no: recordNo } })),
+    listForRecord: async (module, recordNo) =>
+      unwrapApiData(await api.get<ApiResponse<FreightRecord[]>>(ApiV1Endpoints.ATTACHMENTS, { query: { module, record_no: recordNo } })),
     presign: async fileName =>
       unwrapApiData(await api.post<ApiResponse<{ upload_url: string, file_name: string }>>(ApiV1Endpoints.ATTACHMENTS_PRESIGN, { file_name: fileName })),
   }
 }
 
 export function createHttpUiSchemaRepository(): UiSchemaRepository {
+  const api = useApi()
   return {
-    getPageSchema: async () => null,
+    getPageSchema: async (page) => {
+      try {
+        return unwrapApiData(await api.get<ApiResponse<FreightRecord>>(ApiV1Endpoints.UI_SCHEMA(page)))
+      }
+      catch {
+        return null
+      }
+    },
   }
 }
