@@ -117,7 +117,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
       @submit="onSubmit"
     >
       <template #leading>
-        <img src="/assets/images/logo.png" alt="Logo" class="mx-auto h-20 w-auto">
+        <img src="/logo.png" alt="Logo" class="mx-auto h-20 w-auto">
       </template>
 
       <template #description>

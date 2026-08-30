@@ -19,14 +19,6 @@ export const JOB_DEFAULT_COMPONENT_SECTIONS = [
   'customs',
 ] as const
 
-export const JOB_DEFAULT_GROUP_CODES = [
-  'INVOICE',
-  'PACKING_LIST',
-  'SHIPMENT_REGISTRATION',
-  'BILL',
-  'CUSTOMS',
-] as const
-
 const RESERVED_TAB_IDS = new Set<string>(JOB_CORE_WORKSPACE_SECTIONS)
 
 export type JobWorkspaceTabOptions = {

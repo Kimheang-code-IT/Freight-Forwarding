@@ -15,35 +15,26 @@ import { isFilterValueActive } from '~/utils/filter/select-ui'
 import { limitFilterSelects, matchesFilter } from '~/utils/filter/values'
 import { listTableRowMetaColumn, listTableSelectColumn } from '~/utils/table/list-columns'
 import { listTablePageSummary } from '~/utils/table/list-table'
-
-type Column = { key: string, label: string, numeric?: boolean, status?: boolean }
-type Filter = 'branch' | 'party' | 'status' | 'currency' | 'date'
-type Report = { slug: string, group: 'operations' | 'finance', title: string, description: string, filters: Filter[], columns: Column[], statement?: boolean }
-const c = (key: string, label: string, numeric = false, status = false): Column => ({ key, label, numeric, status })
-const reports: Report[] = [
-  { slug: 'service-orders', group: 'operations', title: 'Service Order Register', description: 'Complete register of freight service orders.', filters: ['branch', 'party', 'status', 'date'], columns: [c('jobNo','Job No.'),c('date','Date'),c('customer','Customer'),c('branchName','Branch'),c('direction','Direction'),c('containers','Containers',true),c('components','Components',true),c('chargeTotal','Charge Total',true),c('invoiceTotal','Invoice Total',true),c('workflowStatus','Status',false,true)] },
-  { slug: 'service-order-status', group: 'operations', title: 'Service Order Status', description: 'See job progress, aging, and pending operational work.', filters: ['branch', 'party', 'status', 'date'], columns: [c('jobNo','Job No.'),c('customer','Customer'),c('branchName','Branch'),c('direction','Direction'),c('createdAt','Created Date'),c('workflowStatus','Status',false,true),c('daysOpen','Days Open',true),c('pendingComponents','Pending Components',true),c('lastActivity','Last Activity')] },
-  { slug: 'containers', group: 'operations', title: 'Containers', description: 'Track actual containers attached to service orders.', filters: ['branch', 'party', 'status'], columns: [c('containerNo','Container No.'),c('containerType','Container Type'),c('jobNo','Service Job'),c('customer','Customer'),c('branchName','Branch'),c('sealNo','Seal'),c('status','Status',false,true),c('netWeightKg','Net Weight',true),c('grossWeightKg','Gross Weight',true),c('currentMilestone','Current Milestone')] },
-  { slug: 'profitability', group: 'operations', title: 'Profitability', description: 'Compare operational values with posted accounting results.', filters: ['branch', 'party', 'currency', 'date'], columns: [c('jobNo','Job No.'),c('customer','Customer'),c('branchName','Branch'),c('quoted','Quoted',true),c('serviceCharges','Service Charges',true),c('postedRevenue','Posted Revenue',true),c('postedCost','Posted Cost',true),c('grossProfit','Gross Profit',true),c('margin','Margin %',true)] },
-  { slug: 'revenue-expense', group: 'finance', title: 'Revenue & Expense', description: 'Posted revenue and expense activity for the selected period.', filters: ['branch', 'party', 'currency', 'date'], columns: [c('postingDate','Date'),c('account','Account'),c('category','Category'),c('party','Party'),c('jobNo','Service Job'),c('description','Description'),c('revenue','Revenue',true),c('expense','Expense',true),c('branchName','Branch')] },
-  { slug: 'accounts-receivable', group: 'finance', title: 'Accounts Receivable', description: 'Posted customer balances and aging.', filters: ['branch', 'party', 'status', 'currency', 'date'], columns: [c('invoiceNo','Invoice No.'),c('customer','Customer'),c('jobNo','Service Job'),c('invoiceDate','Invoice Date'),c('dueDate','Due Date'),c('total','Total',true),c('paid','Paid',true),c('outstanding','Outstanding',true),c('aging','Aging'),c('status','Status',false,true)] },
-  { slug: 'accounts-payable', group: 'finance', title: 'Accounts Payable', description: 'Posted supplier balances and aging.', filters: ['branch', 'party', 'status', 'currency', 'date'], columns: [c('invoiceNo','Bill No.'),c('supplier','Supplier'),c('jobNo','Service Job'),c('billDate','Bill Date'),c('dueDate','Due Date'),c('total','Total',true),c('paid','Paid',true),c('outstanding','Outstanding',true),c('aging','Aging'),c('status','Status',false,true)] },
-  { slug: 'general-ledger', group: 'finance', title: 'General Ledger', description: 'Posted accounting movement by ledger account.', filters: ['branch', 'party', 'date'], columns: [c('postingDate','Posting Date'),c('journalNo','Journal No.'),c('sourceDocument','Source Document'),c('account','Account'),c('description','Description'),c('debit','Debit',true),c('credit','Credit',true),c('runningBalance','Running Balance',true),c('branchName','Branch')] },
-  { slug: 'trial-balance', group: 'finance', title: 'Trial Balance', description: 'Verify debit and credit balances from posted journals.', filters: ['branch', 'date'], columns: [c('accountCode','Account Code'),c('accountName','Account Name'),c('openingDebit','Opening Debit',true),c('openingCredit','Opening Credit',true),c('periodDebit','Period Debit',true),c('periodCredit','Period Credit',true),c('closingDebit','Closing Debit',true),c('closingCredit','Closing Credit',true)] },
-  { slug: 'profit-loss', group: 'finance', title: 'Profit & Loss', description: 'Operating result from posted revenue and expense accounts.', filters: ['branch', 'currency', 'date'], columns: [], statement: true },
-  { slug: 'balance-sheet', group: 'finance', title: 'Balance Sheet', description: 'Financial position from posted asset, liability, and equity accounts.', filters: ['branch', 'currency', 'date'], columns: [], statement: true },
-  { slug: 'cash-flow', group: 'finance', title: 'Cash Flow / Cash & Bank', description: 'Posted cash and bank activity without unsupported classifications.', filters: ['branch', 'currency', 'date'], columns: [c('postingDate','Date'),c('account','Account'),c('sourceDocument','Source'),c('journalNo','Reference'),c('party','Party'),c('description','Description'),c('cashIn','Cash In',true),c('cashOut','Cash Out',true),c('runningBalance','Running Balance',true)] },
-]
+import { getFreightReport, type FreightReportDefinition } from '~/config/freight-reports'
 
 const store = useFreightStore()
 const route = useRoute()
 const { t, te } = useI18n()
 const { setTitle, clear } = useAppHeader()
 const slug = computed(() => String(route.params.slug || 'service-orders'))
-const report = computed(() => reports.find(item => item.slug === slug.value) || reports[0]!)
-watchEffect(() => setTitle(report.value.title))
+const report = computed(() => getFreightReport(slug.value))
+
+function reportLabel(definition: FreightReportDefinition) {
+  return te(definition.titleKey) ? t(definition.titleKey) : definition.title
+}
+
+function columnLabel(column: FreightReportDefinition['columns'][number]) {
+  return column.labelKey && te(column.labelKey) ? t(column.labelKey) : column.label
+}
+
+watchEffect(() => setTitle(reportLabel(report.value)))
 onBeforeUnmount(clear)
-usePageSeo({ title: () => report.value.title })
+usePageSeo({ title: () => reportLabel(report.value) })
 
 const q = ref('')
 const branch = ref<string[]>([])
@@ -119,7 +110,10 @@ const statementGroups=computed(()=>buildStatementGroups(postedLines.value, slug.
 const statementDifference=computed(()=>statementDifferenceOf(statementGroups.value, slug.value==='balance-sheet'))
 function actions(row:FreightRecord):DropdownMenuItem[][]{const job=jobByNo(row.jobNo);return job?[[{label:t('freight.ui.open'),icon:'i-lucide-eye',onSelect:()=>navigateTo(`/service-orders/${job.id}`)},{label:t('freight.jobSections.charges'),icon:'i-lucide-receipt-text',onSelect:()=>navigateTo(`/service-charges?jobNo=${encodeURIComponent(String(row.jobNo))}`)},{label:t('freight.jobSections.finance'),icon:'i-lucide-banknote',onSelect:()=>navigateTo(`/finance/documents?jobNo=${encodeURIComponent(String(row.jobNo))}`)}]]:[]}
 const columns=computed<TableColumn<FreightRecord>[]>(()=>{
-  const list=report.value.columns.map(column=>({accessorKey:column.key,header:column.numeric?()=>h('span',{class:'block text-right'},column.label):column.label,enableSorting:false,meta:column.numeric?{class:{th:'text-right',td:'text-right tabular-nums whitespace-nowrap'}}:undefined,cell:({row}:{row:{original:FreightRecord}})=>{if(column.status)return freightStatusBadge(row.original[column.key],column.key);if(column.key==='jobNo'&&report.value.group==='operations'){const job=jobByNo(row.original.jobNo);if(job)return h(ULink,{to:`/service-orders/${job.id}`,class:'font-medium text-highlighted hover:text-primary hover:underline'},()=>String(row.original.jobNo||'—'))}return formatFreightCell(row.original[column.key],column.key)}}))
+  const list=report.value.columns.map(column=>{
+    const label = columnLabel(column)
+    return {accessorKey:column.key,header:column.numeric?()=>h('span',{class:'block text-right'},label):label,enableSorting:false,meta:column.numeric?{class:{th:'text-right',td:'text-right tabular-nums whitespace-nowrap'}}:undefined,cell:({row}:{row:{original:FreightRecord}})=>{if(column.status)return freightStatusBadge(row.original[column.key],column.key);if(column.key==='jobNo'&&report.value.group==='operations'){const job=jobByNo(row.original.jobNo);if(job)return h(ULink,{to:`/service-orders/${job.id}`,class:'font-medium text-highlighted hover:text-primary hover:underline'},()=>String(row.original.jobNo||'—'))}return formatFreightCell(row.original[column.key],column.key)}}
+  })
   return [
     listTableSelectColumn<FreightRecord>(t),
     ...list,
@@ -147,7 +141,7 @@ function clearFilters() {
   dateFrom.value = ''
   dateTo.value = ''
 }
-const exportFields=computed(()=>report.value.statement?[{label:'Section',value:'section'},{label:'Account',value:'account'},{label:'Amount',value:'amount'}]:report.value.columns.map(column=>({label:column.label,value:column.key})))
+const exportFields=computed(()=>report.value.statement?[{label:'Section',value:'section'},{label:'Account',value:'account'},{label:'Amount',value:'amount'}]:report.value.columns.map(column=>({label:columnLabel(column),value:column.key})))
 function exportCsv(request:{fieldCodes:string[]}){const statementRows=statementGroups.value.flatMap(group=>group.rows.map(row=>({section:group.type,account:row.name,amount:row.amount}))),source=(report.value.statement?statementRows:filtered.value) as Array<Record<string,unknown>>,codes=request.fieldCodes.length?request.fieldCodes:exportFields.value.map(field=>field.value);downloadCsv({filename:`${report.value.slug}-${new Date().toISOString().slice(0,10)}.csv`,fields:codes.map(key=>({label:exportFields.value.find(field=>field.value===key)?.label||key,value:key})),rows:source})}
 </script>
 

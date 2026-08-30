@@ -1,0 +1,8 @@
+.playwright-cli
+tmp
+*.pdf
+invoice.md
+dynamic.md
+coverage
+.cursor
+.opencode

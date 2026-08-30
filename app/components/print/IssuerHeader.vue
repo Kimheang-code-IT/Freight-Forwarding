@@ -1,31 +1,13 @@
 <script setup lang="ts">
 import type { PrintIssuer } from '~/utils/freight/print-model'
+import { usePrintBilingual } from '~/composables/print/usePrintBilingual'
 
-const props = withDefaults(defineProps<{ issuer: PrintIssuer, showKhmer?: boolean }>(), {
+withDefaults(defineProps<{ issuer: PrintIssuer, showKhmer?: boolean }>(), {
   showKhmer: true,
 })
 
-const { t, loadLocaleMessages } = useI18n()
-const khmerReady = ref(false)
 const logoFailed = ref(false)
-
-onMounted(async () => {
-  await loadLocaleMessages('km')
-  khmerReady.value = true
-})
-
-function bi(key: string): string {
-  void khmerReady.value
-  let khmer = ''
-  try {
-    khmer = t(key, {}, { locale: 'km' })
-  }
-  catch {
-    khmer = ''
-  }
-  const english = t(key)
-  return khmer && khmer !== key ? `${khmer} / ${english}` : english
-}
+const { biInline } = usePrintBilingual()
 </script>
 
 <template>
@@ -67,10 +49,10 @@ function bi(key: string): string {
 
       <p v-if="issuer.phone || issuer.email" class="issuer-header__contact">
         <span v-if="issuer.phone" class="issuer-header__contact-item">
-          {{ bi('freight.print.fields.telephoneNo') }} {{ issuer.phone }}
+          {{ biInline('freight.print.fields.telephoneNo') }} {{ issuer.phone }}
         </span>
         <span v-if="issuer.email" class="issuer-header__contact-item issuer-header__contact-item--email">
-          {{ bi('freight.print.fields.email') }}: {{ issuer.email }}
+          {{ biInline('freight.print.fields.email') }}: {{ issuer.email }}
         </span>
       </p>
     </div>

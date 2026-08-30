@@ -112,14 +112,3 @@ export function lineRowToComponentValues(
   }
   return values
 }
-
-export function defaultComponentLineRow(attributes: Array<Record<string, unknown>>) {
-  const row: Record<string, unknown> = { _componentId: '', _status: 'PENDING' }
-  for (const attribute of activeAttributes(attributes)) {
-    const type = attributeColumnType(attribute)
-    const code = String(attribute.code || '')
-    if (type === 'number') row[code] = 0
-    else row[code] = ''
-  }
-  return row
-}

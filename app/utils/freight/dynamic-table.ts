@@ -50,16 +50,6 @@ export function parseDynamicTableRows(source: unknown): Array<Record<string, unk
   return []
 }
 
-export function defaultDynamicTableRow(columns: DynamicTableColumnDef[]): Record<string, unknown> {
-  const row: Record<string, unknown> = {}
-  for (const column of columns) {
-    if (column.type === 'number') row[column.key] = 0
-    else if (column.type === 'date') row[column.key] = ''
-    else row[column.key] = ''
-  }
-  return row
-}
-
 export function dynamicTableColumnsToFreightTable(
   columns: DynamicTableColumnDef[],
   key: string,
@@ -92,8 +82,4 @@ export function tableColumnsFromAttribute(attribute: Record<string, unknown>) {
 
 export function tableRowsFromValue(value: Record<string, unknown>) {
   return parseDynamicTableRows(value.valueJson ?? value.valueText)
-}
-
-export function tableValueHasRows(value: Record<string, unknown>) {
-  return tableRowsFromValue(value).length > 0
 }

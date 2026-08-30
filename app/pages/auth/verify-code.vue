@@ -90,7 +90,7 @@ async function onResendCode() {
 <template>
   <div class="flex w-full flex-col items-center justify-center">
     <div class="mb-6 flex flex-col items-center gap-3">
-      <img src="/assets/images/logo.png" alt="Logo" class="h-20 w-auto">
+      <img src="/logo.png" alt="Logo" class="h-20 w-auto">
       <h2 class="text-center text-2xl font-normal">
         {{ t('pages.forgetPassword.verifyTitle') }}
       </h2>

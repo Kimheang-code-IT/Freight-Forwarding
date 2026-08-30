@@ -3,6 +3,7 @@ import type { TableColumn } from '@nuxt/ui'
 import type { PrintViewModel } from '~/utils/freight/print-model'
 import { printOrDash } from '~/utils/freight/print-model'
 import { useAppLocalization } from '~/composables/settings/useAppLocalization'
+import { DEBIT_NOTE_APPROVAL_SLOTS } from '~/config/print-templates'
 
 const props = defineProps<{
   model: PrintViewModel
@@ -83,13 +84,12 @@ const partnerAddress = computed(() => {
   return lines.join('\n') || '-'
 })
 
-const approvalRoles = computed(() => [
-  t('freight.print.fields.staff'),
-  t('freight.print.fields.manager'),
-  t('freight.print.fields.generalManager'),
-  t('freight.print.fields.director'),
-  t('freight.print.fields.president'),
+const partnerFields = computed(() => [
+  { label: t('freight.print.fields.partner'), value: printOrDash(props.model.party.legalName || props.model.party.name) },
+  { label: t('freight.print.fields.address'), value: partnerAddress.value },
 ])
+
+const approvalRoles = computed(() => DEBIT_NOTE_APPROVAL_SLOTS.map(key => t(key)))
 
 const documentMetaFields = computed(() => [
   { label: t('freight.print.fields.dcNoteNo'), value: printOrDash(props.model.document.number), strong: true },
@@ -180,28 +180,12 @@ const partyBottomRow = computed(() => [
         </tbody>
       </table>
 
-      <dl class="dcn-side-block">
-        <div
-          v-for="item in documentMetaFields"
-          :key="item.label"
-          class="dcn-field dcn-field--side"
-        >
-          <dt>{{ item.label }}</dt>
-          <dd :class="{ 'dcn-field__value--strong': item.strong }">{{ item.value }}</dd>
-        </div>
-      </dl>
+      <PrintMetaGrid variant="dcn-side" :items="documentMetaFields" />
     </section>
 
     <section class="dcn-partner-grid">
       <div class="dcn-partner-left">
-        <div class="dcn-field">
-          <dt>{{ t('freight.print.fields.partner') }}</dt>
-          <dd>{{ printOrDash(model.party.legalName || model.party.name) }}</dd>
-        </div>
-        <div class="dcn-field">
-          <dt>{{ t('freight.print.fields.address') }}</dt>
-          <dd class="whitespace-pre-line">{{ partnerAddress }}</dd>
-        </div>
+        <PrintMetaGrid variant="dcn" :items="partnerFields" />
         <div class="dcn-contact-row">
           <span>{{ t('freight.print.fields.personInCharge') }} :</span>
           <span>{{ t('freight.print.fields.telNo') }} :</span>
@@ -209,40 +193,28 @@ const partyBottomRow = computed(() => [
         </div>
       </div>
 
-      <dl class="dcn-side-block">
-        <div v-for="item in contactFields" :key="`contact-${item.label}`" class="dcn-field dcn-field--side">
-          <dt>{{ item.label }}</dt>
-          <dd>{{ item.value }}</dd>
-        </div>
-      </dl>
+      <PrintMetaGrid variant="dcn-side" :items="contactFields" />
     </section>
 
     <section class="dcn-shipment-grid">
       <div class="dcn-shipment-col">
-        <div v-for="item in shipmentColLeft" :key="`left-${item.label}`" class="dcn-field dcn-field--shipment">
-          <dt>{{ item.label }}</dt>
-          <dd>{{ item.value || '-' }}</dd>
-        </div>
+        <PrintMetaGrid variant="dcn-shipment" :items="shipmentColLeft" />
       </div>
       <div class="dcn-shipment-col">
-        <div v-for="item in shipmentColMiddle" :key="`mid-${item.label}`" class="dcn-field dcn-field--shipment">
-          <dt>{{ item.label }}</dt>
-          <dd>{{ item.value || '-' }}</dd>
-        </div>
+        <PrintMetaGrid variant="dcn-shipment" :items="shipmentColMiddle" />
       </div>
       <div class="dcn-shipment-col">
-        <div v-for="item in shipmentColRight" :key="`right-${item.label}`" class="dcn-field dcn-field--shipment">
-          <dt>{{ item.label }}</dt>
-          <dd>{{ item.value || '-' }}</dd>
-        </div>
+        <PrintMetaGrid variant="dcn-shipment" :items="shipmentColRight" />
       </div>
     </section>
 
     <section class="dcn-party-grid">
-      <div v-for="item in partyBottomRow" :key="`party-${item.label}`" class="dcn-field dcn-field--shipment">
-        <dt>{{ item.label }}</dt>
-        <dd>{{ item.value || '-' }}</dd>
-      </div>
+      <PrintMetaGrid
+        v-for="item in partyBottomRow"
+        :key="`party-${item.label}`"
+        variant="dcn-shipment"
+        :items="[item]"
+      />
     </section>
 
     <PrintLinesTable :columns="columns" :rows="rows" />

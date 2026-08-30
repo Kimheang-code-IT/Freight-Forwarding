@@ -149,7 +149,7 @@ const googleProvider = computed(() => ({
       @submit="onSubmit"
     >
       <template #leading>
-        <img src="/assets/images/logo.png" alt="Logo" class="mx-auto h-16 w-auto">
+        <img src="/logo.png" alt="Logo" class="mx-auto h-16 w-auto">
       </template>
 
       <template #footer>

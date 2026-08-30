@@ -3,6 +3,7 @@ import type { TableColumn } from '@nuxt/ui'
 import type { PrintViewModel } from '~/utils/freight/print-model'
 import { printOrDash } from '~/utils/freight/print-model'
 import { useAppLocalization } from '~/composables/settings/useAppLocalization'
+import { usePrintBilingual } from '~/composables/print/usePrintBilingual'
 
 const props = defineProps<{
   model: PrintViewModel
@@ -10,46 +11,9 @@ const props = defineProps<{
   printUser: string
 }>()
 
-const { t, loadLocaleMessages } = useI18n()
+const { t } = useI18n()
 const { formatDate, formatNumber } = useAppLocalization()
-const khmerReady = ref(false)
-
-onMounted(async () => {
-  await loadLocaleMessages('km')
-  khmerReady.value = true
-})
-
-function bi(key: string): string {
-  void khmerReady.value
-  let khmer = ''
-  try {
-    khmer = t(key, {}, { locale: 'km' })
-  }
-  catch {
-    khmer = ''
-  }
-  const english = t(key)
-  return khmer && khmer !== key ? `${khmer}\n${english}` : english
-}
-
-function biInline(key: string): string {
-  void khmerReady.value
-  let khmerText = ''
-  try {
-    khmerText = t(key, {}, { locale: 'km' })
-  }
-  catch {
-    khmerText = ''
-  }
-  const english = t(key)
-  return khmerText && khmerText !== key ? `${khmerText} / ${english}` : english
-}
-
-function khmer(key: string): string {
-  void khmerReady.value
-  const value = t(key, {}, { locale: 'km' })
-  return value === key ? '' : value
-}
+const { bi, biInline, khmer } = usePrintBilingual()
 
 const usd = (value: number) => `$ ${formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -70,7 +34,6 @@ const enterpriseValue = computed(() =>
 const addressValue = computed(() => props.model.party.address || '-')
 
 const vatTinLabel = computed(() => {
-  void khmerReady.value
   const kh = khmer('freight.print.fields.enterpriseVatTinKh')
   const en = `(${t('freight.print.fields.vatTin')})`
   return kh ? `${kh}\n${en}` : en
@@ -183,18 +146,7 @@ const partyDisplayName = computed(() =>
 
       <div class="tax-invoice__meta-body">
         <div class="tax-invoice__meta-left">
-          <div
-            v-for="row in customerRows"
-            :key="row.label"
-            class="tax-invoice__field-row"
-          >
-            <div class="tax-invoice__label whitespace-pre-line">
-              {{ row.label }}
-            </div>
-            <div class="tax-invoice__value whitespace-pre-line">
-              {{ row.value }}
-            </div>
-          </div>
+          <PrintMetaGrid variant="tax-invoice" :items="customerRows" />
         </div>
 
         <aside class="tax-invoice__meta-right">
@@ -344,31 +296,6 @@ const partyDisplayName = computed(() =>
   flex: 0 0 32%;
   min-width: 0;
   padding-right: 4mm;
-}
-
-.tax-invoice__field-row {
-  display: grid;
-  grid-template-columns: 44mm 1fr;
-  gap: 0 5mm;
-  align-items: start;
-  margin-bottom: 8px;
-}
-
-.tax-invoice__field-row:last-child {
-  margin-bottom: 0;
-}
-
-.tax-invoice__label {
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.tax-invoice__value {
-  min-width: 0;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.45;
-  word-break: break-word;
 }
 
 .tax-invoice__side-field {

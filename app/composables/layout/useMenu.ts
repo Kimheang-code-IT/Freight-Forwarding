@@ -1,11 +1,12 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
+import { FREIGHT_REPORTS, freightReportPath } from '~/config/freight-reports'
 
 const SIDEBAR_COLLAPSED_KEY = 'lcs-freight:sidebar:collapsed'
 const SIDEBAR_AUTO_MQ = '(max-width: 1023px)'
 
 /** Single source of truth for the LCS Freight Forwarding navigation. */
 export function useMenu() {
-  const { t } = useI18n()
+  const { t, te } = useI18n()
   const open = useState('sidebar-open', () => false)
   const collapsed = useState('sidebar-collapsed', () => false)
   const manualCollapsed = useState<boolean | null>('sidebar-collapsed-manual', () => null)
@@ -33,6 +34,14 @@ export function useMenu() {
 
   const pageLink = (label: string, to: string): NavigationMenuItem => ({ label, to, exact: true, class: 'text-sm gap-2', onSelect: close })
 
+  const reportLinks = (group: 'operations' | 'finance') =>
+    FREIGHT_REPORTS
+      .filter(report => report.group === group)
+      .map((report) => {
+        const label = te(report.titleKey) ? t(report.titleKey) : report.title
+        return pageLink(label, freightReportPath(report))
+      })
+
   const ROUTE_PERMISSION: Record<string, string> = {
     '/': 'dashboard.view',
     '/quotations': 'sales.quotations.view',
@@ -44,18 +53,9 @@ export function useMenu() {
     '/finance/journals': 'finance.accounting.view',
     '/finance/accounting-periods': 'finance.accounting.view',
     '/reports': 'reports.view',
-    '/reports/operations/service-orders': 'reports.view',
-    '/reports/operations/service-order-status': 'reports.view',
-    '/reports/operations/containers': 'reports.view',
-    '/reports/operations/profitability': 'reports.view',
-    '/reports/finance/revenue-expense': 'reports.view',
-    '/reports/finance/accounts-receivable': 'reports.view',
-    '/reports/finance/accounts-payable': 'reports.view',
-    '/reports/finance/general-ledger': 'reports.view',
-    '/reports/finance/trial-balance': 'reports.view',
-    '/reports/finance/profit-loss': 'reports.view',
-    '/reports/finance/balance-sheet': 'reports.view',
-    '/reports/finance/cash-flow': 'reports.view',
+    ...Object.fromEntries(
+      FREIGHT_REPORTS.map(report => [freightReportPath(report), 'reports.view']),
+    ),
     '/master-data/business-parties': 'master.reference.view',
     '/master-data/places': 'master.reference.view',
     '/master-data/trade-directions': 'master.reference.view',
@@ -117,22 +117,8 @@ export function useMenu() {
         pageLink(t('freight.pages.journals'), '/finance/journals'),
         pageLink(t('freight.pages.accountingPeriods'), '/finance/accounting-periods'),
       ]),
-      group('operations-reports', 'Operations Reports', 'i-lucide-chart-no-axes-column-increasing', [
-        pageLink('Service Order Register', '/reports/operations/service-orders'),
-        pageLink('Service Order Status', '/reports/operations/service-order-status'),
-        pageLink('Containers', '/reports/operations/containers'),
-        pageLink('Profitability', '/reports/operations/profitability'),
-      ]),
-      group('financial-reports', 'Financial Reports', 'i-lucide-chart-no-axes-combined', [
-        pageLink('Revenue & Expense', '/reports/finance/revenue-expense'),
-        pageLink('Accounts Receivable', '/reports/finance/accounts-receivable'),
-        pageLink('Accounts Payable', '/reports/finance/accounts-payable'),
-        pageLink('General Ledger', '/reports/finance/general-ledger'),
-        pageLink('Trial Balance', '/reports/finance/trial-balance'),
-        pageLink('Profit & Loss', '/reports/finance/profit-loss'),
-        pageLink('Balance Sheet', '/reports/finance/balance-sheet'),
-        pageLink('Cash Flow', '/reports/finance/cash-flow'),
-      ]),
+      group('operations-reports', 'Operations Reports', 'i-lucide-chart-no-axes-column-increasing', reportLinks('operations')),
+      group('financial-reports', 'Financial Reports', 'i-lucide-chart-no-axes-combined', reportLinks('finance')),
       group('master', t('freight.nav.master'), 'i-lucide-database', [
         pageLink(t('freight.pages.businessParties'), '/master-data/business-parties'),
         pageLink(t('freight.pages.places'), '/master-data/places'),

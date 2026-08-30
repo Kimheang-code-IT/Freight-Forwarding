@@ -41,4 +41,12 @@ coverage/
 .pnpm-store
 
 .vercel
+.playwright-cli/
+tmp/
+
+# Local reference artifacts (not app assets)
+/*.pdf
+/lcs*.png
+/invoice.md
+/dynamic.md
 
