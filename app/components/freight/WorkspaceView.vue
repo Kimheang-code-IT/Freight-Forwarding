@@ -48,20 +48,32 @@ const dateTo = ref('')
 
 const current = computed(() => module.value)
 const moduleList = useModuleList(current)
+const isJobList = computed(() => current.value?.collection === 'jobs')
+const dateField = computed(() => {
+  const fields = current.value?.fields || []
+  return fields.find(field => field.type === 'date' || field.type === 'datetime' || field.key === 'date' || /date$/i.test(field.key))?.key
+    || current.value?.columns.find(column => /date/i.test(column.key))?.key
+})
 
 async function refreshList() {
   if (!current.value) return
-  await moduleList.refresh({
-    q: q.value,
-    filters,
-    paginate: false,
-    dateField: dateField.value,
-    dateFrom: dateFrom.value,
-    dateTo: dateTo.value,
-  })
+  pending.value = true
+  try {
+    await moduleList.refresh({
+      q: q.value,
+      filters,
+      paginate: false,
+      dateField: dateField.value,
+      dateFrom: dateFrom.value,
+      dateTo: dateTo.value,
+    })
+  }
+  finally {
+    pending.value = false
+  }
 }
 
-watch([current, q, filters, dateFrom, dateTo], () => { void refreshList() }, { immediate: true, deep: true })
+watch([current, q, filters, dateFrom, dateTo, dateField], () => { void refreshList() }, { immediate: true, deep: true })
 
 const result = computed(() => {
   if (!current.value) return { rows: [], total: 0, all: [] }
@@ -76,7 +88,6 @@ const result = computed(() => {
   }
   return { rows: all, total: moduleList.total.value || all.length, all }
 })
-const isJobList = computed(() => current.value?.collection === 'jobs')
 const isTableOnly = computed(() => Boolean(current.value?.tableOnly))
 const canManageModule = computed(() => {
   if (!current.value) return false
@@ -94,11 +105,6 @@ const canCreate = computed(() => {
 })
 const canMutate = computed(() => Boolean(current.value) && !current.value?.readOnly && canManageModule.value)
 const deactivationOnly = computed(() => current.value?.group === 'master' || current.value?.collection === 'documentSequences')
-const dateField = computed(() => {
-  const fields = current.value?.fields || []
-  return fields.find(field => field.type === 'date' || field.type === 'datetime' || field.key === 'date' || /date$/i.test(field.key))?.key
-    || current.value?.columns.find(column => /date/i.test(column.key))?.key
-})
 
 const selectedIds = computed(() => listTableSelectedIds(rowSelection.value))
 
