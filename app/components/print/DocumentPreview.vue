@@ -5,6 +5,12 @@ import { buildQuotationPrintViewModel } from '~/utils/freight/quotation-print'
 import { useSettingsRepositories } from '~/repositories'
 import { useAppLocalization } from '~/composables/settings/useAppLocalization'
 import { freightModules } from '~/config/freight-modules'
+import {
+  DEFAULT_INVOICE_LOGO_URL,
+  documentDetailPath,
+  isAutoPrintRoute,
+  safePrintReturnPath,
+} from '~/utils/freight/print-navigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,15 +39,20 @@ const templateId = computed<PrintTemplateId>({
   },
 })
 
-const logoUrl = ref('')
+const logoUrl = ref(DEFAULT_INVOICE_LOGO_URL)
+const brandingReady = ref(false)
 
 onMounted(async () => {
   try {
     const info = await useSettingsRepositories().appInfo.get()
-    logoUrl.value = String(info?.branding?.mainLogoUrl || '')
+    logoUrl.value = String(info?.branding?.mainLogoUrl || '').trim() || DEFAULT_INVOICE_LOGO_URL
   }
   catch {
-    logoUrl.value = ''
+    logoUrl.value = DEFAULT_INVOICE_LOGO_URL
+  }
+  finally {
+    brandingReady.value = true
+    void triggerAutoPrint()
   }
 })
 
@@ -97,10 +108,8 @@ const watermarkLabel = computed(() => {
 
 const backPath = computed(() => {
   if (!module.value) return '/'
-  if (collection.value === 'quotations' && recordId.value) {
-    return `${module.value.path}/${recordId.value}`
-  }
-  return module.value.path
+  const fallback = documentDetailPath(module.value.path, recordId.value)
+  return safePrintReturnPath(route.query.returnTo, fallback)
 })
 
 async function goBack() {
@@ -121,11 +130,38 @@ async function printNow() {
 }
 
 const statusLabel = computed(() => String(viewModel.value?.document.status || ''))
+
+const autoPrint = computed(() => isAutoPrintRoute(route.query as Record<string, unknown>))
+const autoPrintTriggered = ref(false)
+
+async function triggerAutoPrint() {
+  if (!autoPrint.value || autoPrintTriggered.value || !viewModel.value || !brandingReady.value) return
+  autoPrintTriggered.value = true
+  await nextTick()
+  await printNow()
+}
+
+watch(viewModel, () => {
+  void triggerAutoPrint()
+})
+
+function onAfterPrint() {
+  if (!autoPrint.value) return
+  void goBack()
+}
+
+onMounted(() => {
+  if (import.meta.client) window.addEventListener('afterprint', onAfterPrint)
+})
+
+onBeforeUnmount(() => {
+  if (import.meta.client) window.removeEventListener('afterprint', onAfterPrint)
+})
 </script>
 
 <template>
-  <div class="print-page min-h-0">
-    <header class="print-toolbar flex items-center gap-2 border-b border-default bg-default px-3 py-2">
+  <div class="print-page min-h-0" :class="autoPrint ? 'print-page--auto' : ''">
+    <header v-if="!autoPrint" class="print-toolbar flex items-center gap-2 border-b border-default bg-default px-3 py-2">
       <UButton
         color="neutral"
         variant="ghost"
@@ -173,12 +209,16 @@ const statusLabel = computed(() => String(viewModel.value?.document.status || ''
       {{ t('docetra.document.notFound') || 'Record not found.' }}
     </div>
 
-    <div v-else class="preview-scroll min-h-0 flex-1 overflow-auto bg-gray-200 p-4 dark:bg-gray-950 print:p-0 print:bg-white">
+    <div
+      v-else
+      class="preview-scroll min-h-0 flex-1 overflow-auto print:p-0 print:bg-white"
+      :class="autoPrint ? 'bg-white p-0' : 'bg-gray-200 p-4 dark:bg-gray-950'"
+    >
       <div
         class="mx-auto w-fit"
-        :style="{ zoom: `${zoom}%` }"
+        :style="autoPrint ? undefined : { zoom: `${zoom}%` }"
       >
-        <div class="relative bg-white shadow-lg print:shadow-none print:mx-0">
+        <div class="relative bg-white print:shadow-none print:mx-0" :class="autoPrint ? '' : 'shadow-lg'">
           <div
             v-if="watermarkLabel"
             class="watermark pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
@@ -218,16 +258,20 @@ const statusLabel = computed(() => String(viewModel.value?.document.status || ''
   color: #111827;
 }
 
-.print-paper--landscape {
-  width: 297mm;
-  min-height: 210mm;
-  padding: 10mm 8mm 14mm;
-}
-
 .print-paper--portrait {
   width: 210mm;
   min-height: 297mm;
   padding: 12mm 12mm 16mm;
+}
+
+.print-page--auto {
+  min-height: 0;
+}
+
+@media screen {
+  .print-page--auto .preview-scroll {
+    min-height: 0;
+  }
 }
 
 @media print {
@@ -237,11 +281,13 @@ const statusLabel = computed(() => String(viewModel.value?.document.status || ''
 
   .print-page {
     display: block;
+    width: fit-content;
     min-height: 0;
     background: white;
   }
 
   .preview-scroll {
+    width: fit-content;
     overflow: visible !important;
     padding: 0 !important;
     background: white !important;
@@ -249,7 +295,18 @@ const statusLabel = computed(() => String(viewModel.value?.document.status || ''
 
   .preview-scroll > div {
     zoom: 1 !important;
-    width: auto !important;
+    width: fit-content !important;
+  }
+
+  .print-paper--portrait {
+    position: relative;
+    padding: 0 !important;
+    width: 185mm !important;
+    min-height: 268mm !important;
+  }
+
+  .print-paper {
+    overflow: hidden;
   }
 
   .watermark-text {

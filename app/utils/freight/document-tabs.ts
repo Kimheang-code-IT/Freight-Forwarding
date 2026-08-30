@@ -296,23 +296,6 @@ function quotationTabs(module: FreightModule, options: ModuleDocumentTabsOptions
     },
   ]
 
-  if (!options.isCreate) {
-    tabs.splice(5, 0, {
-      id: 'invoice',
-      labelKey: 'freight.quotationTabs.invoice',
-      sections: [{
-        id: 'invoice',
-        fields: [{
-          key: 'invoicePrint',
-          labelKey: 'freight.quotationTabs.invoice',
-          type: 'quotation-invoice-print',
-          colSpan: 2,
-          readOnly: true,
-        }],
-      }],
-    })
-  }
-
   return tabs
 }
 

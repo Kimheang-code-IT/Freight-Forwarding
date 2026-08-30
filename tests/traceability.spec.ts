@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createLcsFreightSeed } from '../app/config/lcs-seed'
 import type { FreightRecord } from '../app/config/freight-seed'
-import { resolveDocumentTraceability } from '../app/utils/freight/traceability'
+import {
+  linkedFinanceInvoiceForCharge,
+  resolveDocumentTraceability,
+  serviceChargeInvoiceAction,
+  sourceChargeForFinanceDocument,
+} from '../app/utils/freight/traceability'
 
 function lookups() {
   const seed = createLcsFreightSeed()
@@ -52,5 +57,28 @@ describe('resolveDocumentTraceability', () => {
     expect(trace.sourceChargeNo).toMatch(/^SC-/)
     expect(trace.links.map(row => row.sourceTypeKey)).toContain('serviceCharge')
     expect(trace.links.map(row => row.sourceTypeKey)).not.toContain('financeInvoice')
+  })
+
+  it('resolves legacy links by source id, document id, and invoice number', () => {
+    const ctx = lookups()
+    const invoice = ctx.documents.find(row => row.id === 'dn-001')!
+    const charge = ctx.charges.find(row => row.id === 'jc-001')!
+
+    expect(linkedFinanceInvoiceForCharge({ ...charge, financialDocumentId: '' }, ctx)?.id).toBe('dn-001')
+    expect(linkedFinanceInvoiceForCharge({ ...charge, financialDocumentId: '', id: 'legacy-charge' }, ctx)?.id).toBe('dn-001')
+    expect(sourceChargeForFinanceDocument({ ...invoice, sourceChargeId: '' }, ctx)?.id).toBe('jc-001')
+    expect(sourceChargeForFinanceDocument({ ...invoice, sourceChargeId: '', id: 'legacy-document' }, ctx)?.id).toBe('jc-001')
+  })
+})
+
+describe('service charge invoice actions', () => {
+  it.each([
+    ['Draft', false, true, true, null],
+    ['Issued', false, true, true, 'create'],
+    ['Issued', false, false, true, null],
+    ['Issued', true, true, true, 'view'],
+    ['Issued', true, true, false, null],
+  ] as const)('resolves %s linked=%s create=%s view=%s', (status, hasInvoice, canCreate, canView, expected) => {
+    expect(serviceChargeInvoiceAction({ status, hasInvoice, canCreate, canView })).toBe(expected)
   })
 })

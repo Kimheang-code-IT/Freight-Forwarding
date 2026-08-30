@@ -54,4 +54,31 @@ describe('dynamic component instance mode', () => {
       { code: 'second', displayOrder: 20, showInSummary: 'Yes' },
     ] }).map(row => row.code)).toEqual(['first', 'second'])
   })
+
+  it('resolves repeatable mode for all document component templates', () => {
+    const repeatableTemplates = [
+      { instanceMode: 'REPEATABLE', repeatable: 'Yes' },
+      { instanceMode: 'REPEATABLE', repeatable: 'Yes' },
+      { instanceMode: 'REPEATABLE', repeatable: 'Yes' },
+      { instanceMode: 'REPEATABLE', repeatable: 'Yes' },
+      { instanceMode: 'REPEATABLE', repeatable: 'Yes' },
+      { instanceMode: 'REPEATABLE', repeatable: 'Yes' },
+    ]
+    for (const template of repeatableTemplates) {
+      expect(resolveComponentInstanceMode({ instanceModeOverride: 'INHERIT' }, template)).toBe('REPEATABLE')
+    }
+  })
+
+  it('uses showInSummary fields for packing list and transport list columns', () => {
+    expect(componentSummaryAttributes({ attributes: [
+      { code: 'packing_list_no', displayOrder: 10, showInSummary: 'Yes' },
+      { code: 'packages', displayOrder: 20, showInSummary: 'Yes' },
+      { code: 'gross_weight', displayOrder: 30 },
+    ] }).map(row => row.code)).toEqual(['packing_list_no', 'packages'])
+    expect(componentSummaryAttributes({ attributes: [
+      { code: 'truck_plate', displayOrder: 10, showInSummary: 'Yes' },
+      { code: 'driver_name', displayOrder: 20, showInSummary: 'Yes' },
+      { code: 'driver_phone', displayOrder: 30 },
+    ] }).map(row => row.code)).toEqual(['truck_plate', 'driver_name'])
+  })
 })

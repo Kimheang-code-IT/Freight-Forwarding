@@ -3,9 +3,12 @@
 @import "./scrollbar.css";
 
 @theme static {
-  --font-sans: "Inter", "Noto Sans Khmer", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-  --font-khmer: "Noto Sans Khmer", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-
+  --font-sans:
+    "Inter", "Noto Sans Khmer", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Arial, sans-serif;
+  --font-khmer:
+    "Noto Sans Khmer", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Arial, sans-serif;
 
   /* Logo coral-red primary palette — must be @theme static for Nuxt UI */
   --color-brand-50: #fff2ef;
@@ -47,7 +50,7 @@
     height: 100%;
     font-family: var(--font-sans) !important;
   }
-  
+
   .dark,
   .dark body {
     background-color: #18191a !important;
@@ -171,7 +174,7 @@
 }
 
 .freight-table table thead th,
-.freight-table table [data-slot='th'] {
+.freight-table table [data-slot="th"] {
   position: sticky;
   top: 0;
   z-index: 10;
@@ -185,24 +188,34 @@
   border: 1px solid var(--ui-border);
   background-color: var(--ui-bg);
   color: var(--ui-text);
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
 }
 
 .freight-table table tbody tr:hover td {
   background-color: var(--ui-bg-muted) !important;
 }
 
-.freight-table table tbody tr[data-selected='true'] td {
-  background-color: color-mix(in srgb, var(--ui-primary) 10%, var(--ui-bg)) !important;
+.freight-table table tbody tr[data-selected="true"] td {
+  background-color: color-mix(
+    in srgb,
+    var(--ui-primary) 10%,
+    var(--ui-bg)
+  ) !important;
 }
 
-.dark .freight-table table tbody tr[data-selected='true'] td {
-  background-color: color-mix(in srgb, var(--ui-primary) 16%, var(--ui-bg)) !important;
+.dark .freight-table table tbody tr[data-selected="true"] td {
+  background-color: color-mix(
+    in srgb,
+    var(--ui-primary) 16%,
+    var(--ui-bg)
+  ) !important;
 }
 
 /* Document / line tables: shorter rows and smaller cell type. */
 .freight-table-compact table thead th,
-.freight-table-compact table [data-slot='th'] {
+.freight-table-compact table [data-slot="th"] {
   font-size: 11px;
   line-height: 1.25;
   padding: 0.25rem 0.5rem;

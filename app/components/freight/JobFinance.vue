@@ -118,7 +118,7 @@ const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
 
 <template>
   <div class="space-y-4">
-    <FreightJobSectionHeader :title="t('freight.jobSections.finance')" :description="t('freight.ui.postedOnlyHint')">
+    <FreightJobSectionHeader :title="t('freight.jobSections.finance')">
       <template #actions>
         <UButton v-if="lcs.can('financial_document.create')" size="xs" color="neutral" variant="soft"
           icon="i-lucide-receipt-text"

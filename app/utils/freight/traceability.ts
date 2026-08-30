@@ -64,7 +64,7 @@ function findQuotation(quotationNo: string, lookups: TraceLookups) {
   return lookups.quotations.find(row => text(row.quotationNo) === quotationNo)
 }
 
-function findChargeInvoice(charge: FreightRecord, lookups: TraceLookups) {
+export function linkedFinanceInvoiceForCharge(charge: FreightRecord, lookups: TraceLookups) {
   const id = text(charge.financialDocumentId)
   if (id) {
     const byKey = byId(lookups.documents, id)
@@ -78,6 +78,35 @@ function findChargeInvoice(charge: FreightRecord, lookups: TraceLookups) {
   const invoiceNo = text(charge.invoiceNo)
   if (!invoiceNo) return undefined
   return lookups.documents.find(row => text(row.debitNoteNo) === invoiceNo)
+}
+
+export function sourceChargeForFinanceDocument(document: FreightRecord, lookups: TraceLookups) {
+  const sourceId = text(document.sourceChargeId)
+  if (sourceId) {
+    const source = byId(lookups.charges, sourceId)
+    if (source) return source
+  }
+  const documentId = text(document.id)
+  if (documentId) {
+    const byDocument = lookups.charges.find(row => text(row.financialDocumentId) === documentId)
+    if (byDocument) return byDocument
+  }
+  const documentNo = text(document.debitNoteNo)
+  if (!documentNo) return undefined
+  return lookups.charges.find(row => text(row.invoiceNo) === documentNo)
+}
+
+export type ServiceChargeInvoiceAction = 'create' | 'view' | null
+
+export function serviceChargeInvoiceAction(options: {
+  status: unknown
+  hasInvoice: boolean
+  canCreate: boolean
+  canView: boolean
+}): ServiceChargeInvoiceAction {
+  if (String(options.status || '').trim().toUpperCase() !== 'ISSUED') return null
+  if (options.hasInvoice) return options.canView ? 'view' : null
+  return options.canCreate ? 'create' : null
 }
 
 function findJournal(document: FreightRecord | undefined, extraId: string, lookups: TraceLookups) {
@@ -105,8 +134,8 @@ export function resolveDocumentTraceability(
 ): DocumentTraceability {
   const charge = kind === 'charge'
     ? record
-    : byId(lookups.charges, text(record.sourceChargeId))
-  const invoice = kind === 'finance' ? record : findChargeInvoice(record, lookups)
+    : sourceChargeForFinanceDocument(record, lookups)
+  const invoice = kind === 'finance' ? record : linkedFinanceInvoiceForCharge(record, lookups)
   const job = findJob(text(invoice?.jobNo || charge?.jobNo || record.jobNo), lookups)
   const quotation = findQuotation(text(job?.quotationNo), lookups)
   const journal = findJournal(invoice, text(record.journalId || charge?.journalId), lookups)

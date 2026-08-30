@@ -46,7 +46,7 @@ watch(() => props.job.id, loadRows, { immediate: true })
 </script>
 
 <template>
-  <TableAppLineTable
+  <FreightJobLineTable
     :table="table"
     :model-value="rows"
     :disabled="!canEdit"

@@ -1,4 +1,5 @@
 import type { FreightRecord } from '~/config/freight-seed'
+import { DEFAULT_INVOICE_LOGO_URL } from '~/utils/freight/print-navigation'
 
 /**
  * Shared print view model. Layout components read this typed model only —
@@ -9,6 +10,7 @@ import type { FreightRecord } from '~/config/freight-seed'
 export type PrintParty = {
   name: string
   legalName: string
+  nameKh: string
   taxIdentifier: string
   address: string
   phone: string
@@ -60,6 +62,7 @@ export type PrintLine = {
   no: number
   reference: string
   description: string
+  descriptionKh: string
   quantity: number
   unit: string
   unitPrice: number
@@ -86,12 +89,21 @@ export type PrintTotals = {
 
 export type PrintSettlement = {
   accountName: string
+  accountAddress: string
   bankName: string
+  branchName: string
   accountNumber: string
   swiftCode: string
 }
 
 export type PrintWatermark = 'DRAFT' | 'CANCELLED' | 'REVERSED' | null
+
+export type PrintSignatures = {
+  customerSignatureUrl: string
+  customerStampUrl: string
+  sellerSignatureUrl: string
+  sellerStampUrl: string
+}
 
 export type PrintViewModel = {
   templateId: string
@@ -102,6 +114,7 @@ export type PrintViewModel = {
   lines: PrintLine[]
   totals: PrintTotals
   settlement: PrintSettlement
+  signatures: PrintSignatures
   watermark: PrintWatermark
   amountInWords: string
 }
@@ -230,26 +243,47 @@ export function amountInWords(amount: number, currency = 'USD'): string {
   return `${negative ? 'minus ' : ''}${words} only`
 }
 
+/** DCN-style amount in words: `USD NINE HUNDRED SEVENTY NINE AND CENTS SEVEN`. */
+export function formatDebitNoteAmountInWords(amount: number, currency = 'USD'): string {
+  if (!Number.isFinite(amount)) return '-'
+  const code = (currency || 'USD').toUpperCase()
+  const negative = amount < 0
+  const abs = Math.abs(amount)
+  const whole = Math.floor(abs)
+  const cents = Math.round((abs - whole) * 100)
+  const wholeWords = numberToEnglishWords(whole).toUpperCase().replace(/-/g, ' ')
+  if (cents === 0) return `${code} ${negative ? 'MINUS ' : ''}${wholeWords} ONLY`
+  const centsWords = numberToEnglishWords(cents).toUpperCase().replace(/-/g, ' ')
+  return `${code} ${negative ? 'MINUS ' : ''}${wholeWords} AND CENTS ${centsWords}`
+}
+
 /* ------------------------------------------------------------------ */
 /* Line + totals normalization                                         */
 /* ------------------------------------------------------------------ */
 
 type RawLine = Record<string, unknown>
 
-function normalizeDocumentLines(record: FreightRecord): PrintLine[] {
+function normalizeDocumentLines(record: FreightRecord, templateId?: string): PrintLine[] {
   const currency = printStr(record.currency) || 'USD'
-  const reference = printStr(record.debitNoteNo) || printStr(record.invoiceNo) || printStr(record.jobNo)
+  const lineReference = templateId === 'debit-note'
+    ? printStr(record.blNo) || printStr(record.jobNo)
+    : printStr(record.debitNoteNo) || printStr(record.invoiceNo) || printStr(record.jobNo)
   const raw = Array.isArray(record.lines) ? record.lines as RawLine[] : []
   const lines = raw.map((row, index) => {
     const quantity = printNum(row.quantity) || 1
     const unitPrice = printNum(row.unitAmount ?? row.unitPrice)
-    const amount = printNum(row.amount ?? row.lineTotal) || quantity * unitPrice
+    const grossAmount = printNum(row.amount ?? row.lineTotal)
+    const taxAmount = printNum(row.taxAmount)
+    const discount = printNum(row.discount)
+    const calculatedNet = unitPrice ? quantity * unitPrice - discount : grossAmount - taxAmount
+    const amount = printNum(row.netAmount ?? row.subtotal) || calculatedNet || grossAmount
     const debit = printNum(row.debit_amount ?? row.debit)
     const credit = printNum(row.credit_amount ?? row.credit)
     return {
       no: index + 1,
-      reference,
+      reference: lineReference,
       description: printStr(row.description),
+      descriptionKh: printStr(row.descriptionKh) || printStr(row.description_kh),
       quantity,
       unit: printStr(row.unit) || '-',
       unitPrice,
@@ -268,10 +302,11 @@ function normalizeDocumentLines(record: FreightRecord): PrintLine[] {
       const amount = printNum(row.cambodia) + printNum(row.vietnam) + printNum(row.cash)
       return {
         no: index + 1,
-        reference,
+        reference: lineReference,
         description: printStr(row.description),
+      descriptionKh: printStr(row.descriptionKh) || printStr(row.description_kh),
         quantity: amount ? 1 : 0,
-        unit: amount ? 'Service' : '-',
+        unit: amount ? (templateId === 'debit-note' ? 'CONT' : 'Service') : '-',
         unitPrice: amount,
         currency,
         debit: amount,
@@ -287,8 +322,9 @@ function normalizeDocumentLines(record: FreightRecord): PrintLine[] {
   if (amount) {
     return [{
       no: 1,
-      reference,
+      reference: lineReference,
       description: printStr(record.description) || printStr(record.chargeType) || 'Service charge',
+      descriptionKh: printStr(record.descriptionKh) || printStr(record.description_kh),
       quantity: printNum(record.quantity) || 1,
       unit: 'Service',
       unitPrice: printNum(record.unitPrice) || amount,
@@ -329,6 +365,7 @@ function resolveParty(name: string, context: PrintModelContext, record: FreightR
   const fallback: PrintParty = {
     name,
     legalName: printStr(record.customer) === name ? printStr(record.customer) : name,
+    nameKh: '',
     taxIdentifier: '',
     address: printStr(record.customerAddress) || '',
     phone: '',
@@ -339,6 +376,7 @@ function resolveParty(name: string, context: PrintModelContext, record: FreightR
   return {
     name,
     legalName: printStr(match.legalName) || name,
+    nameKh: printStr(match.legalNameKh) || printStr(match.nameKh),
     taxIdentifier: printStr(match.taxIdentifier),
     address: printStr(match.address),
     phone: printStr(match.phone),
@@ -379,13 +417,24 @@ function resolveSettlement(record: FreightRecord, financialAccounts: FreightReco
   const match = key
     ? financialAccounts.find(row => String(row.accountName || '').toLowerCase() === key)
     : financialAccounts.find(row => String(row.accountType || '').toLowerCase() === 'bank')
-  if (!match) return { accountName: '', bankName: '', accountNumber: '', swiftCode: '' }
+  if (!match) return { accountName: '', accountAddress: '', bankName: '', branchName: '', accountNumber: '', swiftCode: '' }
   return {
     accountName: printStr(match.accountName),
+    accountAddress: printStr(match.accountAddress) || printStr(match.address),
     bankName: printStr(match.bankName),
+    branchName: printStr(match.branchName),
     // Only the masked, print-authorized number ever reaches paper.
     accountNumber: printStr(match.accountNumberMasked),
     swiftCode: printStr(match.swiftCode),
+  }
+}
+
+function resolveSignatures(record: FreightRecord): PrintSignatures {
+  return {
+    customerSignatureUrl: printStr(record.customerSignatureUrl),
+    customerStampUrl: printStr(record.customerStampUrl),
+    sellerSignatureUrl: printStr(record.sellerSignatureUrl),
+    sellerStampUrl: printStr(record.sellerStampUrl),
   }
 }
 
@@ -401,7 +450,7 @@ export function buildPrintViewModel(
   ) || null
   const currency = printStr(record.currency) || 'USD'
   const exchangeRate = printNum(record.exchangeRate) || printNum(record.exchangeRateLocal)
-  const lines = normalizeDocumentLines(record)
+  const lines = normalizeDocumentLines(record, templateId)
   const { subtotal, totalDebit, totalCredit } = sumPrintLines(lines)
   const taxRate = printNum(record.vatRate ?? record.taxRate)
   const taxAmount = printNum(record.vat ?? record.taxAmount)
@@ -415,6 +464,7 @@ export function buildPrintViewModel(
     issuer: {
       name: printStr(issuerRow?.legalName),
       legalName: printStr(issuerRow?.legalName),
+      nameKh: printStr(issuerRow?.legalNameKh),
       legalNameKh: printStr(issuerRow?.legalNameKh),
       displayName: printStr(issuerRow?.displayName),
       taxIdentifier: printStr(issuerRow?.taxIdentifier),
@@ -423,12 +473,14 @@ export function buildPrintViewModel(
       phone: printStr(issuerRow?.phone),
       email: printStr(issuerRow?.email),
       contact: '',
-      logoUrl: printStr(context.logoUrl),
+      logoUrl: DEFAULT_INVOICE_LOGO_URL,
       branchName: printStr(branchRow?.name),
     },
     party,
     document: {
-      number: printStr(record.debitNoteNo) || printStr(record.invoiceNo) || printStr(record.id),
+      number: templateId === 'tax-invoice'
+        ? printStr(record.invoiceNo) || printStr(record.id)
+        : printStr(record.debitNoteNo) || printStr(record.invoiceNo) || printStr(record.id),
       documentType: printStr(record.documentType),
       issueDate: printStr(record.date),
       dueDate: printStr(record.dueDate),
@@ -455,7 +507,10 @@ export function buildPrintViewModel(
       outstanding,
     },
     settlement: resolveSettlement(record, context.financialAccounts || []),
+    signatures: resolveSignatures(record),
     watermark: printWatermarkFor(record.status),
-    amountInWords: amountInWords(grandTotal, currency),
+    amountInWords: templateId === 'debit-note'
+      ? formatDebitNoteAmountInWords(totalDebit - totalCredit, currency)
+      : amountInWords(grandTotal, currency),
   }
 }

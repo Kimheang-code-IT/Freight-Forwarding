@@ -1,0 +1,354 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - link:
+            - /url: /
+            - generic:
+              - generic: LCS Freight
+              - generic: Forwarding System
+          - button:
+            - generic: Search…
+            - generic:
+              - generic: Ctrl
+              - generic: k
+        - generic:
+          - navigation:
+            - list:
+              - listitem:
+                - link:
+                  - /url: /
+                  - generic: Dashboard
+              - listitem:
+                - link:
+                  - /url: /quotations
+                  - generic: Quotations
+              - listitem:
+                - link:
+                  - /url: /service-orders
+                  - generic: Service Orders
+              - listitem:
+                - link:
+                  - /url: /service-charges
+                  - generic: Service Charges
+              - listitem:
+                - button [expanded]:
+                  - generic: Finance
+                - region:
+                  - list:
+                    - listitem:
+                      - link:
+                        - /url: /finance/documents
+                        - generic: Financial Documents
+                    - listitem:
+                      - link:
+                        - /url: /finance/chart-of-accounts
+                        - generic: Chart of Accounts
+                    - listitem:
+                      - link:
+                        - /url: /finance/financial-accounts
+                        - generic: Financial Accounts
+                    - listitem:
+                      - link:
+                        - /url: /finance/journals
+                        - generic: Journal Entries
+                    - listitem:
+                      - link:
+                        - /url: /finance/accounting-periods
+                        - generic: Accounting Periods
+              - listitem:
+                - button:
+                  - generic: Operations Reports
+              - listitem:
+                - button:
+                  - generic: Financial Reports
+              - listitem:
+                - button [expanded]:
+                  - generic: Master Data
+                - region:
+                  - list:
+                    - listitem:
+                      - link:
+                        - /url: /master-data/business-parties
+                        - generic: Business Parties
+                    - listitem:
+                      - link:
+                        - /url: /master-data/places
+                        - generic: Places
+                    - listitem:
+                      - link:
+                        - /url: /master-data/trade-directions
+                        - generic: Trade Directions
+                    - listitem:
+                      - link:
+                        - /url: /master-data/container-types
+                        - generic: Container Types
+                    - listitem:
+                      - link:
+                        - /url: /master-data/transport-types
+                        - generic: Transport Types
+                    - listitem:
+                      - link:
+                        - /url: /master-data/transport-assets
+                        - generic: Transport Assets
+                    - listitem:
+                      - link:
+                        - /url: /master-data/fee-types
+                        - generic: Fee Types
+              - listitem:
+                - button [expanded]:
+                  - generic: Configuration
+                - region:
+                  - list:
+                    - listitem:
+                      - link:
+                        - /url: /configuration/component-groups
+                        - generic: Component Groups
+                    - listitem:
+                      - link:
+                        - /url: /configuration/component-templates
+                        - generic: Component Templates
+                    - listitem:
+                      - link:
+                        - /url: /configuration/trade-direction-components
+                        - generic: Trade Direction Components
+                    - listitem:
+                      - link:
+                        - /url: /configuration/posting-rules
+                        - generic: Posting Rules
+              - listitem:
+                - button [expanded]:
+                  - generic: Administration
+                - region:
+                  - list:
+                    - listitem:
+                      - link:
+                        - /url: /administration/organizations
+                        - generic: Organizations
+                    - listitem:
+                      - link:
+                        - /url: /administration/branches
+                        - generic: Branches
+                    - listitem:
+                      - link:
+                        - /url: /administration/users
+                        - generic: Users
+                    - listitem:
+                      - link:
+                        - /url: /administration/roles
+                        - generic: Roles & Permissions
+                    - listitem:
+                      - link:
+                        - /url: /administration/document-sequences
+                        - generic: Document Sequences
+                    - listitem:
+                      - link:
+                        - /url: /administration/system-settings
+                        - generic: Settings
+                    - listitem:
+                      - link:
+                        - /url: /administration/audit-logs
+                        - generic: Audit Logs
+        - generic:
+          - generic:
+            - button:
+              - generic: System Administrator
+      - generic:
+        - generic:
+          - generic:
+            - button
+            - heading [level=1]:
+              - generic: Service Charges
+          - generic:
+            - generic:
+              - link:
+                - /url: /service-charges
+                - generic: List View
+              - button [disabled]
+              - button
+              - button
+              - button
+              - generic:
+                - generic:
+                  - button:
+                    - generic: Print / Download
+                  - button:
+                    - generic: View Finance Invoice
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - tablist:
+                              - tab [selected]:
+                                - generic: General
+                              - tab:
+                                - generic: Fee Lines
+                              - tab:
+                                - generic: Traceability
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - heading [level=3]: General
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - generic: Charge No.*
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - textbox [disabled]:
+                                                    - /placeholder: Charge No.
+                                                    - text: SC-2026-0001
+                                            - generic: Service charge number. Preview only until issue; the UI does not allocate official numbers.
+                                      - generic:
+                                        - generic:
+                                          - generic: Document Date*
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - textbox [disabled]:
+                                                      - /placeholder: 2026-08-30
+                                                      - text: 2026-08-20
+                                                    - generic:
+                                                      - button [disabled]
+                                            - generic: Date printed on this financial document.
+                                      - generic:
+                                        - generic:
+                                          - generic: Document Type
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - combobox [disabled]:
+                                                  - generic: SERVICE_NOTE
+                                            - generic: Type of document (invoice, bill, receipt, and so on).
+                                      - generic:
+                                        - generic:
+                                          - generic: Status
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - combobox [disabled]:
+                                                  - generic: Issued
+                                            - generic: Current lifecycle state for this record.
+                                      - generic:
+                                        - generic:
+                                          - generic: Job No.
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - textbox [disabled]:
+                                                    - /placeholder: Job No.
+                                                    - text: LCS-IM-260821
+                                            - generic: Optional. Leave blank to create a service charge that is not linked to a service order.
+                                      - generic:
+                                        - generic:
+                                          - generic: Company*
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - textbox [disabled]:
+                                                    - /placeholder: Company
+                                                    - text: Manhattan SEZ Co., Ltd.
+                                            - generic: Customer or factory this record belongs to.
+                                      - generic:
+                                        - generic:
+                                          - generic: Branch
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - textbox [disabled]:
+                                                    - /placeholder: Branch
+                                                    - text: Bavet
+                                            - generic: Branch display name.
+                                      - generic:
+                                        - generic:
+                                          - generic: Currency
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - combobox [disabled]:
+                                                  - generic: USD
+                                            - generic: Currency for amounts on this record.
+                                      - generic:
+                                        - generic:
+                                          - generic: Remarks
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - textbox [disabled]:
+                                                    - /placeholder: Remarks
+                                            - generic: Free-text remarks shown on the document.
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - heading [level=2]: Comments (0)
+                                  - generic:
+                                    - generic: SA
+                                    - generic:
+                                      - textbox:
+                                        - /placeholder: Type a reply / comment
+                                      - generic:
+                                        - button [disabled]
+                                - generic:
+                                  - generic:
+                                    - heading [level=2]: Activity
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - separator
+                                      - generic:
+                                        - generic:
+                                          - paragraph: Completed component • 2026-08-20
+                                    - generic:
+                                      - generic:
+                                        - separator
+                                      - generic:
+                                        - generic:
+                                          - paragraph: Sokha V. last edited this • 2026-08-20
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - paragraph: Sokha V. created this • 2026-08-20
+  - generic [ref=f5e336]:
+    - button [ref=f5e840] [cursor=pointer]
+    - generic [ref=f5e841]:
+      - generic [ref=f5e342]: "204"
+      - generic [ref=f5e343]: ms
+    - button [ref=f5e842] [cursor=pointer]
+  - dialog [ref=f5e844]:
+    - generic [ref=f5e846]:
+      - heading "Print document" [level=2] [ref=f5e848]
+      - button "Close" [active] [ref=f5e849]
+    - generic [ref=f5e851]:
+      - paragraph [ref=f5e852]: Choose a print layout. Preview opens a clean page for printing or saving as PDF.
+      - radiogroup "Print document" [ref=f5e853]:
+        - radio "Tax Invoice Customer tax invoice for the full quotation (LCSINV layout). A4 landscape" [checked] [ref=f5e854]:
+          - generic [ref=f5e855]: Tax Invoice
+          - generic [ref=f5e858]: Customer tax invoice for the full quotation (LCSINV layout).
+          - generic [ref=f5e859]: A4 landscape
+        - radio "Debit Note Per-container debit note (DCN layout). A4 portrait" [ref=f5e860]:
+          - generic [ref=f5e861]: Debit Note
+          - generic [ref=f5e864]: Per-container debit note (DCN layout).
+          - generic [ref=f5e865]: A4 portrait
+    - generic [ref=f5e867]:
+      - button "Cancel" [ref=f5e868]
+      - button "Preview" [ref=f5e870]

@@ -77,6 +77,7 @@ function mapPricingLine(row: RawLine, index: number, reference: string, currency
     no: index + 1,
     reference,
     description: printStr(row.description) || printStr(row.feeType) || 'Freight service',
+    descriptionKh: printStr(row.descriptionKh) || printStr(row.description_kh),
     quantity,
     unit: printStr(row.unit) || 'Container',
     unitPrice,

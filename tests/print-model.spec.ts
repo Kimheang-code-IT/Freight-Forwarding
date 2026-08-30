@@ -3,6 +3,7 @@ import type { FreightRecord } from '../app/config/freight-seed'
 import {
   amountInWords,
   buildPrintViewModel,
+  formatDebitNoteAmountInWords,
   numberToEnglishWords,
   printNum,
   printStr,
@@ -118,6 +119,10 @@ describe('amount in words', () => {
     expect(amountInWords(1000, 'KHR')).toBe('one thousand riels only')
   })
 
+  it('formats debit-note amount in words like the DCN sample', () => {
+    expect(formatDebitNoteAmountInWords(979.07, 'USD')).toBe('USD NINE HUNDRED SEVENTY NINE AND CENTS SEVEN')
+  })
+
   it('falls back safely for unsupported currencies', () => {
     expect(amountInWords(12.5, 'XYZ')).toBe('12.50 XYZ')
     expect(amountInWords(Number.NaN, 'USD')).toBe('-')
@@ -145,6 +150,31 @@ describe('print totals', () => {
     expect(model.totals.taxAmount).toBe(108.7)
     expect(model.totals.grandTotal).toBe(1195.7)
     expect(model.amountInWords).toContain('one thousand one hundred ninety-five dollars')
+  })
+
+  it('keeps tax-inclusive line totals out of the invoice subtotal', () => {
+    const model = buildPrintViewModel(record({
+      currency: 'USD',
+      lines: [{ quantity: 1, unitAmount: 1475, taxAmount: 147.5, amount: 1622.5 }],
+      vatRate: 10,
+      vat: 147.5,
+      total: 1622.5,
+    }), 'tax-invoice', context)
+    expect(model.lines[0]?.amount).toBe(1475)
+    expect(model.totals.subtotal).toBe(1475)
+    expect(model.totals.taxAmount).toBe(147.5)
+    expect(model.totals.grandTotal).toBe(1622.5)
+  })
+
+  it('spells the debit-note balance rather than the tax-invoice grand total', () => {
+    const model = buildPrintViewModel(record({
+      currency: 'USD',
+      lines: [{ quantity: 1, unitAmount: 1475, taxAmount: 147.5, amount: 1622.5 }],
+      vat: 147.5,
+      total: 1622.5,
+    }), 'debit-note', context)
+    expect(model.totals.balance).toBe(1475)
+    expect(model.amountInWords).toBe('USD ONE THOUSAND FOUR HUNDRED SEVENTY FIVE ONLY')
   })
 
   it('computes local-currency total only with a valid exchange rate', () => {

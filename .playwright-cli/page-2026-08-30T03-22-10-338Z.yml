@@ -1,0 +1,273 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e3]:
+    - generic [ref=f5e4]:
+      - generic [ref=f5e5]:
+        - link "LCS Freight Forwarding" [ref=f5e6] [cursor=pointer]:
+          - /url: /
+          - img "LCS Freight Forwarding logo" [ref=f5e8]
+          - generic [ref=f5e9]:
+            - generic [ref=f5e10]: LCS Freight
+            - generic [ref=f5e11]: Forwarding System
+        - button "Search… Ctrl k" [ref=f5e350]:
+          - generic [ref=f5e14]: Search…
+          - generic [ref=f5e15]:
+            - generic [ref=f5e16]: Ctrl
+            - generic [ref=f5e17]: k
+      - navigation [ref=f5e19]:
+        - list [ref=f5e20]:
+          - listitem [ref=f5e21]:
+            - link "Dashboard" [ref=f5e22] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=f5e25]:
+            - link "Quotations" [ref=f5e26] [cursor=pointer]:
+              - /url: /quotations
+          - listitem [ref=f5e29]:
+            - link "Service Orders" [ref=f5e30] [cursor=pointer]:
+              - /url: /service-orders
+          - listitem [ref=f5e33]:
+            - link "Service Charges" [ref=f5e34] [cursor=pointer]:
+              - /url: /service-charges
+          - listitem [ref=f5e37]:
+            - button "Finance" [expanded] [ref=f5e38]
+            - region "Finance" [ref=f5e43]:
+              - list [ref=f5e44]:
+                - listitem [ref=f5e45]:
+                  - link "Financial Documents" [ref=f5e46] [cursor=pointer]:
+                    - /url: /finance/documents
+                - listitem [ref=f5e48]:
+                  - link "Chart of Accounts" [ref=f5e49] [cursor=pointer]:
+                    - /url: /finance/chart-of-accounts
+                - listitem [ref=f5e51]:
+                  - link "Financial Accounts" [ref=f5e52] [cursor=pointer]:
+                    - /url: /finance/financial-accounts
+                - listitem [ref=f5e54]:
+                  - link "Journal Entries" [ref=f5e55] [cursor=pointer]:
+                    - /url: /finance/journals
+                - listitem [ref=f5e57]:
+                  - link "Accounting Periods" [ref=f5e58] [cursor=pointer]:
+                    - /url: /finance/accounting-periods
+          - listitem [ref=f5e60]:
+            - button "Operations Reports" [ref=f5e61]
+          - listitem [ref=f5e66]:
+            - button "Financial Reports" [ref=f5e67]
+          - listitem [ref=f5e72]:
+            - button "Master Data" [expanded] [ref=f5e73]
+            - region "Master Data" [ref=f5e78]:
+              - list [ref=f5e79]:
+                - listitem [ref=f5e80]:
+                  - link "Business Parties" [ref=f5e81] [cursor=pointer]:
+                    - /url: /master-data/business-parties
+                - listitem [ref=f5e83]:
+                  - link "Places" [ref=f5e84] [cursor=pointer]:
+                    - /url: /master-data/places
+                - listitem [ref=f5e86]:
+                  - link "Trade Directions" [ref=f5e87] [cursor=pointer]:
+                    - /url: /master-data/trade-directions
+                - listitem [ref=f5e89]:
+                  - link "Container Types" [ref=f5e90] [cursor=pointer]:
+                    - /url: /master-data/container-types
+                - listitem [ref=f5e92]:
+                  - link "Transport Types" [ref=f5e93] [cursor=pointer]:
+                    - /url: /master-data/transport-types
+                - listitem [ref=f5e95]:
+                  - link "Transport Assets" [ref=f5e96] [cursor=pointer]:
+                    - /url: /master-data/transport-assets
+                - listitem [ref=f5e98]:
+                  - link "Fee Types" [ref=f5e99] [cursor=pointer]:
+                    - /url: /master-data/fee-types
+          - listitem [ref=f5e101]:
+            - button "Configuration" [expanded] [ref=f5e102]
+            - region "Configuration" [ref=f5e107]:
+              - list [ref=f5e108]:
+                - listitem [ref=f5e109]:
+                  - link "Component Groups" [ref=f5e110] [cursor=pointer]:
+                    - /url: /configuration/component-groups
+                - listitem [ref=f5e112]:
+                  - link "Component Templates" [ref=f5e113] [cursor=pointer]:
+                    - /url: /configuration/component-templates
+                - listitem [ref=f5e115]:
+                  - link "Trade Direction Components" [ref=f5e116] [cursor=pointer]:
+                    - /url: /configuration/trade-direction-components
+                - listitem [ref=f5e118]:
+                  - link "Posting Rules" [ref=f5e119] [cursor=pointer]:
+                    - /url: /configuration/posting-rules
+          - listitem [ref=f5e121]:
+            - button "Administration" [expanded] [ref=f5e122]
+            - region "Administration" [ref=f5e127]:
+              - list [ref=f5e128]:
+                - listitem [ref=f5e129]:
+                  - link "Organizations" [ref=f5e130] [cursor=pointer]:
+                    - /url: /administration/organizations
+                - listitem [ref=f5e132]:
+                  - link "Branches" [ref=f5e133] [cursor=pointer]:
+                    - /url: /administration/branches
+                - listitem [ref=f5e135]:
+                  - link "Users" [ref=f5e136] [cursor=pointer]:
+                    - /url: /administration/users
+                - listitem [ref=f5e138]:
+                  - link "Roles & Permissions" [ref=f5e139] [cursor=pointer]:
+                    - /url: /administration/roles
+                - listitem [ref=f5e141]:
+                  - link "Document Sequences" [ref=f5e142] [cursor=pointer]:
+                    - /url: /administration/document-sequences
+                - listitem [ref=f5e144]:
+                  - link "Settings" [ref=f5e145] [cursor=pointer]:
+                    - /url: /administration/system-settings
+                - listitem [ref=f5e147]:
+                  - link "Audit Logs" [ref=f5e148] [cursor=pointer]:
+                    - /url: /administration/audit-logs
+      - button "System Administrator System Administrator" [ref=f5e152]:
+        - img "System Administrator" [ref=f5e154]
+        - generic [ref=f5e155]: System Administrator
+    - separator
+    - generic [ref=f5e157]:
+      - generic [ref=f5e158]:
+        - generic [ref=f5e159]:
+          - button "Collapse sidebar" [ref=f5e160]
+          - heading "Financial Documents" [level=1] [ref=f5e386]
+        - generic [ref=f5e365]:
+          - link "List View" [ref=f5e366] [cursor=pointer]:
+            - /url: /finance/documents
+          - button "Previous" [disabled] [ref=f5e369]
+          - button "Next" [ref=f5e371]
+          - button "Refresh" [ref=f5e373]
+          - button "Actions" [ref=f5e375]
+          - generic [ref=f5e388]:
+            - button "Reverse" [ref=f5e389]
+            - button "Print / Download" [ref=f5e392]
+            - button "Record Payment" [ref=f5e395]
+            - button "Back to Service Charge" [ref=f5e398]
+      - generic [ref=f5e405]:
+        - tablist [ref=f5e409]:
+          - tab "Overview" [selected] [ref=f5e410]
+          - tab "Lines" [ref=f5e412]
+          - tab "Allocation" [ref=f5e414]
+          - tab "Journal" [ref=f5e416]
+          - tab "Traceability" [ref=f5e418]
+          - tab "Files" [ref=f5e420]
+          - tab "Activity" [ref=f5e422]
+        - generic [ref=f5e424]:
+          - generic [ref=f5e425]: Posted financial documents are read-only. Use reversal to correct them.
+          - generic [ref=f5e431]:
+            - generic [ref=f5e436]:
+              - generic [ref=f5e438]:
+                - generic [ref=f5e439]: Debit Note No.*
+                - generic [ref=f5e442]:
+                  - textbox "Debit Note No.*" [disabled] [ref=f5e446]:
+                    - /placeholder: Debit Note No.
+                    - text: DN-2608-041
+                  - generic [ref=f5e447]: Debit note number for this customer charge.
+              - generic [ref=f5e449]:
+                - generic [ref=f5e450]: Document Type
+                - generic [ref=f5e453]:
+                  - combobox "Document Type" [disabled] [ref=f5e456]:
+                    - generic: CUSTOMER_INVOICE
+                  - generic [ref=f5e459]: Type of document (invoice, bill, receipt, and so on).
+              - generic [ref=f5e461]:
+                - generic [ref=f5e462]: Quotation Date*
+                - generic [ref=f5e465]:
+                  - generic [ref=f5e469]:
+                    - textbox "Quotation Date*" [disabled] [ref=f5e470]:
+                      - /placeholder: 2026-08-30
+                      - text: 2026-08-20
+                    - button "Select a date" [disabled] [ref=f5e472]
+                  - generic [ref=f5e474]: Document or transaction date.
+              - generic [ref=f5e476]:
+                - generic [ref=f5e477]: Posting Date
+                - generic [ref=f5e480]:
+                  - generic [ref=f5e484]:
+                    - textbox "Posting Date" [disabled] [ref=f5e485]:
+                      - /placeholder: 2026-08-30
+                      - text: 2026-08-20
+                    - button "Select a date" [disabled] [ref=f5e487]
+                  - generic [ref=f5e489]: Accounting date used when the journal is posted.
+              - generic [ref=f5e491]:
+                - generic [ref=f5e492]: Due Date
+                - generic [ref=f5e495]:
+                  - generic [ref=f5e499]:
+                    - textbox "Due Date" [disabled] [ref=f5e500]:
+                      - /placeholder: 2026-08-30
+                    - button "Select a date" [disabled] [ref=f5e502]
+                  - generic [ref=f5e504]: Date this amount is due for payment.
+              - generic [ref=f5e506]:
+                - generic [ref=f5e507]: Status
+                - generic [ref=f5e510]:
+                  - combobox "Status" [disabled] [ref=f5e513]:
+                    - generic: Posted
+                  - generic [ref=f5e516]: Current lifecycle state for this record.
+              - generic [ref=f5e518]:
+                - generic [ref=f5e519]: Company*
+                - generic [ref=f5e522]:
+                  - textbox "Company*" [disabled] [ref=f5e526]:
+                    - /placeholder: Company
+                    - text: Manhattan SEZ Co., Ltd.
+                  - generic [ref=f5e527]: Customer or factory this record belongs to.
+              - generic [ref=f5e529]:
+                - generic [ref=f5e530]: Job No.
+                - generic [ref=f5e533]:
+                  - textbox "Job No." [disabled] [ref=f5e537]: LCS-IM-260821
+                  - generic [ref=f5e538]: Service order / job number used to track this shipment.
+              - generic [ref=f5e540]:
+                - generic [ref=f5e541]: Branch
+                - generic [ref=f5e544]:
+                  - textbox "Branch" [disabled] [ref=f5e548]: Bavet
+                  - generic [ref=f5e549]: Branch display name.
+              - generic [ref=f5e551]:
+                - generic [ref=f5e552]: Currency
+                - generic [ref=f5e555]:
+                  - combobox "Currency" [disabled] [ref=f5e558]:
+                    - generic: USD
+                  - generic [ref=f5e561]: Currency for amounts on this record.
+              - generic [ref=f5e563]:
+                - generic [ref=f5e564]: Exchange Rate
+                - generic [ref=f5e567]:
+                  - group [ref=f5e570]:
+                    - spinbutton "Exchange Rate" [disabled] [ref=f5e571]: "0"
+                  - generic [ref=f5e572]: Rate used to convert this amount to base currency.
+              - generic [ref=f5e574]:
+                - generic [ref=f5e575]: Payment Method
+                - generic [ref=f5e578]:
+                  - combobox "Payment Method" [disabled] [ref=f5e581]
+                  - generic [ref=f5e584]: Enter or update Payment Method.
+              - generic [ref=f5e586]:
+                - generic [ref=f5e587]: Financial Account
+                - generic [ref=f5e590]:
+                  - textbox "Financial Account" [disabled] [ref=f5e594]
+                  - generic [ref=f5e595]: Bank or cash account used for this movement.
+              - generic [ref=f5e597]:
+                - generic [ref=f5e598]: Reference No.
+                - generic [ref=f5e601]:
+                  - textbox "Reference No." [disabled] [ref=f5e605]: INV-2608-118
+                  - generic [ref=f5e606]: Internal or external tracking reference for this record.
+            - generic [ref=f5e608]:
+              - generic [ref=f5e609]:
+                - heading "Comments (0)" [level=2] [ref=f5e610]
+                - generic [ref=f5e611]:
+                  - generic [ref=f5e612]: SA
+                  - generic [ref=f5e614]:
+                    - textbox "Type a reply / comment" [ref=f5e615]
+                    - button "Submit" [disabled] [ref=f5e617]
+              - generic [ref=f5e619]:
+                - heading "Activity" [level=2] [ref=f5e621]
+                - generic [ref=f5e622]:
+                  - generic [ref=f5e623]:
+                    - separator [ref=f5e627]
+                    - paragraph [ref=f5e630]: Completed component • 2026-08-20
+                  - generic [ref=f5e631]:
+                    - separator [ref=f5e635]
+                    - paragraph [ref=f5e638]: Posted financial document • 2026-08-20
+                  - generic [ref=f5e639]:
+                    - separator [ref=f5e643]
+                    - paragraph [ref=f5e646]: Debit note sent • 2026-08-20
+                  - generic [ref=f5e647]:
+                    - separator [ref=f5e651]
+                    - paragraph [ref=f5e654]: Sokha V. last edited this • 2026-08-20
+                  - paragraph [ref=f5e661]: Sokha V. created this • 2026-08-20
+  - generic [ref=f5e336]:
+    - button "Toggle Nuxt DevTools" [ref=f5e337] [cursor=pointer]
+    - generic "Page load time" [ref=f5e385]:
+      - generic [ref=f5e342]: "423"
+      - generic [ref=f5e343]: ms
+    - button "Toggle Component Inspector" [ref=f5e345] [cursor=pointer]
+  - region "Notifications (F8)":
+    - list

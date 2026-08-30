@@ -10,7 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'update:open', value: boolean): void
-  (event: 'preview', templateId: PrintTemplateId): void
+  (event: 'print', templateId: PrintTemplateId): void
 }>()
 
 const { t } = useI18n()
@@ -31,8 +31,8 @@ function close() {
   emit('update:open', false)
 }
 
-function preview() {
-  emit('preview', selected.value)
+function printSelected() {
+  emit('print', selected.value)
   emit('update:open', false)
 }
 </script>
@@ -60,10 +60,10 @@ function preview() {
           @click="selected = template.id"
           @keydown.enter.prevent="selected = template.id"
         >
-          <span class="mb-1 flex items-center gap-2">
-            <UIcon :name="template.icon" class="size-4 shrink-0 text-primary" />
-            <span class="text-sm font-medium text-highlighted">{{ t(template.labelKey) }}</span>
+          <span class="mb-2 flex size-9 items-center justify-center rounded-md border border-default bg-default">
+            <UIcon :name="template.icon" class="size-5 shrink-0 text-primary" />
           </span>
+          <span class="mb-1 block text-sm font-medium text-highlighted">{{ t(template.labelKey) }}</span>
           <span class="block text-xs text-muted">{{ t(template.descriptionKey) }}</span>
           <span class="mt-2 inline-block text-[11px] text-dimmed">
             {{ template.orientation === 'landscape' ? t('freight.print.a4Landscape') : t('freight.print.a4Portrait') }}
@@ -83,10 +83,10 @@ function preview() {
         <UButton
           color="primary"
           size="sm"
-          icon="i-lucide-eye"
-          :label="t('freight.print.preview')"
+          icon="i-lucide-printer"
+          :label="t('freight.print.print')"
           :disabled="!selected"
-          @click="preview"
+          @click="printSelected"
         />
       </div>
     </template>

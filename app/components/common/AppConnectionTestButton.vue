@@ -31,7 +31,9 @@ const labelText = computed(() => {
   <UButton
     :icon="icon"
     :color="color"
-    variant="soft"
+    variant="outline"
+    size="sm"
+    class="document-action-btn shrink-0"
     :loading="loading"
     :disabled="disabled || loading"
     @click="emit('click')"

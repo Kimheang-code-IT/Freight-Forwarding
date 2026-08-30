@@ -171,9 +171,16 @@ describe('service charges and finance', () => {
   it('converts an issued charge to a draft invoice only', () => {
     const data = db()
     const invoice = createFinanceInvoiceFromCharge(data, adminSession(), 'jc-003', 'idem-inv-1')
+    const repeated = createFinanceInvoiceFromCharge(data, adminSession(), 'jc-003', 'idem-inv-2')
+    const charge = data.jobCharges.find(row => row.id === 'jc-003')
     expect(invoice.status).toBe('Draft')
     expect(invoice.documentType).toBe('CUSTOMER_INVOICE')
     expect(invoice.journalId).toBe('')
+    expect(invoice.sourceChargeId).toBe('jc-003')
+    expect(charge?.financialDocumentId).toBe(invoice.id)
+    expect(charge?.invoiceNo).toBe(invoice.debitNoteNo)
+    expect(repeated.id).toBe(invoice.id)
+    expect(data.debitNotes.filter(row => row.sourceChargeId === 'jc-003')).toHaveLength(1)
   })
 
   it('copies the posted journal onto the source service charge', () => {
@@ -225,7 +232,7 @@ describe('dynamic components', () => {
     expect(completed.templateVersion).toBe('2026.04')
   })
 
-  it('creates a missing component from the template and returns the existing non-repeatable row', () => {
+  it('creates repeatable component records when the template instance mode is REPEATABLE', () => {
     const data = db()
     const created = ensureServiceComponent(data, adminSession(), {
       jobNo: 'LCS-EX-260820',
@@ -241,7 +248,8 @@ describe('dynamic components', () => {
       groupCode: 'PACKING_LIST',
       templateCode: 'PACKING_LIST',
     })
-    expect(again.id).toBe(created.id)
+    expect(again.id).not.toBe(created.id)
+    expect(again.sequenceNo).toBeGreaterThan(Number(created.sequenceNo || 0))
   })
 })
 

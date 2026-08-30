@@ -1436,7 +1436,7 @@ if (chargesModule) freightModules.push({
     key: 'sourceRelationships', title: 'Source Relationships', titleKm: 'ទំនាក់ទំនងប្រភព', columns: SOURCE_RELATIONSHIP_COLUMNS,
   }],
   actions: [
-    { key: 'saveDraft', label: 'Save Draft', labelKm: 'រក្សាទុកព្រាង', icon: 'i-lucide-save' }, { key: 'issue', label: 'Issue', labelKm: 'ចេញ', icon: 'i-lucide-send', color: 'success' }, { key: 'print', label: 'Print / Download', labelKm: 'បោះពុម្ព / ទាញយក', icon: 'i-lucide-printer' }, { key: 'createInvoice', label: 'Create Finance Invoice', labelKm: 'បង្កើតវិក្កយបត្រហិរញ្ញវត្ថុ', icon: 'i-lucide-file-plus-2', color: 'primary' },
+    { key: 'saveDraft', label: 'Save Draft', labelKm: 'រក្សាទុកព្រាង', icon: 'i-lucide-save' }, { key: 'issue', label: 'Issue', labelKm: 'ចេញ', icon: 'i-lucide-send', color: 'success' }, { key: 'print', label: 'Print / Download', labelKm: 'បោះពុម្ព / ទាញយក', icon: 'i-lucide-printer' }, { key: 'createInvoice', label: 'Create Finance Invoice', labelKm: 'បង្កើតវិក្កយបត្រហិរញ្ញវត្ថុ', icon: 'i-lucide-file-plus-2', color: 'primary' }, { key: 'viewInvoice', label: 'View Finance Invoice', labelKm: 'មើលវិក្កយបត្រហិរញ្ញវត្ថុ', icon: 'i-lucide-receipt-text', color: 'primary' },
   ],
   filters: [f('jobNo', 'Service Order', 'បញ្ជាសេវាកម្ម'), f('customer', 'Customer', 'អតិថិជន'), f('branchName', 'Branch', 'សាខា'), f('documentType', 'Document Type', 'ប្រភេទឯកសារ', '', '', 'select', ['SERVICE_NOTE', 'DEBIT_NOTE', 'PRO_FORMA']), f('status', 'Status', 'ស្ថានភាព', '', '', 'select', SERVICE_CHARGE_STATUS)],
 })
@@ -1497,6 +1497,10 @@ if (invoicesModule) freightModules.push({
     { key: 'journalEntries', title: 'Journal', titleKm: 'ទិនានុប្បវត្តិ', columns: [{ key: 'account', label: 'Account', labelKm: 'គណនី', required: true }, { key: 'description', label: 'Description', labelKm: 'បរិយាយ' }, { key: 'debit', label: 'Debit', labelKm: 'ឥណពន្ធ', type: 'number' }, { key: 'credit', label: 'Credit', labelKm: 'ឥណទាន', type: 'number' }, { key: 'branch', label: 'Branch', labelKm: 'សាខា' }] },
     { key: 'attachments', title: 'Files', titleKm: 'ឯកសារ', addLabel: 'Upload File', addLabelKey: 'freight.ui.uploadFile', kind: 'files', columns: FILE_ATTACHMENT_COLUMNS },
     { key: 'auditTimeline', title: 'Audit Timeline', titleKm: 'ពេលវេលាសវនកម្ម', columns: [{ key: 'occurredAt', label: 'Date / Time', labelKm: 'កាលបរិច្ឆេទ / ពេលវេលា' }, { key: 'user', label: 'User', labelKm: 'អ្នកប្រើ' }, { key: 'action', label: 'Action', labelKm: 'សកម្មភាព' }, { key: 'result', label: 'Result', labelKm: 'លទ្ធផល' }] },
+  ],
+  actions: [
+    ...(invoicesModule.actions || []),
+    { key: 'backToServiceCharge', label: 'Back to Service Charge', labelKm: 'ត្រឡប់ទៅថ្លៃសេវាកម្ម', icon: 'i-lucide-arrow-left' },
   ],
 })
 

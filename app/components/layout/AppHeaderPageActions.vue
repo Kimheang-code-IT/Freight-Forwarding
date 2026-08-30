@@ -94,28 +94,13 @@ const defaultMoreItems = computed<DropdownMenuItem[][]>(() => [[
   },
 ]])
 
-function withoutPrint(items: DropdownMenuItem[][]): DropdownMenuItem[][] {
-  const printLabels = new Set([
-    'print',
-    t('docetra.document.print').trim().toLowerCase(),
-    t('docetra.rolePermissions.actions.print').trim().toLowerCase(),
-  ])
-  return items
-    .map(group => group.filter((item) => {
-      const icon = typeof item === 'object' && item && 'icon' in item ? String(item.icon || '') : ''
-      const label = typeof item === 'object' && item && 'label' in item ? String(item.label || '') : ''
-      return !icon.includes('printer') && !printLabels.has(label.trim().toLowerCase())
-    }))
-    .filter(group => group.length > 0)
-}
-
 const menuItems = computed(() => {
   const custom = props.moreItems || []
   const exportItem = defaultMoreItems.value[0] || []
-  return withoutPrint([
+  return [
     [...exportItem, ...(custom[0] || [])],
     ...custom.slice(1),
-  ])
+  ]
 })
 
 function submitExport(request: ExportRequest) {

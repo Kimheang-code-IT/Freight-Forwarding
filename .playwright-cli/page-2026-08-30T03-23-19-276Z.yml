@@ -1,0 +1,85 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e874]:
+    - banner [ref=f5e875]:
+      - button "Back" [ref=f5e876]
+      - generic [ref=f5e879]:
+        - paragraph [ref=f5e880]: DN-2608-041
+        - paragraph [ref=f5e881]: LCS Freight Forwarding Co., Ltd. · Issued
+      - combobox "Template" [ref=f5e882]:
+        - generic: Tax Invoice
+      - combobox "Zoom" [ref=f5e885]:
+        - generic: 100%
+      - button "Print" [ref=f5e888]
+    - generic [ref=f5e894]:
+      - banner [ref=f5e895]:
+        - generic [ref=f5e896]:
+          - img "LCS Freight Forwarding Co., Ltd." [ref=f5e898]
+          - generic [ref=f5e899]:
+            - paragraph [ref=f5e900]: LCS Freight Forwarding Co., Ltd.
+            - paragraph [ref=f5e901]: "VAT TIN: K001-901234567"
+        - separator [ref=f5e902]
+      - heading "វិក្កយបត្រពន្ធ Tax Invoice" [level=1] [ref=f5e903]:
+        - generic [ref=f5e904]: វិក្កយបត្រពន្ធ
+        - generic [ref=f5e905]: Tax Invoice
+      - generic [ref=f5e906]:
+        - generic [ref=f5e907]:
+          - paragraph [ref=f5e908]: Customer
+          - generic [ref=f5e909]:
+            - generic [ref=f5e910]: Name
+            - generic [ref=f5e911]: Manhattan SEZ Co., Ltd.
+            - generic [ref=f5e912]: Address
+            - generic [ref=f5e913]: Manhattan SEZ, Bavet, Svay Rieng
+            - generic [ref=f5e914]: Tel.
+            - generic [ref=f5e915]: +855 12 345 678
+        - generic [ref=f5e916]:
+          - generic [ref=f5e917]:
+            - term [ref=f5e918]: លេខវិក្កយបត្រ Invoice No.
+            - definition [ref=f5e919]: DN-2608-041
+          - generic [ref=f5e920]:
+            - term [ref=f5e921]: កាលបរិច្ឆេទវិក្កយបត្រ Invoice Date
+            - definition [ref=f5e922]: "-"
+      - table [ref=f5e924]:
+        - rowgroup [ref=f5e925]:
+          - row [ref=f5e926]:
+            - columnheader "ល.រ. No." [ref=f5e927]
+            - columnheader "បរិយាយ Description" [ref=f5e928]
+            - columnheader "បរិមាណ Qty" [ref=f5e929]
+            - columnheader "តម្លៃឯកតា Unit Price" [ref=f5e930]
+            - columnheader "ចំនួនទឹកប្រាក់ Amount" [ref=f5e931]
+          - row [ref=f5e932]
+        - rowgroup [ref=f5e933]:
+          - row [ref=f5e934]:
+            - cell "1" [ref=f5e935]
+            - cell "Selling trucking" [ref=f5e936]
+            - cell "1" [ref=f5e937]
+            - cell "$1,850.00" [ref=f5e938]
+            - cell "$1,850.00" [ref=f5e939]
+      - generic [ref=f5e940]:
+        - generic [ref=f5e941]:
+          - paragraph [ref=f5e942]: Bank Information
+          - generic [ref=f5e943]:
+            - generic [ref=f5e944]: Account Name
+            - generic [ref=f5e945]: ABA Bavet Operating
+            - generic [ref=f5e946]: Bank Name
+            - generic [ref=f5e947]: ABA Bank
+            - generic [ref=f5e948]: Account No.
+            - generic [ref=f5e949]: "****1234"
+        - generic [ref=f5e950]:
+          - generic [ref=f5e951]:
+            - generic [ref=f5e952]: សរុបរង Sub Total (USD)
+            - generic [ref=f5e953]: $1,850.00
+          - generic [ref=f5e954]:
+            - generic [ref=f5e955]: សរុបទាំងអស់ Grand Total (USD)
+            - generic [ref=f5e956]: $2,035.00
+      - contentinfo [ref=f5e957]:
+        - generic [ref=f5e958]:
+          - paragraph [ref=f5e960]: Customer
+          - paragraph [ref=f5e963]: Seller
+  - generic [ref=f5e336]:
+    - button "Toggle Nuxt DevTools" [ref=f5e965] [cursor=pointer]
+    - generic "Page load time" [ref=f5e966]:
+      - generic [ref=f5e342]: "205"
+      - generic [ref=f5e343]: ms
+    - button "Toggle Component Inspector" [ref=f5e967] [cursor=pointer]
+  - region "Notifications (F8)":
+    - list

@@ -7,7 +7,6 @@ defineProps<{
 </script>
 
 <template>
-  <!-- Fixed position repeats on every printed page in Chromium; hidden in preview chrome. -->
   <div class="print-footer">
     <span>{{ $t('freight.print.fields.printDate') }}: {{ printDate }}</span>
     <span class="font-medium">{{ documentNumber }}</span>
@@ -17,19 +16,26 @@ defineProps<{
 
 <style scoped>
 .print-footer {
-  display: none;
+  display: flex;
+  flex-shrink: 0;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4mm;
+  margin-top: auto;
+  padding-top: 8mm;
+  font-size: 9px;
+  line-height: 1.3;
+  color: #374151;
 }
+
 @media print {
   .print-footer {
-    display: flex;
     position: fixed;
-    bottom: 4mm;
-    left: 0;
-    right: 0;
-    justify-content: space-between;
-    padding: 0 8mm;
-    font-size: 9px;
-    color: #374151;
+    bottom: 6mm;
+    left: 10mm;
+    right: 10mm;
+    margin-top: 0;
+    padding-top: 0;
   }
 }
 </style>

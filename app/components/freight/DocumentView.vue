@@ -24,17 +24,25 @@ import { jobForQuotation } from '~/utils/freight/job-workspace'
 import {
   freightDocumentLineActionKey,
   freightDocumentModelKey,
-  freightDocumentRecordKey,
   moduleDocumentTabs,
   RELATED_FIELD_KEY,
 } from '~/utils/freight/document-tabs'
-import { resolveDocumentTraceability } from '~/utils/freight/traceability'
+import {
+  linkedFinanceInvoiceForCharge,
+  resolveDocumentTraceability,
+  serviceChargeInvoiceAction,
+  sourceChargeForFinanceDocument,
+  type TraceLinkKind,
+} from '~/utils/freight/traceability'
 import {
   normalizeComponentAssignmentRecord,
   normalizeComponentTemplateRecord,
 } from '~/utils/freight/component-instance-mode'
 import { PRINT_SUPPORTED_COLLECTIONS } from '~/config/print-templates'
 import type { PrintTemplateId } from '~/config/print-templates'
+import { buildPrintRoute } from '~/utils/freight/print-navigation'
+import { splitDocumentHeaderActions } from '~/utils/layout/document-header-actions'
+import type { FreightAction } from '~/config/freight-modules'
 
 const { module, isCreate, recordId, route } = useFreightRouteModule()
 const store = useFreightStore()
@@ -202,7 +210,15 @@ const reverseDraft = reactive<Record<string, unknown>>({ reason: '' })
 const reversing = ref(false)
 const canMutateRecord = computed(() => Boolean(module.value) && !readOnly.value && !isCreate.value && Boolean(model.value.id))
 const deactivationOnly = computed(() => module.value?.group === 'master' || module.value?.collection === 'documentSequences')
-const quotationOverflowKeys = new Set(['convertJob', 'createRevision', 'reject', 'cancel', 'send', 'accept'])
+
+function headerActionMenuItem(action: FreightAction): DropdownMenuItem {
+  return {
+    label: actionLabel(action),
+    icon: action.icon,
+    ...(action.color ? { color: action.color } : {}),
+    onSelect: () => { void runAction(action.key) },
+  }
+}
 
 function quotationDraftSnapshot(record: FreightRecord) {
   const { comments, activity, updatedAt, createdAt, ...rest } = record
@@ -247,11 +263,23 @@ const headerActions = computed(() => {
       if (action.key === 'post') return domain === 'DRAFT' && lcs.can('financial_document.post') && !periodClosed.value
       if (action.key === 'reverse') return domain === 'POSTED' && lcs.can('financial_document.reverse')
       if (action.key === 'recordPayment') return domain === 'POSTED'
+      if (action.key === 'backToServiceCharge') {
+        return Boolean(sourceChargeForFinanceDocument(model.value, traceLookups()))
+          && auth.canAccessPage('finance.service_charges.view')
+      }
     }
     if (collection === 'jobCharges') {
+      const linkedInvoice = linkedFinanceInvoiceForCharge(model.value, traceLookups())
+      const invoiceAction = serviceChargeInvoiceAction({
+        status,
+        hasInvoice: Boolean(linkedInvoice),
+        canCreate: lcs.can('service_charge.convert_to_invoice'),
+        canView: auth.canAccessPage('finance.financial_documents.view'),
+      })
       if (action.key === 'saveDraft') return (status === 'Draft' || isCreate.value) && lcs.can('service_charge.create')
       if (action.key === 'issue') return !isCreate.value && Boolean(model.value.id) && status === 'Draft' && lcs.can('service_charge.issue')
-      if (action.key === 'createInvoice') return !isCreate.value && status === 'Issued' && !model.value.financialDocumentId && lcs.can('service_charge.convert_to_invoice')
+      if (action.key === 'createInvoice') return !isCreate.value && invoiceAction === 'create'
+      if (action.key === 'viewInvoice') return !isCreate.value && invoiceAction === 'view'
       if (action.key === 'print') return !isCreate.value
     }
     if (collection === 'journals') {
@@ -264,10 +292,9 @@ const headerActions = computed(() => {
   })
 })
 
-const primaryHeaderActions = computed(() => {
-  if (module.value?.collection !== 'quotations') return headerActions.value
-  return headerActions.value.filter(action => !quotationOverflowKeys.has(action.key))
-})
+const splitHeaderActions = computed(() => splitDocumentHeaderActions(headerActions.value))
+const primaryHeaderActions = computed(() => splitHeaderActions.value.primary)
+const overflowHeaderActions = computed(() => splitHeaderActions.value.overflow)
 
 const tabs = computed(() => {
   if (!module.value) return []
@@ -306,6 +333,10 @@ function documentTrace() {
   if (collection === 'jobCharges') return resolveDocumentTraceability(model.value, 'charge', traceLookups())
   if (collection === 'debitNotes') return resolveDocumentTraceability(model.value, 'finance', traceLookups())
   return null
+}
+
+function traceLink(kind: TraceLinkKind) {
+  return documentTrace()?.links.find(row => row.sourceTypeKey === kind)
 }
 
 function labeledTraceRows() {
@@ -399,15 +430,11 @@ const moreItems = computed<DropdownMenuItem[][]>(() => {
         onSelect: () => { void runAction('convertJob') },
       })
     }
-    for (const action of headerActions.value) {
-      if (action.key === 'convertJob' || !quotationOverflowKeys.has(action.key)) continue
-      items.push({
-        label: actionLabel(action),
-        icon: action.icon,
-        ...(action.color ? { color: action.color } : {}),
-        onSelect: () => { void runAction(action.key) },
-      })
-    }
+  }
+
+  for (const action of overflowHeaderActions.value) {
+    if (module.value?.collection === 'quotations' && action.key === 'convertJob') continue
+    items.push(headerActionMenuItem(action))
   }
 
   if (canMutateRecord.value || (module.value?.collection === 'quotations' && !isCreate.value && Boolean(model.value.id))) {
@@ -731,154 +758,166 @@ async function setDocumentSequenceStatus(status: 'ACTIVE' | 'INACTIVE') {
   toast.add({ title: t(status === 'ACTIVE' ? 'docetra.common.activated' : 'docetra.common.deactivated'), color: 'success' })
 }
 
-async function openPrintPreview(templateId: PrintTemplateId) {
+async function openPrint(templateId: PrintTemplateId) {
   if (!module.value || !model.value.id) return
-  await navigateTo({
-    path: `/print/${module.value.collection}/${model.value.id}`,
-    query: { template: templateId },
-  })
+  await navigateTo(buildPrintRoute({
+    collection: module.value.collection,
+    recordId: String(model.value.id),
+    template: templateId,
+    returnTo: route.fullPath,
+    modulePath: module.value.path,
+  }))
 }
 
 async function runAction(key: string) {
   if (!module.value) return
   try {
-  if (key === 'save' || key === 'saveDraft') return save(key === 'saveDraft' ? 'Draft' : undefined)
-  if (key === 'print') {
-    if (module.value.collection === 'quotations') {
-      activeTab.value = 'invoice'
+    if (key === 'save' || key === 'saveDraft') return save(key === 'saveDraft' ? 'Draft' : undefined)
+    if (key === 'print') {
+      if (PRINT_SUPPORTED_COLLECTIONS.includes(module.value.collection)) {
+        printOpen.value = true
+        return
+      }
       return
     }
-    if (PRINT_SUPPORTED_COLLECTIONS.includes(module.value.collection)) {
-      printOpen.value = true
+    if (key === 'send' && module.value.collection === 'quotations') {
+      const saved = await lcs.runCommand('quotation.send', String(model.value.id), keyValue =>
+        lcs.quotations.send(String(model.value.id), keyValue),
+      )
+      model.value = saved
+      toast.add({ title: t('freight.ui.quotationSent'), color: 'success' })
       return
     }
-    return
-  }
-  if (key === 'send' && module.value.collection === 'quotations') {
-    const saved = await lcs.runCommand('quotation.send', String(model.value.id), keyValue =>
-      lcs.quotations.send(String(model.value.id), keyValue),
-    )
-    model.value = saved
-    toast.add({ title: t('freight.ui.quotationSent'), color: 'success' })
-    return
-  }
-  if (key === 'submit' && module.value.collection === 'quotations') {
-    if (quotationDraftDirty.value) {
-      toast.add({ title: t('freight.ui.missingRequired'), description: t('freight.ui.quotationSaveBeforeSubmit'), color: 'warning' })
+    if (key === 'submit' && module.value.collection === 'quotations') {
+      if (quotationDraftDirty.value) {
+        toast.add({ title: t('freight.ui.missingRequired'), description: t('freight.ui.quotationSaveBeforeSubmit'), color: 'warning' })
+        return
+      }
+      const ok = await confirm({
+        kind: 'submit',
+        title: t('freight.ui.quotationSubmitTitle'),
+        description: t('freight.ui.quotationSubmitDescription'),
+        confirmLabel: t('freight.ui.quotationSubmit'),
+      })
+      if (!ok) return
+      const job = await lcs.runCommand('quotation.submit', String(model.value.id), keyValue =>
+        lcs.quotations.submit(String(model.value.id), keyValue),
+      )
+      store.reload()
+      toast.add({ title: t('freight.ui.quotationSubmitted'), color: 'success' })
+      await navigateTo(`/service-orders/${job.id}`)
       return
     }
-    const ok = await confirm({
-      kind: 'submit',
-      title: t('freight.ui.quotationSubmitTitle'),
-      description: t('freight.ui.quotationSubmitDescription'),
-      confirmLabel: t('freight.ui.quotationSubmit'),
-    })
-    if (!ok) return
-    const job = await lcs.runCommand('quotation.submit', String(model.value.id), keyValue =>
-      lcs.quotations.submit(String(model.value.id), keyValue),
-    )
-    store.reload()
-    toast.add({ title: t('freight.ui.quotationSubmitted'), color: 'success' })
-    await navigateTo(`/service-orders/${job.id}`)
-    return
-  }
-  if (key === 'accept' && module.value.collection === 'quotations') {
-    const saved = await lcs.runCommand('quotation.accept', String(model.value.id), keyValue =>
-      lcs.quotations.accept(String(model.value.id), keyValue),
-    )
-    model.value = saved
-    toast.add({ title: t('freight.ui.quotationAccepted'), color: 'success' })
-    return
-  }
-  if ((key === 'reject' || key === 'cancel') && module.value.collection === 'quotations') {
-    const nextStatus = key === 'reject' ? 'Rejected' : 'Cancelled'
-    model.value = store.save('quotations', { ...model.value, status: nextStatus })
-    store.addAudit(key === 'reject' ? 'Rejected quotation' : 'Cancelled quotation', 'Quotations', String(model.value.quotationNo || model.value.id))
-    toast.add({ title: t(key === 'reject' ? 'freight.ui.quotationRejected' : 'freight.ui.quotationCancelled'), color: key === 'reject' ? 'error' : 'warning' })
-    return
-  }
-  if (key === 'createRevision' && module.value.collection === 'quotations') {
-    const created = await lcs.quotations.createRevision(String(model.value.id))
-    store.reload()
-    toast.add({ title: t('freight.ui.revisionCreated'), color: 'success' })
-    await navigateTo(`/quotations/${created.id}`)
-    return
-  }
-  if (key === 'convertJob') {
-    const existing = relatedServiceOrder()
-    if (existing?.id) {
-      await navigateTo(`/service-orders/${String(existing.id)}`)
+    if (key === 'accept' && module.value.collection === 'quotations') {
+      const saved = await lcs.runCommand('quotation.accept', String(model.value.id), keyValue =>
+        lcs.quotations.accept(String(model.value.id), keyValue),
+      )
+      model.value = saved
+      toast.add({ title: t('freight.ui.quotationAccepted'), color: 'success' })
       return
     }
-    if (!canConvertQuotation(model.value.status)) {
-      toast.add({ title: t('freight.ui.convertRequiresAccepted'), color: 'warning' })
+    if ((key === 'reject' || key === 'cancel') && module.value.collection === 'quotations') {
+      const nextStatus = key === 'reject' ? 'Rejected' : 'Cancelled'
+      model.value = store.save('quotations', { ...model.value, status: nextStatus })
+      store.addAudit(key === 'reject' ? 'Rejected quotation' : 'Cancelled quotation', 'Quotations', String(model.value.quotationNo || model.value.id))
+      toast.add({ title: t(key === 'reject' ? 'freight.ui.quotationRejected' : 'freight.ui.quotationCancelled'), color: key === 'reject' ? 'error' : 'warning' })
       return
     }
-    const job = await lcs.runCommand('quotation.convert', String(model.value.id), keyValue =>
-      lcs.quotations.convert(String(model.value.id), keyValue),
-    )
-    toast.add({ title: t('freight.ui.convertedToJob'), color: 'success' })
-    await navigateTo(`/service-orders/${job.id}`)
-    return
-  }
-  if (key === 'issue' && module.value.collection === 'jobCharges') {
-    const saved = await lcs.runCommand('charge.issue', String(model.value.id), keyValue =>
-      lcs.charges.issue(String(model.value.id), keyValue),
-    )
-    model.value = saved
-    toast.add({ title: t('freight.ui.chargeIssued'), color: 'success' })
-    return
-  }
-  if (key === 'createInvoice' && module.value.collection === 'jobCharges') {
-    const invoice = await lcs.runCommand('charge.create-invoice', String(model.value.id), keyValue =>
-      lcs.charges.createFinanceInvoice(String(model.value.id), keyValue),
-    )
-    toast.add({ title: t('freight.ui.draftInvoiceCreated'), color: 'success' })
-    await navigateTo(`/finance/documents/${invoice.id}`)
-    return
-  }
-  if (key === 'post' && module.value.collection === 'debitNotes') {
-    if (periodClosed.value) {
-      toast.add({ title: t('lcs.finance.periodClosed'), color: 'error' })
+    if (key === 'createRevision' && module.value.collection === 'quotations') {
+      const created = await lcs.quotations.createRevision(String(model.value.id))
+      store.reload()
+      toast.add({ title: t('freight.ui.revisionCreated'), color: 'success' })
+      await navigateTo(`/quotations/${created.id}`)
       return
     }
-    const saved = await lcs.runCommand('finance.post', String(model.value.id), keyValue =>
-      lcs.finance.post(String(model.value.id), keyValue),
-    )
-    model.value = saved
-    toast.add({ title: t('freight.ui.documentPosted'), color: 'success' })
-    return
-  }
-  if (key === 'postJournal' && module.value.collection === 'journals') {
-    recalculate()
-    const lines = Array.isArray(model.value.lines) ? model.value.lines : []
-    if (!lines.length || asNumber(model.value.debitTotal) <= 0 || asNumber(model.value.balanceDifference) !== 0) {
-      toast.add({ title: t('freight.ui.journalUnbalanced'), color: 'error' })
+    if (key === 'convertJob') {
+      const existing = relatedServiceOrder()
+      if (existing?.id) {
+        await navigateTo(`/service-orders/${String(existing.id)}`)
+        return
+      }
+      if (!canConvertQuotation(model.value.status)) {
+        toast.add({ title: t('freight.ui.convertRequiresAccepted'), color: 'warning' })
+        return
+      }
+      const job = await lcs.runCommand('quotation.convert', String(model.value.id), keyValue =>
+        lcs.quotations.convert(String(model.value.id), keyValue),
+      )
+      toast.add({ title: t('freight.ui.convertedToJob'), color: 'success' })
+      await navigateTo(`/service-orders/${job.id}`)
       return
     }
-    model.value = store.save('journals', { ...model.value, status: 'POSTED', postedBy: currentUser.value.name, postedAt: new Date().toISOString() })
-    store.addAudit('Posted journal', 'Journal Entries', String(model.value.entryNo || model.value.id))
-    toast.add({ title: t('freight.ui.journalPosted'), color: 'success' })
-    return
-  }
-  if (key === 'reverse' && module.value.collection === 'debitNotes') {
-    reverseDraft.reason = ''
-    reverseOpen.value = true
-    return
-  }
-  if (key === 'delete') return deleteRecord()
-  if (key === 'recordPayment') {
-    await navigateTo({
-      path: '/finance/documents/new',
-      query: {
-        documentType: 'CUSTOMER_RECEIPT',
-        customer: String(model.value.customer || ''),
-        jobNo: String(model.value.jobNo || ''),
-        debitNoteNo: String(model.value.debitNoteNo || ''),
-        amountDue: String(model.value.total || model.value.amount || ''),
-      },
-    })
-  }
+    if (key === 'issue' && module.value.collection === 'jobCharges') {
+      const saved = await lcs.runCommand('charge.issue', String(model.value.id), keyValue =>
+        lcs.charges.issue(String(model.value.id), keyValue),
+      )
+      model.value = saved
+      toast.add({ title: t('freight.ui.chargeIssued'), color: 'success' })
+      return
+    }
+    if (key === 'createInvoice' && module.value.collection === 'jobCharges') {
+      const invoice = await lcs.runCommand('charge.create-invoice', String(model.value.id), keyValue =>
+        lcs.charges.createFinanceInvoice(String(model.value.id), keyValue),
+      )
+      store.reload()
+      const refreshed = store.get('jobCharges', String(model.value.id))
+      if (refreshed) model.value = refreshed
+      toast.add({ title: t('freight.ui.draftInvoiceCreated'), color: 'success' })
+      await navigateTo(`/finance/documents/${invoice.id}`)
+      return
+    }
+    if (key === 'viewInvoice' && module.value.collection === 'jobCharges') {
+      const link = traceLink('financeInvoice')
+      if (link) await navigateTo(`${link.path}/${link.id}`)
+      return
+    }
+    if (key === 'backToServiceCharge' && module.value.collection === 'debitNotes') {
+      const link = traceLink('serviceCharge')
+      if (link) await navigateTo(`${link.path}/${link.id}`)
+      return
+    }
+    if (key === 'post' && module.value.collection === 'debitNotes') {
+      if (periodClosed.value) {
+        toast.add({ title: t('lcs.finance.periodClosed'), color: 'error' })
+        return
+      }
+      const saved = await lcs.runCommand('finance.post', String(model.value.id), keyValue =>
+        lcs.finance.post(String(model.value.id), keyValue),
+      )
+      model.value = saved
+      toast.add({ title: t('freight.ui.documentPosted'), color: 'success' })
+      return
+    }
+    if (key === 'postJournal' && module.value.collection === 'journals') {
+      recalculate()
+      const lines = Array.isArray(model.value.lines) ? model.value.lines : []
+      if (!lines.length || asNumber(model.value.debitTotal) <= 0 || asNumber(model.value.balanceDifference) !== 0) {
+        toast.add({ title: t('freight.ui.journalUnbalanced'), color: 'error' })
+        return
+      }
+      model.value = store.save('journals', { ...model.value, status: 'POSTED', postedBy: currentUser.value.name, postedAt: new Date().toISOString() })
+      store.addAudit('Posted journal', 'Journal Entries', String(model.value.entryNo || model.value.id))
+      toast.add({ title: t('freight.ui.journalPosted'), color: 'success' })
+      return
+    }
+    if (key === 'reverse' && module.value.collection === 'debitNotes') {
+      reverseDraft.reason = ''
+      reverseOpen.value = true
+      return
+    }
+    if (key === 'delete') return deleteRecord()
+    if (key === 'recordPayment') {
+      await navigateTo({
+        path: '/finance/documents/new',
+        query: {
+          documentType: 'CUSTOMER_RECEIPT',
+          customer: String(model.value.customer || ''),
+          jobNo: String(model.value.jobNo || ''),
+          debitNoteNo: String(model.value.debitNoteNo || ''),
+          amountDue: String(model.value.total || model.value.amount || ''),
+        },
+      })
+    }
   }
   catch (error) {
     lcs.reportError(error)
@@ -928,157 +967,83 @@ async function confirmReverse() {
 
 <template>
   <template v-if="module && !notFound">
-  <DocumentAppDocumentPage
-    :tabs="tabs"
-    :active-tab="activeTab"
-    :field-value="fieldValue"
-    :set-field-value="setFieldValue"
-    :saving="saving"
-    :read-only="readOnly"
-    :can-save="!readOnly && module.collection !== 'quotations'"
-    :save-label="t('docetra.common.save')"
-    :confirm-save="false"
-    :show-cancel="false"
-    show-comments
-    :show-tabs="tabs.length > 1"
-    show-list-nav
-    content-wide
-    :can-navigate-previous="canNavigatePrevious"
-    :can-navigate-next="canNavigateNext"
-    :list-to="listTo"
-    :is-create="isCreate"
-    :can-comment="!isCreate"
-    :comments="comments"
-    :activity="activity"
-    :attachments="attachments"
-    :comment-body="commentBody"
-    :submitting-comment="submittingComment"
-    :current-user="currentUser"
-    :meta-title="title"
-    :meta-subtitle="module.collection === 'quotations'
-      ? [model.customer, model.direction, model.currency].filter(Boolean).join(' · ')
-      : moduleSingular(module)"
-    :meta-icon="module.icon"
-    :meta-status="String(model.status || '')"
-    :meta-owner="metaOwner"
-    :meta-assignee="metaAssignee"
-    :meta-tags="tags"
-    :meta-created-at="String(model.createdAt || '')"
-    :meta-updated-at="String(model.updatedAt || '')"
-    :more-items="moreItems"
-    :can-export="false"
-    @update:active-tab="activeTab = $event"
-    @update:comment-body="commentBody = $event"
-    @update:attachments="setChromeField('attachments', $event)"
-    @save="save()"
-    @refresh="load"
-    @submit-comment="submitComment"
-    @update-comment="updateComment"
-    @delete-comment="deleteComment"
-    @navigate-previous="navigatePrevious"
-    @navigate-next="navigateNext"
-  >
-    <template #actions>
-      <UButton
-        v-for="action in primaryHeaderActions"
-        :key="action.key"
-        :color="action.color || 'neutral'"
-        variant="soft"
-        size="sm"
-        :icon="action.icon"
-        :label="actionLabel(action)"
-        :loading="saving"
-        class="rounded-md"
-        @click="runAction(action.key)"
-      />
-    </template>
+    <DocumentAppDocumentPage :tabs="tabs" :active-tab="activeTab" :field-value="fieldValue"
+      :set-field-value="setFieldValue" :saving="saving" :read-only="readOnly"
+      :can-save="!readOnly && module.collection !== 'quotations'" :save-label="t('docetra.common.save')"
+      :confirm-save="false" :show-cancel="false" show-comments :show-tabs="tabs.length > 1" show-list-nav content-wide
+      :can-navigate-previous="canNavigatePrevious" :can-navigate-next="canNavigateNext" :list-to="listTo"
+      :is-create="isCreate" :can-comment="!isCreate" :comments="comments" :activity="activity"
+      :attachments="attachments" :comment-body="commentBody" :submitting-comment="submittingComment"
+      :current-user="currentUser" :meta-title="title" :meta-subtitle="module.collection === 'quotations'
+        ? [model.customer, model.direction, model.currency].filter(Boolean).join(' · ')
+        : moduleSingular(module)" :meta-icon="module.icon" :meta-status="String(model.status || '')"
+      :meta-owner="metaOwner" :meta-assignee="metaAssignee" :meta-tags="tags"
+      :meta-created-at="String(model.createdAt || '')" :meta-updated-at="String(model.updatedAt || '')"
+      :more-items="moreItems" :can-export="false" @update:active-tab="activeTab = $event"
+      @update:comment-body="commentBody = $event" @update:attachments="setChromeField('attachments', $event)"
+      @save="save()" @refresh="load" @submit-comment="submitComment" @update-comment="updateComment"
+      @delete-comment="deleteComment" @navigate-previous="navigatePrevious" @navigate-next="navigateNext">
+      <template #actions>
+        <CommonAppDocumentActionButton
+          v-for="action in primaryHeaderActions"
+          :key="action.key"
+          :icon="action.icon"
+          :label="actionLabel(action)"
+          :color="action.color"
+          :loading="saving"
+          @click="runAction(action.key)"
+        />
+      </template>
 
-    <template #before-form>
-      <DocumentAppDocumentContentShell
-        v-if="(postingPreview && String(model.status) === 'Draft')
-          || (module.collection === 'debitNotes' && (periodClosed || String(model.status) === 'Posted'))"
-        wide
-        class="space-y-4 pt-6"
-      >
-        <UCard v-if="postingPreview && String(model.status) === 'Draft'" variant="subtle">
-          <template #header>
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="font-semibold text-highlighted">{{ $t('lcs.finance.postingConfirmation') }}</p>
-                <p class="text-xs text-muted">{{ $t('lcs.finance.postingConfirmationHint') }}</p>
+      <template #before-form>
+        <DocumentAppDocumentContentShell v-if="(postingPreview && String(model.status) === 'Draft')
+          || (module.collection === 'debitNotes' && (periodClosed || String(model.status) === 'Posted'))" wide
+          class="space-y-4 pt-6">
+          <UCard v-if="postingPreview && String(model.status) === 'Draft'" variant="subtle">
+            <template #header>
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="font-semibold text-highlighted">{{ $t('lcs.finance.postingConfirmation') }}</p>
+                  <p class="text-xs text-muted">{{ $t('lcs.finance.postingConfirmationHint') }}</p>
+                </div>
+                <UBadge :color="periodClosed ? 'error' : 'success'" variant="subtle">
+                  {{ periodClosed ? $t('lcs.finance.periodClosed') : postingPreview.periodName }}
+                </UBadge>
               </div>
-              <UBadge :color="periodClosed ? 'error' : 'success'" variant="subtle">
-                {{ periodClosed ? $t('lcs.finance.periodClosed') : postingPreview.periodName }}
-              </UBadge>
-            </div>
-          </template>
-          <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-5">
-            <div v-for="item in postingPreviewItems" :key="item.label">
-              <dt class="text-xs text-muted">{{ item.label }}</dt>
-              <dd class="font-medium text-highlighted" :class="item.strong ? 'font-semibold text-success' : ''">
-                {{ item.value }}
-              </dd>
-            </div>
-          </dl>
-        </UCard>
-        <UAlert
-          v-if="module.collection === 'debitNotes' && periodClosed"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-calendar-off"
-          :title="$t('lcs.finance.periodClosed')"
-        />
-        <UAlert
-          v-if="module.collection === 'debitNotes' && String(model.status) === 'Posted'"
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-lock"
-          :title="$t('lcs.finance.postedReadOnly')"
-        />
-      </DocumentAppDocumentContentShell>
-    </template>
-  </DocumentAppDocumentPage>
-  <UModal
-    :open="reverseOpen"
-    :title="$t('lcs.finance.reverseReason')"
-    :dismissible="false"
-    :close="{ color: 'primary', variant: 'outline', class: 'rounded-full' }"
-    :ui="{ content: 'w-[calc(100%-2rem)] max-w-md sm:max-w-md' }"
-    @update:open="value => !value && (reverseOpen = false)"
-  >
-    <template #body>
-      <FreightFieldGrid
-        :fields="FINANCE_REVERSE_FORM_FIELDS"
-        :model="reverseDraft"
-        @update="(key, value) => { reverseDraft[key] = value }"
-      />
-    </template>
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          :label="$t('actions.cancel')"
-          @click="reverseOpen = false"
-        />
-        <UButton
-          color="error"
-          size="sm"
-          :loading="reversing"
-          :label="$t('freight.ui.actions.reverse')"
-          @click="confirmReverse"
-        />
-      </div>
-    </template>
-  </UModal>
-  <PrintTemplateModal
-    v-if="module"
-    v-model:open="printOpen"
-    :collection="module.collection"
-    :record="model"
-    @preview="openPrintPreview"
-  />
+            </template>
+            <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-5">
+              <div v-for="item in postingPreviewItems" :key="item.label">
+                <dt class="text-xs text-muted">{{ item.label }}</dt>
+                <dd class="font-medium text-highlighted" :class="item.strong ? 'font-semibold text-success' : ''">
+                  {{ item.value }}
+                </dd>
+              </div>
+            </dl>
+          </UCard>
+          <UAlert v-if="module.collection === 'debitNotes' && periodClosed" color="error" variant="subtle"
+            icon="i-lucide-calendar-off" :title="$t('lcs.finance.periodClosed')" />
+        </DocumentAppDocumentContentShell>
+      </template>
+    </DocumentAppDocumentPage>
+    <UModal :open="reverseOpen" :title="$t('lcs.finance.reverseReason')" :dismissible="false"
+      :close="{ color: 'primary', variant: 'outline', class: 'rounded-full' }"
+      :ui="{ content: 'w-[calc(100%-2rem)] max-w-md sm:max-w-md' }"
+      @update:open="value => !value && (reverseOpen = false)">
+      <template #body>
+        <FreightFieldGrid :fields="FINANCE_REVERSE_FORM_FIELDS" :model="reverseDraft"
+          @update="(key, value) => { reverseDraft[key] = value }" />
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton color="neutral" variant="ghost" size="sm" :label="$t('actions.cancel')"
+            @click="reverseOpen = false" />
+          <UButton color="error" size="sm" :loading="reversing" :label="$t('freight.ui.actions.reverse')"
+            @click="confirmReverse" />
+        </div>
+      </template>
+    </UModal>
+    <PrintTemplateModal v-if="module" v-model:open="printOpen" :collection="module.collection" :record="model"
+      @print="openPrint" />
   </template>
   <div v-else class="p-6 text-sm text-muted">{{ t('docetra.document.notFound') || 'Record not found.' }}</div>
 </template>

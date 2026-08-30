@@ -2,6 +2,7 @@
 import type { TableColumn } from '@nuxt/ui'
 import type { FreightRecord } from '~/config/freight-seed'
 import { expandQuotationContainerSlots, type QuotationContainerSlot } from '~/utils/freight/quotation-print'
+import { buildPrintRoute } from '~/utils/freight/print-navigation'
 import { freightTableUiCompact } from '~/utils/table/theme'
 
 const props = defineProps<{
@@ -14,20 +15,19 @@ const { t } = useI18n()
 const quotationId = computed(() => String(props.record.id || ''))
 const containers = computed(() => expandQuotationContainerSlots(props.record))
 
-function previewUrl(template: 'tax-invoice' | 'debit-note', containerIndex?: number) {
-  const query: Record<string, string> = { template }
-  if (template === 'debit-note' && containerIndex !== undefined) {
-    query.container = String(containerIndex)
-  }
-  return {
-    path: `/print/quotations/${quotationId.value}`,
-    query,
-  }
+function printUrl(template: 'tax-invoice' | 'debit-note', containerIndex?: number) {
+  return buildPrintRoute({
+    collection: 'quotations',
+    recordId: quotationId.value,
+    template,
+    modulePath: '/quotations',
+    container: template === 'debit-note' ? containerIndex : undefined,
+  })
 }
 
-async function openPreview(template: 'tax-invoice' | 'debit-note', containerIndex?: number) {
+async function openPrint(template: 'tax-invoice' | 'debit-note', containerIndex?: number) {
   if (!quotationId.value || props.disabled) return
-  await navigateTo(previewUrl(template, containerIndex))
+  await navigateTo(printUrl(template, containerIndex))
 }
 
 const columns = computed<TableColumn<QuotationContainerSlot>[]>(() => [
@@ -50,10 +50,10 @@ const columns = computed<TableColumn<QuotationContainerSlot>[]>(() => [
       color: 'neutral',
       variant: 'outline',
       size: 'xs',
-      icon: 'i-lucide-file-credit-card',
-      label: t('freight.print.preview'),
+      icon: 'i-lucide-credit-card',
+      label: t('freight.print.print'),
       disabled: props.disabled || !quotationId.value,
-      onClick: () => openPreview('debit-note', row.original.index),
+      onClick: () => openPrint('debit-note', row.original.index),
     }),
   },
 ])
@@ -74,10 +74,10 @@ const columns = computed<TableColumn<QuotationContainerSlot>[]>(() => [
         <UButton
           color="primary"
           size="sm"
-          icon="i-lucide-receipt-percent"
-          :label="t('freight.print.preview')"
+          icon="i-lucide-receipt-text"
+          :label="t('freight.print.print')"
           :disabled="disabled || !quotationId"
-          @click="openPreview('tax-invoice')"
+          @click="openPrint('tax-invoice')"
         />
       </div>
     </UCard>

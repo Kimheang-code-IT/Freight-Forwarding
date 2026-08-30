@@ -8,10 +8,57 @@ import {
 } from '~/utils/freight/component-instance-mode'
 import { backfillConvertedJobOperationalFields } from '~/utils/freight/quotation-conversion'
 
-export const LCS_FREIGHT_STORAGE_KEY = 'lcs-freight-data-v5'
+export const LCS_FREIGHT_STORAGE_KEY = 'lcs-freight-data-v6'
+
+const CONFIG_COLLECTIONS = ['componentGroups', 'componentTemplates', 'tradeDirectionComponents'] as const
+
+const TRANSACTIONAL_COLLECTIONS = [
+  'debitNotes',
+  'jobCharges',
+  'quotations',
+  'users',
+  'serviceComponents',
+  'auditLogs',
+  'journals',
+  'chartOfAccounts',
+  'financialAccounts',
+  'postingRules',
+  'actualContainers',
+  'cashAccounts',
+] as const
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+/** Seed schema wins for known config rows; user-created rows are preserved. */
+export function mergeConfigCollectionFromSeed(
+  freshRows: FreightRecord[],
+  existingRows: FreightRecord[],
+) {
+  const merged = freshRows.map((freshRow) => {
+    const existing = existingRows.find(row => row.id === freshRow.id)
+    return existing ? { ...existing, ...clone(freshRow) } : clone(freshRow)
+  })
+  return [
+    ...merged,
+    ...existingRows.filter(row => !freshRows.some(freshRow => freshRow.id === row.id)),
+  ]
+}
+
+/** User/runtime data wins for transactional rows; new seed rows are added. */
+export function mergeTransactionalCollectionFromSeed(
+  freshRows: FreightRecord[],
+  existingRows: FreightRecord[],
+) {
+  const merged = freshRows.map((freshRow) => {
+    const existing = existingRows.find(row => row.id === freshRow.id)
+    return existing ? { ...clone(freshRow), ...existing } : clone(freshRow)
+  })
+  return [
+    ...merged,
+    ...existingRows.filter(row => !freshRows.some(freshRow => freshRow.id === row.id)),
+  ]
 }
 
 let memory: Record<string, FreightRecord[]> | null = null
@@ -33,14 +80,17 @@ export function getLcsDb(): Record<string, FreightRecord[]> {
         for (const [collection, rows] of Object.entries(fresh)) {
           if (!Array.isArray(memory[collection])) memory[collection] = clone(rows)
         }
-        for (const collection of ['debitNotes', 'jobCharges', 'quotations', 'users', 'componentTemplates', 'tradeDirectionComponents', 'serviceComponents', 'auditLogs', 'journals', 'chartOfAccounts', 'financialAccounts', 'postingRules', 'actualContainers', 'cashAccounts']) {
-          const freshRows = fresh[collection] || []
-          const existingRows = memory[collection] || []
-          const merged = freshRows.map((freshRow) => {
-            const existing = existingRows.find(row => row.id === freshRow.id)
-            return existing ? { ...clone(freshRow), ...existing } : clone(freshRow)
-          })
-          memory[collection] = [...merged, ...existingRows.filter(row => !freshRows.some(freshRow => freshRow.id === row.id))]
+        for (const collection of CONFIG_COLLECTIONS) {
+          memory[collection] = mergeConfigCollectionFromSeed(
+            fresh[collection] || [],
+            memory[collection] || [],
+          )
+        }
+        for (const collection of TRANSACTIONAL_COLLECTIONS) {
+          memory[collection] = mergeTransactionalCollectionFromSeed(
+            fresh[collection] || [],
+            memory[collection] || [],
+          )
         }
         memory.documentSequences = (memory.documentSequences || []).map(normalizeDocumentSequenceRecord)
         memory.componentTemplates = (memory.componentTemplates || []).map(normalizeComponentTemplateRecord)
@@ -56,8 +106,7 @@ export function getLcsDb(): Record<string, FreightRecord[]> {
           )
           return {
             ...component,
-            resolvedInstanceMode: component.resolvedInstanceMode
-              || resolveComponentInstanceMode(assignment, template),
+            resolvedInstanceMode: resolveComponentInstanceMode(assignment, template),
           }
         })
         const quotations = memory.quotations || []

@@ -231,19 +231,19 @@ watch(() => props.job.id, loadRows, { immediate: true })
 
 <template>
   <div class="space-y-6">
-    <TableAppLineTable
+    <FreightJobLineTable
       :table="requirementTable"
       :model-value="requirementDisplayRows"
       :disabled="!canEdit"
       @update:model-value="setRequirements"
     />
-    <TableAppLineTable
+    <FreightJobLineTable
       :table="actualTable"
       :model-value="actualRows"
       :disabled="!canEdit"
       @update:model-value="setActuals"
     />
-    <TableAppLineTable
+    <FreightJobLineTable
       :table="paymentTable"
       :model-value="paymentRows"
       :disabled="!canEditPayments"

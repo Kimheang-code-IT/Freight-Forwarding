@@ -134,7 +134,8 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    preset: 'vercel'
+    // Vercel output is for production deploy only; node-server is stable for local dev.
+    preset: import.meta.env.PROD ? 'vercel' : 'node-server',
   },
 
   compatibilityDate: '2024-07-11',

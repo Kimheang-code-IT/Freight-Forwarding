@@ -415,33 +415,22 @@ function onTabChange(value: string) {
     @navigate-next="navigateNext"
   >
     <template #actions>
-      <UButton
+      <CommonAppDocumentActionButton
         v-if="canEdit"
-        color="neutral"
-        variant="soft"
-        size="sm"
         icon="i-lucide-pencil"
-        class="rounded-md"
         :label="t('freight.ui.edit')"
         @click="startEdit"
       />
-      <UButton
+      <CommonAppDocumentActionButton
         v-if="canComplete"
-        color="success"
-        variant="soft"
-        size="sm"
         icon="i-lucide-check-circle-2"
-        class="rounded-md"
         :label="t('freight.ui.complete')"
+        color="success"
         @click="transition('COMPLETED', 'Financial Completed', 'freight.ui.jobCompleted')"
       />
-      <UButton
+      <CommonAppDocumentActionButton
         v-if="domainStatus === 'ON_HOLD' && lcs.can('service_order.update')"
-        color="warning"
-        variant="soft"
-        size="sm"
         icon="i-lucide-play"
-        class="rounded-md"
         :label="t('freight.ui.resume')"
         @click="transition('IN_PROGRESS', 'In Progress', 'freight.ui.resume')"
       />
