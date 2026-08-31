@@ -28,6 +28,20 @@ describe('mock login accounts', () => {
     expect(user?.permissions).toContain('reports.view')
   })
 
+  it('authenticates finance@gmail.com with finance-only pages', () => {
+    const user = authenticateMock('finance@gmail.com', '123456')
+    expect(user?.email).toBe('finance@gmail.com')
+    expect(user?.role).toBe('Finance')
+    expect(user?.permissions).toContain('finance.financial_documents.view')
+    expect(user?.permissions).toContain('finance.accounting.view')
+    expect(user?.permissions).toContain('finance.service_charges.view')
+    expect(user?.permissions).not.toContain('configuration.manage')
+    expect(user?.permissions).not.toContain('operations.service_orders.view')
+    expect(user?.permissions).not.toContain('master.reference.view')
+    expect(user?.permissions).not.toContain('sales.quotations.view')
+    expect(user?.permissions).not.toContain('reports.view')
+  })
+
   it('rejects invalid credentials', () => {
     expect(authenticateMock('user@gmail.com', 'wrong')).toBeNull()
     expect(findMockLoginAccount('unknown@example.com')).toBeNull()

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-definePageMeta({
-  titleKey: 'freight.pages.generalLedger',
-  permission: 'reports.view',
-})
-await navigateTo('/reports/operations/service-orders', { replace: true })
-</script>
+import { defaultReportPathForUser } from '~/utils/freight/report-access'
 
-<template>
-  <FreightReportsView />
-</template>
+definePageMeta({
+  titleKey: 'freight.nav.reports',
+})
+
+const auth = useAuthStore()
+const target = defaultReportPathForUser(key => auth.canAccessPage(key))
+await navigateTo(target, { replace: true })
+</script>

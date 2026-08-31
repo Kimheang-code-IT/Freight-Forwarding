@@ -1,7 +1,12 @@
 <script setup lang="ts">
-definePageMeta({ titleKey: 'freight.pages.generalLedger', permission: 'reports.view' })
-</script>
+import { freightReportPath, getFreightReport } from '~/config/freight-reports'
 
-<template>
-  <FreightReportsView />
-</template>
+definePageMeta({
+  titleKey: 'freight.nav.reports',
+})
+
+const route = useRoute()
+const slug = String(route.params.slug || '')
+const report = getFreightReport(slug)
+await navigateTo(freightReportPath(report), { replace: true })
+</script>

@@ -35,7 +35,6 @@ const OPS_SOURCE: SourcePermission[] = [
 ]
 
 const FINANCE_SOURCE: SourcePermission[] = [
-  'quotation.read',
   'service_order.read',
   'service_charge.create',
   'service_charge.issue',
@@ -78,11 +77,8 @@ const OPS_PAGES = [
 
 const FINANCE_PAGES = [
   'dashboard.view',
-  'operations.service_orders.view',
   'finance.financial_documents.view',
   'finance.service_charges.view',
-  'reports.view',
-  'master.reference.view',
   'finance.accounting.view',
 ]
 
@@ -167,6 +163,27 @@ export const MOCK_LOGIN_ACCOUNTS: MockLoginAccount[] = [
       assignedBranchIds: [BRANCH_BAVET_ID, BRANCH_PP_ID],
       permissionScope: 'ORGANIZATION',
       sourcePermissions: STAFF_SOURCE,
+    },
+  },
+  {
+    email: 'finance@gmail.com',
+    password: '123456',
+    user: {
+      id: 8,
+      name: 'Finance User',
+      email: 'finance@gmail.com',
+      role: 'Finance',
+      avatar: avatar('Finance User', '1d4ed8'),
+      pageAccess: FINANCE_PAGES,
+      permissions: FINANCE_PAGES,
+      organizationId: LCS_ORG_ID,
+      organizationCode: 'LCS',
+      organizationName: 'LCS Freight',
+      branchId: BRANCH_PP_ID,
+      branchName: 'Phnom Penh',
+      assignedBranchIds: [BRANCH_BAVET_ID, BRANCH_PP_ID],
+      permissionScope: 'ORGANIZATION',
+      sourcePermissions: FINANCE_SOURCE,
     },
   },
   {

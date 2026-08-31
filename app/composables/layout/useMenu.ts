@@ -1,5 +1,7 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 import { FREIGHT_REPORTS, freightReportPath } from '~/config/freight-reports'
+import { requiredPagePermissionForPath } from '~/utils/freight/page-access'
+import { reportRoutePermission } from '~/utils/freight/report-access'
 
 const SIDEBAR_COLLAPSED_KEY = 'lcs-freight:sidebar:collapsed'
 const SIDEBAR_AUTO_MQ = '(max-width: 1023px)'
@@ -52,9 +54,8 @@ export function useMenu() {
     '/finance/financial-accounts': 'finance.accounting.view',
     '/finance/journals': 'finance.accounting.view',
     '/finance/accounting-periods': 'finance.accounting.view',
-    '/reports': 'reports.view',
     ...Object.fromEntries(
-      FREIGHT_REPORTS.map(report => [freightReportPath(report), 'reports.view']),
+      FREIGHT_REPORTS.map(report => [freightReportPath(report), reportRoutePermission(report)]),
     ),
     '/master-data/business-parties': 'master.reference.view',
     '/master-data/places': 'master.reference.view',
@@ -66,7 +67,7 @@ export function useMenu() {
     '/configuration/component-templates': 'configuration.manage',
     '/configuration/component-groups': 'configuration.manage',
     '/configuration/trade-direction-components': 'configuration.manage',
-    '/configuration/posting-rules': 'finance.accounting.view',
+    '/configuration/posting-rules': 'configuration.manage',
     '/administration/users': 'admin.users.view',
     '/administration/roles': 'admin.roles.view',
     '/administration/audit-logs': 'admin.audit_logs.view',
@@ -79,6 +80,8 @@ export function useMenu() {
   const auth = useAuthStore()
 
   function canSee(to: string) {
+    const pathPermission = requiredPagePermissionForPath(to)
+    if (pathPermission) return auth.canAccessPage(pathPermission)
     const permission = ROUTE_PERMISSION[to]
     if (!permission) return true
     return auth.canAccessPage(permission)

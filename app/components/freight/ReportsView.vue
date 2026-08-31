@@ -18,6 +18,7 @@ import { listTablePageSummary } from '~/utils/table/list-table'
 import { getFreightReport, type FreightReportDefinition } from '~/config/freight-reports'
 
 const store = useFreightStore()
+const auth = useAuthStore()
 const route = useRoute()
 const { t, te } = useI18n()
 const { setTitle, clear } = useAppHeader()
@@ -97,7 +98,33 @@ function setFilterValue(key: ReportFilterKey, value: string[] | string | undefin
 
 const statementGroups=computed(()=>buildStatementGroups(postedLines.value, slug.value==='profit-loss'?['Revenue','Expense']:['Asset','Liability','Equity']))
 const statementDifference=computed(()=>statementDifferenceOf(statementGroups.value, slug.value==='balance-sheet'))
-function actions(row:FreightRecord):DropdownMenuItem[][]{const job=jobByNo(row.jobNo);return job?[[{label:t('freight.ui.open'),icon:'i-lucide-eye',onSelect:()=>navigateTo(`/service-orders/${job.id}`)},{label:t('freight.jobSections.charges'),icon:'i-lucide-receipt-text',onSelect:()=>navigateTo(`/service-charges?jobNo=${encodeURIComponent(String(row.jobNo))}`)},{label:t('freight.jobSections.finance'),icon:'i-lucide-banknote',onSelect:()=>navigateTo(`/finance/documents?jobNo=${encodeURIComponent(String(row.jobNo))}`)}]]:[]}
+function actions(row: FreightRecord): DropdownMenuItem[][] {
+  const job = jobByNo(row.jobNo)
+  if (!job) return []
+  const items: DropdownMenuItem[] = []
+  if (auth.canAccessPage('operations.service_orders.view')) {
+    items.push({
+      label: t('freight.ui.open'),
+      icon: 'i-lucide-eye',
+      onSelect: () => navigateTo(`/service-orders/${job.id}`),
+    })
+  }
+  if (auth.canAccessPage('finance.service_charges.view')) {
+    items.push({
+      label: t('freight.jobSections.charges'),
+      icon: 'i-lucide-receipt-text',
+      onSelect: () => navigateTo(`/service-charges?jobNo=${encodeURIComponent(String(row.jobNo))}`),
+    })
+  }
+  if (auth.canAccessPage('finance.financial_documents.view')) {
+    items.push({
+      label: t('freight.jobSections.finance'),
+      icon: 'i-lucide-banknote',
+      onSelect: () => navigateTo(`/finance/documents?jobNo=${encodeURIComponent(String(row.jobNo))}`),
+    })
+  }
+  return items.length ? [items] : []
+}
 const columns=computed<TableColumn<FreightRecord>[]>(()=>{
   const list=report.value.columns.map(column=>{
     const label = columnLabel(column)

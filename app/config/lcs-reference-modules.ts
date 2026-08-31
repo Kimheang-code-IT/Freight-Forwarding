@@ -139,7 +139,7 @@ export const lcsReferenceModules: FreightModule[] = [
   }),
   module({
     path: '/configuration/posting-rules', title: 'Posting Rules', titleKm: 'ច្បាប់ចុះបញ្ជី', singular: 'Posting Rule', singularKm: 'ច្បាប់ចុះបញ្ជី', description: 'Resolve debit, credit and tax accounts by document and fee type.', descriptionKm: 'កំណត់គណនីឥណពន្ធ ឥណទាន និងពន្ធ។',
-    icon: 'i-lucide-scale', group: 'configuration', permission: 'finance.accounting.view', collection: 'postingRules', titleField: 'documentType', kind: 'standard', canCreate: true,
+    icon: 'i-lucide-scale', group: 'configuration', permission: 'configuration.manage', collection: 'postingRules', titleField: 'documentType', kind: 'standard', canCreate: true,
     columns: [column('documentType', 'Document Type', 'ប្រភេទឯកសារ'), column('feeType', 'Fee Type', 'ប្រភេទថ្លៃ'), column('debitAccount', 'Debit Account', 'គណនីឥណពន្ធ'), column('creditAccount', 'Credit Account', 'គណនីឥណទាន'), column('taxAccount', 'Tax Account', 'គណនីពន្ធ'), column('status', 'Status', 'ស្ថានភាព')],
     fields: [field('documentType', 'Document Type', 'ប្រភេទឯកសារ', undefined, undefined, 'select', FINANCE_DOCUMENT_TYPES, true), field('feeType', 'Fee Type', 'ប្រភេទថ្លៃ'), field('debitAccount', 'Debit Account', 'គណនីឥណពន្ធ', 'Accounts', 'គណនី', 'text', undefined, true), field('creditAccount', 'Credit Account', 'គណនីឥណទាន', 'Accounts', 'គណនី', 'text', undefined, true), field('taxAccount', 'Tax Account', 'គណនីពន្ធ', 'Accounts', 'គណនី'), field('status', 'Status', 'ស្ថានភាព', 'Control', 'ការគ្រប់គ្រង', 'select', ACTIVE_STATUS)],
     filters: [field('documentType', 'Document Type', 'ប្រភេទឯកសារ', '', '', 'select', FINANCE_DOCUMENT_TYPES), field('status', 'Status', 'ស្ថានភាព', '', '', 'select', ACTIVE_STATUS)],

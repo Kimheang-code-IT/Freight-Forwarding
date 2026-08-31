@@ -165,7 +165,8 @@ const readOnly = computed(() => {
     if ((module.value.collection === 'chartOfAccounts' || module.value.collection === 'financialAccounts') && !lcs.can('chart_of_accounts.manage')) return true
     if (module.value.collection === 'organizations' && !lcs.can('organization.update')) return true
     if (module.value.collection === 'branches' && !lcs.can('branch.manage')) return true
-    if (module.value.group === 'master' || module.value.group === 'configuration') return true
+    if (module.value.group === 'master') return true
+    if (module.value.group === 'configuration' && !auth.canAccessPage('configuration.manage')) return true
   }
   if (isRecordReadOnly(module.value.collection, model.value)) return true
   if (module.value.collection === 'quotations' && !lcs.can('quotation.update_draft') && quotationDomainStatus(model.value.status) === 'DRAFT' && !isCreate.value) return true
@@ -354,10 +355,18 @@ function traceLink(kind: TraceLinkKind) {
 function labeledTraceRows() {
   const trace = documentTrace()
   if (!trace) return []
-  return trace.links.map(row => ({
-    ...row,
-    sourceType: t(`freight.traceability.${row.sourceTypeKey}`),
-  }))
+  const canSeeQuotation = auth.canAccessPage('sales.quotations.view')
+  const canSeeServiceOrder = auth.canAccessPage('operations.service_orders.view')
+  return trace.links
+    .filter((row) => {
+      if (row.sourceTypeKey === 'quotation') return canSeeQuotation
+      if (row.sourceTypeKey === 'serviceOrder') return canSeeServiceOrder
+      return true
+    })
+    .map(row => ({
+      ...row,
+      sourceType: t(`freight.traceability.${row.sourceTypeKey}`),
+    }))
 }
 
 function tableRows(tableKey: string) {

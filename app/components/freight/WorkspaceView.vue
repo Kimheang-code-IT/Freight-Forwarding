@@ -95,7 +95,8 @@ const canManageModule = computed(() => {
   if (current.value.collection === 'chartOfAccounts' || current.value.collection === 'financialAccounts') return lcs.can('chart_of_accounts.manage')
   if (current.value.collection === 'organizations') return lcs.can('organization.update')
   if (current.value.collection === 'branches') return lcs.can('branch.manage')
-  if (current.value.group === 'master' || current.value.group === 'configuration') return false
+  if (current.value.group === 'master') return false
+  if (current.value.group === 'configuration') return auth.canAccessPage('configuration.manage')
   return true
 })
 const canCreate = computed(() => {
@@ -153,6 +154,7 @@ const jobsByNo = computed(() => {
 })
 
 function jobLinkFor(jobNo: unknown) {
+  if (!auth.canAccessPage('operations.service_orders.view')) return ''
   const id = jobsByNo.value.get(String(jobNo || ''))
   if (!id || !current.value) return ''
   return jobWorkspacePath(id, workspaceSectionForPath(current.value.path))

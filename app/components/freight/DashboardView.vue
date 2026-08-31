@@ -10,6 +10,7 @@ import {
   type DashboardChartYearFilter,
   type DashboardSummary,
 } from '~/utils/lcs/dashboard'
+import { freightReportPath, getFreightReport } from '~/config/freight-reports'
 
 /**
  * Compact ERP dashboard: KPI summary cards + line chart + bar chart.
@@ -20,6 +21,7 @@ import {
 
 const store = useFreightStore()
 const tenant = useTenantStore()
+const auth = useAuthStore()
 const { t } = useI18n()
 const { formatMoney, formatCompact, formatDatePart } = useAppLocalization()
 const { setTitle, clear } = useAppHeader()
@@ -45,6 +47,8 @@ function loadChart(year: DashboardChartYearFilter) {
   return store.dashboardSummary({ dateFrom, dateTo })
 }
 
+const canSeeServiceOrders = computed(() => auth.canAccessPage('operations.service_orders.view'))
+
 async function load() {
   pending.value = true
   error.value = ''
@@ -52,7 +56,12 @@ async function load() {
   try {
     summary.value = store.dashboardSummary()
     revenueSummary.value = loadChart(revenueYear.value)
-    ordersSummary.value = loadChart(ordersYear.value)
+    if (canSeeServiceOrders.value) {
+      ordersSummary.value = loadChart(ordersYear.value)
+    }
+    else {
+      ordersSummary.value = null
+    }
   }
   catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -64,7 +73,9 @@ async function load() {
 
 watch(() => [tenant.organizationId, tenant.branchId], load)
 watch(revenueYear, year => { revenueSummary.value = loadChart(year) })
-watch(ordersYear, year => { ordersSummary.value = loadChart(year) })
+watch(ordersYear, year => {
+  if (canSeeServiceOrders.value) ordersSummary.value = loadChart(year)
+})
 onMounted(load)
 
 const money = (value: number) => formatMoney(value)
@@ -90,10 +101,10 @@ const operationsCards = computed<KpiCard[]>(() => {
 const financeCards = computed<KpiCard[]>(() => {
   const data = summary.value?.summary
   const cards: KpiCard[] = [
-    { key: 'receivables', title: t('freight.dashboard.kpis.receivables'), value: money(data?.receivables ?? 0), to: '/reports/accounts-receivable' },
-    { key: 'payables', title: t('freight.dashboard.kpis.payables'), value: money(data?.payables ?? 0), to: '/reports/accounts-payable' },
+    { key: 'receivables', title: t('freight.dashboard.kpis.receivables'), value: money(data?.receivables ?? 0), to: freightReportPath(getFreightReport('accounts-receivable')) },
+    { key: 'payables', title: t('freight.dashboard.kpis.payables'), value: money(data?.payables ?? 0), to: freightReportPath(getFreightReport('accounts-payable')) },
     { key: 'cashBank', title: t('freight.dashboard.kpis.cashBank'), value: money(data?.cashBankBalance ?? 0), to: '/finance/financial-accounts' },
-    { key: 'revenue', title: t('freight.dashboard.kpis.revenue'), value: money(data?.revenue ?? 0), to: '/reports/revenue-expense' },
+    { key: 'revenue', title: t('freight.dashboard.kpis.revenue'), value: money(data?.revenue ?? 0), to: freightReportPath(getFreightReport('revenue-expense')) },
   ]
   if (data?.overdueReceivableCount) cards[0]!.hint = t('freight.dashboard.overdueInvoices', { n: data.overdueReceivableCount })
   return cards
@@ -243,6 +254,7 @@ const ordersEmpty = computed(() => !ordersSummary.value?.charts.ordersByStatus.s
       </div>
 
       <DashboardAppKpiSection
+        v-if="canSeeServiceOrders"
         :title="t('freight.dashboard.operations')"
         :cards="operationsCards"
         :loading="pending"
@@ -267,6 +279,7 @@ const ordersEmpty = computed(() => !ordersSummary.value?.charts.ordersByStatus.s
           download-name="revenue-expense"
         />
         <DashboardAppChartPanel
+          v-if="canSeeServiceOrders"
           v-model:year="ordersYear"
           v-model:period="ordersPeriod"
           :title="t('freight.dashboard.charts.ordersByStatus')"

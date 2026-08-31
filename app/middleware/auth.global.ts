@@ -1,5 +1,6 @@
 import { useAccessAlert } from '~/composables/common/useAccessAlert'
 import { safeInternalPath } from '~/utils/auth/session'
+import { requiredPagePermissionForPath } from '~/utils/freight/page-access'
 
 const PERMITTED_LANDING_ROUTES = [
   ['/', 'dashboard.view'],
@@ -34,7 +35,9 @@ export default defineNuxtRouteMiddleware((to, from) => {
     return navigateTo(safeInternalPath(to.query.redirect) || '/', { replace: true })
   }
 
-  const permission = typeof to.meta.permission === 'string' ? to.meta.permission : ''
+  const permission = typeof to.meta.permission === 'string' && to.meta.permission
+    ? to.meta.permission
+    : requiredPagePermissionForPath(to.path)
   if (auth.isLoggedIn && permission && !auth.canAccessPage(permission)) {
     showPermissionDenied({
       requestedPath: to.fullPath,
