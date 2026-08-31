@@ -10,14 +10,22 @@ describe('mock login accounts', () => {
     expect(user?.permissions).toEqual(getAllSystemPermissionKeys())
   })
 
-  it('authenticates user@gmail.com without configuration or administration pages', () => {
+  it('authenticates user@gmail.com without configuration, settings, or other administration pages', () => {
     const user = authenticateMock('user@gmail.com', '123456')
     expect(user?.email).toBe('user@gmail.com')
 
-    const deniedPrefixes = ['configuration.', 'admin.', 'settings.']
+    const staffAdminView = new Set([
+      'admin.users.view',
+      'admin.users.export',
+      'admin.roles.view',
+      'admin.roles.export',
+    ])
     for (const key of user?.permissions || []) {
       expect(key).not.toBe('configuration.manage')
-      expect(deniedPrefixes.some(prefix => key.startsWith(prefix))).toBe(false)
+      if (staffAdminView.has(key)) continue
+      expect(key.startsWith('configuration.')).toBe(false)
+      expect(key.startsWith('admin.')).toBe(false)
+      expect(key.startsWith('settings.')).toBe(false)
     }
 
     expect(user?.permissions).toContain('dashboard.view')
@@ -26,6 +34,14 @@ describe('mock login accounts', () => {
     expect(user?.permissions).toContain('finance.financial_documents.view')
     expect(user?.permissions).toContain('master.reference.view')
     expect(user?.permissions).toContain('reports.view')
+    expect(user?.permissions).toContain('admin.users.view')
+    expect(user?.permissions).toContain('admin.roles.view')
+    expect(user?.permissions).not.toContain('admin.users.create')
+    expect(user?.permissions).not.toContain('admin.roles.edit')
+    expect(user?.sourcePermissions).toContain('user.read')
+    expect(user?.sourcePermissions).toContain('role.read')
+    expect(user?.sourcePermissions).not.toContain('user.manage')
+    expect(user?.sourcePermissions).not.toContain('role.manage')
   })
 
   it('authenticates finance@gmail.com with finance-only pages', () => {

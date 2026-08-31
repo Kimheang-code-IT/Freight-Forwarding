@@ -263,6 +263,31 @@ export function formatDebitNoteAmountInWords(amount: number, currency = 'USD'): 
 
 type RawLine = Record<string, unknown>
 
+export function feeLinesToPrintLines(feeLines: RawLine[], reference: string, currency: string): PrintLine[] {
+  return feeLines.map((row, index) => {
+    const quantity = printNum(row.quantity) || 1
+    const unitPrice = printNum(row.unitAmount ?? row.unitPrice)
+    const discount = printNum(row.discount)
+    const taxAmount = printNum(row.taxAmount ?? row.tax)
+    const grossAmount = printNum(row.amount)
+    const net = Math.max(0, quantity * unitPrice - discount)
+    const amount = grossAmount || net + taxAmount
+    return {
+      no: index + 1,
+      reference,
+      description: printStr(row.description) || printStr(row.feeType) || 'Service charge',
+      descriptionKh: printStr(row.descriptionKh) || printStr(row.description_kh),
+      quantity,
+      unit: printStr(row.unit) || 'Service',
+      unitPrice,
+      currency,
+      debit: amount,
+      credit: 0,
+      amount,
+    }
+  }).filter(line => line.amount > 0 || line.description)
+}
+
 function normalizeDocumentLines(record: FreightRecord, templateId?: string): PrintLine[] {
   const currency = printStr(record.currency) || 'USD'
   const lineReference = templateId === 'debit-note'
@@ -294,6 +319,10 @@ function normalizeDocumentLines(record: FreightRecord, templateId?: string): Pri
     }
   })
   if (lines.length) return lines
+
+  const feeLines = Array.isArray(record.feeLines) ? record.feeLines as RawLine[] : []
+  const feeLineRows = feeLinesToPrintLines(feeLines, lineReference, currency)
+  if (feeLineRows.length) return feeLineRows
 
   // Debit-note charge tables: description + cambodia/vietnam/cash amounts.
   const charges = Array.isArray(record.charges) ? record.charges as RawLine[] : []
@@ -473,7 +502,7 @@ export function buildPrintViewModel(
       phone: printStr(issuerRow?.phone),
       email: printStr(issuerRow?.email),
       contact: '',
-      logoUrl: DEFAULT_INVOICE_LOGO_URL,
+      logoUrl: printStr(context.logoUrl) || DEFAULT_INVOICE_LOGO_URL,
       branchName: printStr(branchRow?.name),
     },
     party,

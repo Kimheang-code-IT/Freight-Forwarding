@@ -97,9 +97,18 @@ function avatar(name: string, bg: string) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${bg}&color=fff`
 }
 
-/** All page keys except Configuration and Administration sidebar groups. */
+/** Administration pages a standard user may open (view / export only). */
+const STAFF_ADMIN_VIEW_KEYS = new Set([
+  'admin.users.view',
+  'admin.users.export',
+  'admin.roles.view',
+  'admin.roles.export',
+])
+
+/** All page keys except Configuration, Settings, and other Administration pages. */
 function getStaffUserPermissionKeys(): string[] {
   return getAllSystemPermissionKeys().filter((key) => {
+    if (STAFF_ADMIN_VIEW_KEYS.has(key)) return true
     if (key === 'configuration.manage') return false
     if (key.startsWith('configuration.')) return false
     if (key.startsWith('admin.')) return false
@@ -116,6 +125,8 @@ const STAFF_SOURCE: SourcePermission[] = [
     ...FINANCE_SOURCE,
     'organization.read',
     'branch.read',
+    'user.read',
+    'role.read',
     'quotation.accept',
     'quotation.convert',
   ]),

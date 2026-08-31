@@ -2,7 +2,7 @@ import type { AuthUser } from '~/types/auth-user'
 
 export const AUTH_STORAGE_KEY = 'lcs-auth-user'
 
-/** Cookie-safe user: drop bulky permission lists that overflow the 4KB cookie limit. */
+/** Cookie-safe user: identity + scope only. Permissions stay in localStorage. */
 export function compactAuthUser(user: AuthUser): AuthUser {
   const isAllAccess = user.role === 'SuperAdmin' || user.pageAccess?.includes('ALL_PAGES')
   return {
@@ -11,8 +11,7 @@ export function compactAuthUser(user: AuthUser): AuthUser {
     email: user.email,
     role: user.role,
     avatar: user.avatar,
-    pageAccess: isAllAccess ? ['ALL_PAGES'] : user.pageAccess,
-    permissions: isAllAccess ? undefined : user.permissions,
+    pageAccess: isAllAccess ? ['ALL_PAGES'] : undefined,
     organizationId: user.organizationId,
     organizationCode: user.organizationCode,
     organizationName: user.organizationName,
@@ -21,6 +20,14 @@ export function compactAuthUser(user: AuthUser): AuthUser {
     assignedBranchIds: user.assignedBranchIds,
     permissionScope: user.permissionScope,
   }
+}
+
+/** True when the session includes enough data to enforce page permissions. */
+export function sessionHasPermissionData(user: AuthUser | null | undefined): boolean {
+  if (!user?.email) return false
+  if (user.role === 'SuperAdmin') return true
+  if (user.pageAccess?.includes('ALL_PAGES')) return true
+  return Boolean(user.permissions?.length || user.pageAccess?.length)
 }
 
 /** Allow application-relative navigation only; rejects protocol-relative, control chars, and /auth/ loops. */

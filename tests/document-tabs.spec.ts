@@ -211,6 +211,21 @@ describe('moduleDocumentTabs', () => {
     expect(lineTotal?.inlineFields).toEqual(inlineFields)
   })
 
+  it('enables charge number input for standalone draft service charges', () => {
+    const manual = moduleDocumentTabs(getFreightModule('/service-charges')!, {
+      chargeManualNumber: true,
+    }).find(tab => tab.id === 'general')?.sections[0]?.fields.find(field => field.key === 'chargeNo')
+    const linked = moduleDocumentTabs(getFreightModule('/service-charges')!, {
+      chargeLinkedToJob: true,
+      chargeManualNumber: false,
+    }).find(tab => tab.id === 'general')?.sections[0]?.fields.find(field => field.key === 'chargeNo')
+
+    expect(manual?.readOnly).toBe(false)
+    expect(manual?.helpKey).toBe('freight.fieldHelp.chargeNoManual')
+    expect(linked?.readOnly).toBe(true)
+    expect(linked?.helpKey).toBe('freight.fieldHelp.chargeNo')
+  })
+
   it('puts discount and tax under grand total on charge fee lines with or without a job', () => {
     const inlineFields = [
       { key: 'discount', label: 'Disc.', labelKm: 'បញ្ចុះ.', labelKey: 'freight.ui.discountCol' },

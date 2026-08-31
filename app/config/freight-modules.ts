@@ -1499,7 +1499,7 @@ if (invoicesModule) freightModules.push({
     { key: 'auditTimeline', title: 'Audit Timeline', titleKm: 'ពេលវេលាសវនកម្ម', columns: [{ key: 'occurredAt', label: 'Date / Time', labelKm: 'កាលបរិច្ឆេទ / ពេលវេលា' }, { key: 'user', label: 'User', labelKm: 'អ្នកប្រើ' }, { key: 'action', label: 'Action', labelKm: 'សកម្មភាព' }, { key: 'result', label: 'Result', labelKm: 'លទ្ធផល' }] },
   ],
   actions: [
-    ...(invoicesModule.actions || []),
+    ...(invoicesModule.actions || []).filter(action => action.key !== 'print'),
     { key: 'backToServiceCharge', label: 'Back to Service Charge', labelKm: 'ត្រឡប់ទៅថ្លៃសេវាកម្ម', icon: 'i-lucide-arrow-left' },
   ],
 })

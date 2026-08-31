@@ -808,6 +808,10 @@
         "noContainers": "Add container requirements before printing debit notes.",
         "container": "Container"
       },
+      "job": {
+        "printDebitInvoice": "Print Debit Invoice",
+        "noActualContainers": "Add actual container numbers before printing debit invoices."
+      },
       "title": {
         "taxInvoice": "Tax Invoice",
         "debitNote": "Debit Note"
@@ -1036,6 +1040,8 @@
       "searchReport": "Search report...",
       "rows": "rows",
       "customerInvoice": "Customer Invoice",
+      "printInvoice": "Print Invoice",
+      "noCustomerInvoicesToPrint": "No customer invoice to print for this job.",
       "activeJobs": "Active Jobs",
       "noActiveJobs": "No active jobs",
       "customsPending": "Customs Pending",
@@ -1483,7 +1489,8 @@
       "chargeJobNo": "Optional. Leave blank to create a service charge that is not linked to a service order.",
       "chargeInvoiceNo": "Finance invoice created from this service charge. Empty until you create a finance invoice.",
       "chargeJournalId": "Posted journal after the finance invoice is posted. Issuing a service charge does not create a journal.",
-      "chargeNo": "Service charge number. Preview only until issue; the UI does not allocate official numbers.",
+      "chargeNo": "Assigned automatically from the document sequence when a service order is linked.",
+      "chargeNoManual": "Required when no service order is linked. Enter the charge number for this standalone service charge.",
       "documentNo": "Financial document number. Preview only — posting allocates the official number.",
       "debitNoteNo": "Debit note number for this customer charge.",
       "paymentNo": "Payment or receipt number for this transaction.",

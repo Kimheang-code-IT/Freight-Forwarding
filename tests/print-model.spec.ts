@@ -197,6 +197,14 @@ describe('view model mapping', () => {
     expect(model.party.taxIdentifier).toBe('TIN-ACME')
   })
 
+  it('uses branding logoUrl from print context when provided', () => {
+    const model = buildPrintViewModel(record(), 'tax-invoice', {
+      ...context,
+      logoUrl: '/custom-brand-logo.png',
+    })
+    expect(model.issuer.logoUrl).toBe('/custom-brand-logo.png')
+  })
+
   it('resolves shipment info from the linked service order', () => {
     const model = buildPrintViewModel(record({ jobNo: 'LCS-IM-260001' }), 'debit-note', context)
     expect(model.shipment.workNo).toBe('LCS-IM-260001')
@@ -255,9 +263,10 @@ describe('default template selection', () => {
   })
 
   it('exposes both templates for supported collections only', () => {
-    expect(PRINT_SUPPORTED_COLLECTIONS.sort()).toEqual(['debitNotes', 'jobCharges', 'quotations'].sort())
+    expect(PRINT_SUPPORTED_COLLECTIONS.sort()).toEqual(['debitNotes', 'jobCharges', 'jobs', 'quotations'].sort())
     expect(supportedPrintTemplates('debitNotes')).toHaveLength(2)
     expect(supportedPrintTemplates('quotations')).toHaveLength(2)
+    expect(supportedPrintTemplates('jobs')).toHaveLength(2)
     expect(supportedPrintTemplates('journals')).toHaveLength(0)
   })
 

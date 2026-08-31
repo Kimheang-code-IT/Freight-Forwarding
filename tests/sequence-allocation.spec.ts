@@ -3,6 +3,7 @@ import { createLcsFreightSeed } from '../app/config/lcs-seed'
 import {
   allocateCollectionNumber,
   allocateOfficialNumber,
+  isManualServiceChargeNumber,
   stripOfficialNumberFields,
 } from '../app/utils/lcs/sequences'
 
@@ -42,5 +43,26 @@ describe('allocateOfficialNumber', () => {
 
     const result = allocateCollectionNumber(data, 'quotations', input)
     expect(result?.number).toMatch(/^Q-\d{4}-\d+$/)
+  })
+
+  it('keeps manual charge numbers for standalone service charges', () => {
+    const input = {
+      jobNo: '',
+      chargeNo: 'SC-MANUAL-001',
+      customer: 'Standalone Customer',
+    }
+    expect(isManualServiceChargeNumber(input)).toBe(true)
+    const stripped = stripOfficialNumberFields(input, 'jobCharges')
+    expect(stripped.chargeNo).toBe('SC-MANUAL-001')
+  })
+
+  it('strips charge numbers when a service order is linked', () => {
+    const stripped = stripOfficialNumberFields({
+      jobNo: 'LCS-IM-260821',
+      chargeNo: 'SC-MANUAL-001',
+      customer: 'Linked Customer',
+    }, 'jobCharges')
+    expect(stripped.chargeNo).toBeUndefined()
+    expect(isManualServiceChargeNumber({ jobNo: 'LCS-IM-260821', chargeNo: 'SC-MANUAL-001' })).toBe(false)
   })
 })

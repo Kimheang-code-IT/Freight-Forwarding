@@ -23,6 +23,7 @@ import { documentSequencePreview, documentSequenceTypeLabel } from '~/utils/docu
 import { jobForQuotation } from '~/utils/freight/job-workspace'
 import {
   freightDocumentLineActionKey,
+  freightDocumentLineTableHeaderKey,
   freightDocumentModelKey,
   moduleDocumentTabs,
   RELATED_FIELD_KEY,
@@ -165,6 +166,8 @@ const readOnly = computed(() => {
     if ((module.value.collection === 'chartOfAccounts' || module.value.collection === 'financialAccounts') && !lcs.can('chart_of_accounts.manage')) return true
     if (module.value.collection === 'organizations' && !lcs.can('organization.update')) return true
     if (module.value.collection === 'branches' && !lcs.can('branch.manage')) return true
+    if (module.value.collection === 'users' && !lcs.can('user.manage')) return true
+    if (module.value.collection === 'roles' && !lcs.can('role.manage')) return true
     if (module.value.group === 'master') return true
     if (module.value.group === 'configuration' && !auth.canAccessPage('configuration.manage')) return true
   }
@@ -221,7 +224,12 @@ const postingPreviewItems = computed(() => {
 const reverseOpen = ref(false)
 const reverseDraft = reactive<Record<string, unknown>>({ reason: '' })
 const reversing = ref(false)
-const canMutateRecord = computed(() => Boolean(module.value) && !readOnly.value && !isCreate.value && Boolean(model.value.id))
+const canMutateRecord = computed(() => {
+  if (!module.value || readOnly.value || isCreate.value || !model.value.id) return false
+  if (module.value.collection === 'users') return lcs.can('user.manage')
+  if (module.value.collection === 'roles') return lcs.can('role.manage')
+  return true
+})
 const deactivationOnly = computed(() => module.value?.group === 'master' || module.value?.collection === 'documentSequences')
 
 function headerActionMenuItem(action: FreightAction): DropdownMenuItem {
@@ -272,6 +280,7 @@ const headerActions = computed(() => {
     }
     if (collection === 'debitNotes') {
       const domain = financeDomainStatus(status)
+      if (action.key === 'print') return false
       if (action.key === 'save') return domain === 'DRAFT' && lcs.can('financial_document.update_draft')
       if (action.key === 'post') return domain === 'DRAFT' && lcs.can('financial_document.post') && !periodClosed.value
       if (action.key === 'reverse') return domain === 'POSTED' && lcs.can('financial_document.reverse')
@@ -293,7 +302,7 @@ const headerActions = computed(() => {
       if (action.key === 'issue') return !isCreate.value && Boolean(model.value.id) && status === 'Draft' && lcs.can('service_charge.issue')
       if (action.key === 'createInvoice') return !isCreate.value && invoiceAction === 'create'
       if (action.key === 'viewInvoice') return !isCreate.value && invoiceAction === 'view'
-      if (action.key === 'print') return !isCreate.value
+      if (action.key === 'print') return false
     }
     if (collection === 'journals') {
       if (action.key === 'postJournal') {
@@ -316,6 +325,9 @@ const tabs = computed(() => {
     includeRelated: related.value.length > 0,
     compact: compactBusinessDocument.value,
     chargeLinkedToJob: chargeLinkedToJob.value,
+    chargeManualNumber: module.value?.collection === 'jobCharges'
+      && !chargeLinkedToJob.value
+      && (isCreate.value || String(model.value.status || 'Draft') === 'Draft'),
     readOnlyKeys: module.value.collection === 'documentSequences' && !isCreate.value
       ? ['documentType', 'year']
       : [],
@@ -328,6 +340,28 @@ watch(tabs, (value) => {
 
 provide(freightDocumentLineActionKey, (action, row) => {
   void onLineRowAction(action, row)
+})
+
+function printServiceChargeInvoice() {
+  if (!model.value.id) return
+  void navigateTo(buildPrintRoute({
+    collection: 'jobCharges',
+    recordId: String(model.value.id),
+    template: 'tax-invoice',
+    returnTo: route.fullPath,
+    modulePath: '/service-charges',
+  }))
+}
+
+provide(freightDocumentLineTableHeaderKey, (tableKey) => {
+  if (module.value?.collection !== 'jobCharges' || tableKey !== 'feeLines' || isCreate.value) return []
+  const feeLines = Array.isArray(model.value.feeLines) ? model.value.feeLines : []
+  return [{
+    label: t('freight.ui.printInvoice'),
+    icon: 'i-lucide-printer',
+    disabled: feeLines.length === 0,
+    onClick: printServiceChargeInvoice,
+  }]
 })
 provide(freightDocumentModelKey, model)
 
@@ -530,6 +564,7 @@ function setField(key: string, value: unknown) {
       next.customer = job.customer || next.customer
       next.branchName = job.branchName || next.branchName
       next.currency = job.currency || next.currency || 'USD'
+      delete next.chargeNo
     }
   }
   model.value = next as FreightRecord
@@ -760,7 +795,12 @@ async function save(status?: string) {
         if (!ok) return
       }
     }
-    const missing = module.value.fields.filter(field => field.required && !field.computed && !String(payload[field.key] ?? '').trim())
+    const missing = module.value.fields.filter((field) => {
+      if (module.value?.collection === 'jobCharges' && field.key === 'chargeNo' && !String(payload.jobNo || '').trim()) {
+        return !String(payload.chargeNo ?? '').trim()
+      }
+      return field.required && !field.computed && !String(payload[field.key] ?? '').trim()
+    })
     if (missing.length) {
       toast.add({ title: t('freight.ui.missingRequired'), description: missing.map(fieldLabel).join(', '), color: 'error' })
       return

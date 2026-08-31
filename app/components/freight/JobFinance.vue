@@ -4,8 +4,8 @@ import { h, type Component } from 'vue'
 import { UBadge, UButton, UDropdownMenu, ULink } from '#components'
 import type { FreightRecord } from '~/config/freight-seed'
 import { codeTitle, formatMoney, freightStatusBadge, shortDay } from '~/composables/freight/useFreight'
-import { useLcs } from '~/composables/lcs/useLcs'
 import { outstandingOf, postedDocumentTotal } from '~/utils/freight/finance'
+import { buildPrintRoute } from '~/utils/freight/print-navigation'
 import { freightTableUiReadonly } from '~/utils/table/theme'
 
 const props = defineProps<{
@@ -17,7 +17,34 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const lcs = useLcs()
+const route = useRoute()
+const toast = useToast()
+
+const customerInvoices = computed(() =>
+  props.documents.filter(row => String(row.documentType || 'CUSTOMER_INVOICE').toUpperCase() === 'CUSTOMER_INVOICE'),
+)
+
+const latestCustomerInvoice = computed(() => {
+  const rows = [...customerInvoices.value]
+  if (!rows.length) return null
+  rows.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.debitNoteNo || '').localeCompare(String(a.debitNoteNo || '')))
+  return rows[0] || null
+})
+
+async function printLatestInvoice() {
+  const invoice = latestCustomerInvoice.value
+  if (!invoice?.id) {
+    toast.add({ title: t('freight.ui.noCustomerInvoicesToPrint'), color: 'warning' })
+    return
+  }
+  await navigateTo(buildPrintRoute({
+    collection: 'debitNotes',
+    recordId: String(invoice.id),
+    template: 'tax-invoice',
+    returnTo: route.fullPath,
+    modulePath: '/finance/documents',
+  }))
+}
 
 const TableBadge = UBadge as Component
 const TableButton = UButton as Component
@@ -48,11 +75,27 @@ const summaryItems = computed(() => [
 ])
 
 function rowMenuItems(row: FreightRecord) {
-  return [[{
+  const items: Array<{ label: string, icon: string, onSelect: () => void }> = [{
     label: t('freight.ui.viewDocument'),
     icon: 'i-lucide-eye',
     onSelect: () => { void navigateTo(`/finance/documents/${row.id}`) },
-  }]]
+  }]
+  if (String(row.documentType || 'CUSTOMER_INVOICE').toUpperCase() === 'CUSTOMER_INVOICE' && row.id) {
+    items.push({
+      label: t('freight.ui.printInvoice'),
+      icon: 'i-lucide-printer',
+      onSelect: () => {
+        void navigateTo(buildPrintRoute({
+          collection: 'debitNotes',
+          recordId: String(row.id),
+          template: 'tax-invoice',
+          returnTo: route.fullPath,
+          modulePath: '/finance/documents',
+        }))
+      },
+    })
+  }
+  return [items]
 }
 
 const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
@@ -120,10 +163,9 @@ const tableColumns = computed<TableColumn<FreightRecord>[]>(() => [
   <div class="space-y-4">
     <FreightJobSectionHeader :title="t('freight.jobSections.finance')">
       <template #actions>
-        <UButton v-if="lcs.can('financial_document.create')" size="xs" color="neutral" variant="soft"
-          icon="i-lucide-receipt-text"
-          :to="{ path: '/finance/documents/new', query: { documentType: 'CUSTOMER_INVOICE', jobNo, customer } }"
-          :label="t('freight.ui.customerInvoice')" />
+        <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-printer"
+          :disabled="!latestCustomerInvoice" :label="t('freight.ui.printInvoice')"
+          @click="printLatestInvoice" />
         <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-arrow-up-right"
           :to="{ path: '/finance/documents', query: { jobNo } }" :label="t('freight.ui.openFinance')" />
       </template>

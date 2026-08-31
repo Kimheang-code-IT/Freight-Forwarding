@@ -95,6 +95,8 @@ const canManageModule = computed(() => {
   if (current.value.collection === 'chartOfAccounts' || current.value.collection === 'financialAccounts') return lcs.can('chart_of_accounts.manage')
   if (current.value.collection === 'organizations') return lcs.can('organization.update')
   if (current.value.collection === 'branches') return lcs.can('branch.manage')
+  if (current.value.collection === 'users') return lcs.can('user.manage')
+  if (current.value.collection === 'roles') return lcs.can('role.manage')
   if (current.value.group === 'master') return false
   if (current.value.group === 'configuration') return auth.canAccessPage('configuration.manage')
   return true

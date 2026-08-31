@@ -100,7 +100,16 @@ export function stripOfficialNumberFields(
   const config = COLLECTION_SEQUENCE_CONFIG[collection]
   if (!config) return { ...input }
   const next = { ...input }
+  if (collection === 'jobCharges' && isManualServiceChargeNumber(input)) {
+    delete next.id
+    return next
+  }
   delete next[config.numberField]
   delete next.id
   return next
+}
+
+/** Standalone service charges (no service order) keep a user-entered charge number. */
+export function isManualServiceChargeNumber(input: Record<string, unknown>): boolean {
+  return !String(input.jobNo || '').trim() && Boolean(String(input.chargeNo || '').trim())
 }

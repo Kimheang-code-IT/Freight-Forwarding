@@ -20,6 +20,28 @@ export const freightDocumentLineActionKey: InjectionKey<
   (action: 'view', row: Record<string, unknown>) => void
 > = Symbol('freightDocumentLineAction')
 
+export type FreightDocumentLineMenuItem = {
+  label: string
+  icon?: string
+  color?: 'primary' | 'neutral' | 'error'
+  onSelect: () => void
+}
+
+export const freightDocumentLineMenuKey: InjectionKey<
+  (tableKey: string, row: Record<string, unknown>) => FreightDocumentLineMenuItem[]
+> = Symbol('freightDocumentLineMenu')
+
+export type FreightDocumentLineTableHeaderAction = {
+  label: string
+  icon?: string
+  disabled?: boolean
+  onClick: () => void
+}
+
+export const freightDocumentLineTableHeaderKey: InjectionKey<
+  (tableKey: string) => FreightDocumentLineTableHeaderAction[]
+> = Symbol('freightDocumentLineTableHeader')
+
 export const freightDocumentRecordKey: InjectionKey<{
   get: (key: string) => unknown
 }> = Symbol('freightDocumentRecord')
@@ -72,6 +94,7 @@ export type ModuleDocumentTabsOptions = {
   includeRelated?: boolean
   compact?: boolean
   chargeLinkedToJob?: boolean
+  chargeManualNumber?: boolean
   readOnlyKeys?: string[]
 }
 
@@ -299,6 +322,31 @@ function quotationTabs(module: FreightModule, options: ModuleDocumentTabsOptions
   return tabs
 }
 
+function mapChargeOverviewFields(
+  fields: FreightField[],
+  options: ModuleDocumentTabsOptions,
+): DocumentFieldSchema[] {
+  return fields.map((field) => {
+    const base = freightFieldToDocumentField(field, {
+      readOnly: options.readOnlyKeys?.includes(field.key) || undefined,
+    })
+    if (field.key !== 'chargeNo') return base
+    if (options.chargeManualNumber) {
+      return {
+        ...base,
+        readOnly: false,
+        helpKey: 'freight.fieldHelp.chargeNoManual',
+        required: true,
+      }
+    }
+    return {
+      ...base,
+      readOnly: true,
+      helpKey: 'freight.fieldHelp.chargeNo',
+    }
+  })
+}
+
 function chargeTabs(module: FreightModule, options: ModuleDocumentTabsOptions): DocumentTabSchema[] {
   const overviewFields = module.fields.filter(field => field.section !== 'Traceability')
   const traceFields = module.fields.filter(field => field.section === 'Traceability')
@@ -306,7 +354,7 @@ function chargeTabs(module: FreightModule, options: ModuleDocumentTabsOptions): 
     {
       id: 'general',
       labelKey: 'freight.sections.general',
-      sections: fieldsToSections(overviewFields, options.readOnlyKeys),
+      sections: [{ id: 'general', fields: mapChargeOverviewFields(overviewFields, options) }],
     },
     {
       id: 'fee-lines',

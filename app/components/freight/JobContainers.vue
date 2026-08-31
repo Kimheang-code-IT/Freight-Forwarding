@@ -7,6 +7,7 @@ import {
   JOB_CONTAINER_REQUIREMENT_TABLE,
 } from '~/config/job-workspace-forms'
 import { formatMoney } from '~/composables/freight/useFreight'
+import { buildPrintRoute } from '~/utils/freight/print-navigation'
 import {
   duplicateContainerNumber,
   firstOpenRequirement,
@@ -47,6 +48,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const route = useRoute()
 const store = useFreightStore()
 const toast = useToast()
 const requirementRows = ref<Array<Record<string, unknown>>>([])
@@ -226,6 +228,37 @@ function setPayments(value: Array<Record<string, unknown>>) {
   persist()
 }
 
+function debitInvoicePrintRoute(containerIndex: number) {
+  return buildPrintRoute({
+    collection: 'jobs',
+    recordId: String(props.job.id),
+    template: 'debit-note',
+    container: containerIndex,
+    returnTo: route.fullPath,
+    modulePath: '/service-orders',
+    autoPrint: true,
+  })
+}
+
+function actualContainerPrintActions(row: Record<string, unknown>) {
+  if (props.isCreate || !props.job.id) return []
+  const containerNo = String(row.containerNo || '').trim()
+  if (!containerNo) return []
+
+  const index = actualRows.value.findIndex(item => String(item.id || '') === String(row.id || ''))
+  if (index < 0) return []
+
+  return [{
+    label: t('freight.print.job.printDebitInvoice'),
+    icon: 'i-lucide-credit-card',
+    color: 'primary' as const,
+    onSelect: () => {
+      persist()
+      void navigateTo(debitInvoicePrintRoute(index))
+    },
+  }]
+}
+
 watch(() => props.job.id, loadRows, { immediate: true })
 </script>
 
@@ -241,6 +274,7 @@ watch(() => props.job.id, loadRows, { immediate: true })
       :table="actualTable"
       :model-value="actualRows"
       :disabled="!canEdit"
+      :extra-row-menu-items="actualContainerPrintActions"
       @update:model-value="setActuals"
     />
     <FreightJobLineTable

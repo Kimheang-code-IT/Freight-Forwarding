@@ -19,8 +19,27 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   compact?: boolean
   viewOnlyActions?: boolean
+  headerActions?: Array<{
+    label: string
+    icon?: string
+    disabled?: boolean
+    onClick: () => void
+  }>
+  extraRowMenuItems?: (row: Record<string, unknown>) => Array<{
+    label: string
+    icon?: string
+    color?: 'primary' | 'neutral' | 'error'
+    onSelect: () => void
+  }>
+  rowInlineActions?: (row: Record<string, unknown>) => Array<{
+    label: string
+    icon?: string
+    color?: 'primary' | 'neutral' | 'error'
+    onSelect: () => void
+  }>
 }>(), {
   compact: false,
+  headerActions: () => [],
 })
 
 const emit = defineEmits<{
@@ -382,14 +401,34 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
       },
     })),
   ]
-  if (!props.disabled) {
+  if (!props.disabled || props.extraRowMenuItems || props.rowInlineActions) {
     cols.push({
       id: 'actions',
       header: () => h('span', { class: 'sr-only' }, t('common.actions')),
       enableSorting: false,
       cell: ({ row }) => {
-        const items: Array<Array<{ label: string, icon: string, color?: 'error', onSelect: () => void }>> = [[]]
-        const actions = items[0]!
+        const index = Number(row.original._rowIndex || 0)
+        const inlineButtons = (props.rowInlineActions?.(row.original) || []).map(item =>
+          h(TableButton, {
+            label: item.label,
+            icon: item.icon,
+            color: item.color || 'neutral',
+            variant: 'soft',
+            size: 'xs',
+            class: 'whitespace-nowrap',
+            onClick: item.onSelect,
+          }),
+        )
+        const menuItems: Array<Array<{ label: string, icon: string, color?: 'error', onSelect: () => void }>> = [[]]
+        const actions = menuItems[0]!
+        for (const item of props.extraRowMenuItems?.(row.original) || []) {
+          actions.push({
+            label: item.label,
+            icon: item.icon || 'i-lucide-file',
+            ...(item.color === 'error' ? { color: 'error' as const } : {}),
+            onSelect: item.onSelect,
+          })
+        }
         if (isFileTable.value && filePreviewHref(row.original)) {
           actions.push({
             label: t('freight.ui.preview'),
@@ -400,24 +439,28 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
             },
           })
         }
-        actions.push({
-          label: t('actions.delete'),
-          icon: 'i-lucide-trash-2',
-          color: 'error',
-          onSelect: () => removeRow(Number(row.original._rowIndex || 0)),
-        })
-        return h(TableMenu, {
-          items,
-        }, {
-          default: () => h(TableButton, {
-            icon: 'i-lucide-ellipsis',
-            color: 'neutral',
-            variant: 'ghost',
-            size: 'xs',
-            square: true,
-            'aria-label': t('common.actions'),
-          }),
-        })
+        if (!props.disabled) {
+          actions.push({
+            label: t('actions.delete'),
+            icon: 'i-lucide-trash-2',
+            color: 'error',
+            onSelect: () => removeRow(index),
+          })
+        }
+        const menu = actions.length
+          ? h(TableMenu, { items: menuItems }, {
+              default: () => h(TableButton, {
+                icon: 'i-lucide-ellipsis',
+                color: 'neutral',
+                variant: 'ghost',
+                size: 'xs',
+                square: true,
+                'aria-label': t('common.actions'),
+              }),
+            })
+          : null
+        if (!inlineButtons.length && !menu) return null
+        return h('div', { class: 'flex items-center justify-end gap-1' }, [...inlineButtons, menu].filter(Boolean))
       },
     })
   }
@@ -441,14 +484,27 @@ const columns = computed<TableColumn<Record<string, unknown>>[]>(() => {
 
 <template>
   <section :class="compact ? 'space-y-2' : 'space-y-3'">
-    <div class="flex items-center justify-between gap-2">
-      <h3 :class="compact ? 'text-xs font-medium text-highlighted' : 'text-sm font-medium text-highlighted'">
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <h3 :class="compact ? 'text-xs font-semibold text-highlighted' : 'text-sm font-semibold text-highlighted'">
         {{ tableTitle(table) }}
       </h3>
-      <UButton v-if="!disabled" :size="compact ? 'xs' : 'sm'" color="neutral" variant="soft"
-        :icon="isFileTable ? 'i-lucide-upload' : 'i-lucide-plus'"
-        :label="table.addLabelKey && te(table.addLabelKey) ? t(table.addLabelKey) : (table.addLabel || t('freight.ui.addRow'))"
-        @click="addRow" />
+      <div class="flex flex-wrap items-center justify-end gap-1.5">
+        <UButton
+          v-for="(action, index) in headerActions"
+          :key="index"
+          :size="compact ? 'xs' : 'sm'"
+          color="neutral"
+          variant="soft"
+          :icon="action.icon"
+          :label="action.label"
+          :disabled="action.disabled"
+          @click="action.onClick"
+        />
+        <UButton v-if="!disabled" :size="compact ? 'xs' : 'sm'" color="neutral" variant="soft"
+          :icon="isFileTable ? 'i-lucide-upload' : 'i-lucide-plus'"
+          :label="table.addLabelKey && te(table.addLabelKey) ? t(table.addLabelKey) : (table.addLabel || t('freight.ui.addRow'))"
+          @click="addRow" />
+      </div>
     </div>
     <input v-if="isFileTable && !disabled" ref="inputRef" type="file" multiple class="hidden" @change="onFilesChosen">
     <div class="overflow-x-auto">

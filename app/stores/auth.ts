@@ -1,7 +1,23 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { AuthUser } from '~/types/auth-user'
-import { AUTH_STORAGE_KEY, compactAuthUser } from '~/utils/auth/session'
+import { findMockLoginAccount } from '~/utils/auth/mock-login'
+import { AUTH_STORAGE_KEY, compactAuthUser, sessionHasPermissionData } from '~/utils/auth/session'
+
+function restoreSessionUser(candidate: AuthUser | null | undefined): AuthUser | null {
+  if (!candidate?.email) return null
+  if (sessionHasPermissionData(candidate)) return candidate
+
+  const account = findMockLoginAccount(candidate.email)
+  if (!account) return candidate
+
+  return {
+    ...account.user,
+    ...candidate,
+    email: candidate.email,
+    id: candidate.id ?? account.user.id,
+  }
+}
 
 export const useAuthStore = defineStore('auth', () => {
   const cookieUser = useCookie<AuthUser | null>('auth_user', {
@@ -12,8 +28,9 @@ export const useAuthStore = defineStore('auth', () => {
     maxAge: 60 * 60 * 24 * 30,
   })
   const storedUser = ref<AuthUser | null>(null)
+  const clientHydrated = ref(false)
   const user = computed(() => storedUser.value || cookieUser.value)
-  const isLoggedIn = computed(() => Boolean(user.value))
+  const isLoggedIn = computed(() => Boolean(user.value?.email))
 
   function persist(userData: AuthUser | null) {
     storedUser.value = userData
@@ -25,18 +42,27 @@ export const useAuthStore = defineStore('auth', () => {
 
   function hydrateClient() {
     if (!import.meta.client) return
+
+    let resolved: AuthUser | null = null
     try {
       const raw = localStorage.getItem(AUTH_STORAGE_KEY)
-      const local = raw ? JSON.parse(raw) as AuthUser : null
-      if (local?.email) {
-        persist(local)
-        return
-      }
+      resolved = raw ? JSON.parse(raw) as AuthUser : null
     }
     catch {
       localStorage.removeItem(AUTH_STORAGE_KEY)
     }
-    if (cookieUser.value?.email) persist(cookieUser.value)
+
+    if (!resolved?.email && cookieUser.value?.email) {
+      resolved = cookieUser.value
+    }
+
+    resolved = restoreSessionUser(resolved)
+    if (resolved?.email) {
+      persist(resolved)
+      useTenantStore().hydrate()
+    }
+
+    clientHydrated.value = true
   }
 
   function login(userData: AuthUser) {
@@ -46,6 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function clearSession() {
     persist(null)
+    clientHydrated.value = true
     if (import.meta.client) {
       localStorage.removeItem('lcs-active-org')
       localStorage.removeItem('lcs-active-branch')
@@ -92,6 +119,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     isLoggedIn,
+    clientHydrated,
     login,
     hydrateClient,
     clearSession,

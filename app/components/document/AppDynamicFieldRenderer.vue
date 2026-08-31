@@ -27,6 +27,8 @@ import { asNumber } from '~/composables/freight/useFreight'
 import { useAppLocalization } from '~/composables/settings/useAppLocalization'
 import {
   freightDocumentLineActionKey,
+  freightDocumentLineTableHeaderKey,
+  freightDocumentModelKey,
   freightDocumentRecordKey,
 } from '~/utils/freight/document-tabs'
 import { resolveDynamicFieldKind } from '~/composables/freight/useDynamicFieldRegistry'
@@ -243,6 +245,8 @@ const dynamicTableRows = computed({
 })
 
 const lineAction = inject(freightDocumentLineActionKey, undefined)
+const lineTableHeaderActions = inject(freightDocumentLineTableHeaderKey, undefined)
+const documentModel = inject(freightDocumentModelKey, null)
 const recordAccess = inject(freightDocumentRecordKey, null)
 
 const lineTable = computed(() => props.field.meta?.table as FreightTable | undefined)
@@ -259,6 +263,13 @@ const showPricingTotals = computed(() => Boolean(props.field.meta?.showPricingTo
 const includeTaxTotal = computed(() => Boolean(props.field.meta?.includeTax))
 const lineCompact = computed(() => Boolean(props.field.meta?.compact))
 const lineViewOnly = computed(() => Boolean(props.field.meta?.viewOnly || props.field.readOnly))
+const lineHeaderActions = computed(() => {
+  if (!lineTableHeaderActions || !lineTable.value) return []
+  if (lineTable.value.key === 'feeLines' && documentModel?.value) {
+    void documentModel.value.feeLines
+  }
+  return lineTableHeaderActions(lineTable.value.key)
+})
 
 const { formatMoney } = useAppLocalization()
 
@@ -487,6 +498,7 @@ function removeDestination(id: string) {
       :disabled="disabled || lineViewOnly"
       :compact="lineCompact"
       :view-only-actions="lineViewOnly"
+      :header-actions="lineHeaderActions"
       @update:model-value="lineRows = $event"
       @row-action="(action, row) => lineAction?.(action, row)"
     />

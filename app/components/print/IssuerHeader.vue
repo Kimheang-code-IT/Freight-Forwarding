@@ -69,15 +69,15 @@ const { biInline } = usePrintBilingual()
 }
 
 .issuer-header__logo {
-  flex: 0 0 30mm;
-  width: 30mm;
+  flex: 0 0 28mm;
+  width: 28mm;
 }
 
 .issuer-header__logo-img {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 24mm;
+  max-height: 28mm;
   object-fit: contain;
   object-position: left top;
 }
@@ -90,24 +90,25 @@ const { biInline } = usePrintBilingual()
 }
 
 .issuer-header__spacer {
-  flex: 0 0 30mm;
-  width: 30mm;
+  flex: 0 0 28mm;
+  width: 28mm;
 }
 
 .issuer-header__name-kh {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .issuer-header__name-en {
-  margin: 2px 0 0;
-  font-family: "Times New Roman", Times, Georgia, serif;
-  font-size: 12px;
+  margin: 1px 0 0;
+  font-family: Arial, Helvetica, "Segoe UI", sans-serif;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 
 .issuer-header__meta {

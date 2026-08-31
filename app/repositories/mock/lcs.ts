@@ -41,6 +41,7 @@ import { domainError } from '~/utils/lcs/errors'
 import {
   allocateCollectionNumber,
   COLLECTION_SEQUENCE_CONFIG,
+  isManualServiceChargeNumber,
   stripOfficialNumberFields,
 } from '~/utils/lcs/sequences'
 
@@ -64,11 +65,20 @@ function insertCreatedRecord(
   defaults: Record<string, unknown> = {},
 ): FreightRecord {
   assertCanSave(db, session, collection as string, { id: '' } as FreightRecord, permission)
+  const manualChargeNo = collection === 'jobCharges' && isManualServiceChargeNumber(input)
+  if (manualChargeNo) {
+    const chargeNo = String(input.chargeNo || '').trim()
+    const duplicate = ((db.jobCharges || []) as FreightRecord[]).some(row => String(row.chargeNo || '').trim() === chargeNo)
+    if (duplicate) {
+      throw domainError('DUPLICATE_NUMBER', 'Charge number already exists.', { field_errors: { chargeNo: 'Duplicate charge number.' } })
+    }
+  }
   const stripped = stripOfficialNumberFields(input, collection as string)
-  const allocation = allocateCollectionNumber(db, collection as string, stripped)
+  const allocation = manualChargeNo ? null : allocateCollectionNumber(db, collection as string, stripped)
   const config = COLLECTION_SEQUENCE_CONFIG[collection as string]
   const stamped = stampTenant({
     ...stripped,
+    ...(manualChargeNo ? { chargeNo: String(input.chargeNo || '').trim() } : {}),
     ...(allocation && config ? { [config.numberField]: allocation.number } : {}),
     ...defaults,
     id: newRecordId(CREATE_ID_PREFIX[collection as string] || 'rec'),

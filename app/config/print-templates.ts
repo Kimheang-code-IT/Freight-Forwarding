@@ -19,7 +19,7 @@ export const PRINT_TEMPLATES: PrintTemplateDef[] = [
     descriptionKey: 'freight.print.templates.taxInvoiceDesc',
     icon: 'i-lucide-receipt-text',
     orientation: 'portrait',
-    collections: ['debitNotes', 'jobCharges', 'quotations'],
+    collections: ['debitNotes', 'jobCharges', 'jobs', 'quotations'],
   },
   {
     id: 'debit-note',
@@ -27,7 +27,7 @@ export const PRINT_TEMPLATES: PrintTemplateDef[] = [
     descriptionKey: 'freight.print.templates.debitNoteDesc',
     icon: 'i-lucide-credit-card',
     orientation: 'portrait',
-    collections: ['debitNotes', 'jobCharges', 'quotations'],
+    collections: ['debitNotes', 'jobCharges', 'jobs', 'quotations'],
   },
 ]
 
@@ -48,6 +48,7 @@ export function defaultPrintTemplate(collection: string, record?: FreightRecord 
     return documentType === 'CUSTOMER_INVOICE' ? 'tax-invoice' : 'debit-note'
   }
   if (collection === 'quotations') return 'tax-invoice'
+  if (collection === 'jobs') return 'debit-note'
   return 'tax-invoice'
 }
 

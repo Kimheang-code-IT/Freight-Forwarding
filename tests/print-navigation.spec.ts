@@ -41,6 +41,22 @@ describe('invoice print navigation', () => {
         autoPrint: '1',
       },
     })
+    expect(buildPrintRoute({
+      collection: 'jobCharges',
+      recordId: 'jc-001',
+      template: 'tax-invoice',
+      lineIndex: 1,
+      returnTo: '/service-charges/jc-001',
+      modulePath: '/service-charges',
+    })).toEqual({
+      path: '/print/jobCharges/jc-001',
+      query: {
+        template: 'tax-invoice',
+        returnTo: '/service-charges/jc-001',
+        autoPrint: '1',
+        line: '1',
+      },
+    })
     expect(isAutoPrintRoute({ autoPrint: '1' })).toBe(true)
     expect(isAutoPrintRoute({ autoPrint: 'true' })).toBe(true)
     expect(isAutoPrintRoute({})).toBe(false)

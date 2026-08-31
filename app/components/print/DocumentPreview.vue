@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { printTemplateById, defaultPrintTemplate, supportedPrintTemplates, type PrintTemplateId } from '~/config/print-templates'
 import { buildPrintViewModel, type PrintViewModel } from '~/utils/freight/print-model'
+import { buildChargePrintViewModel } from '~/utils/freight/charge-print'
+import { buildJobPrintViewModel } from '~/utils/freight/job-print'
 import { buildQuotationPrintViewModel } from '~/utils/freight/quotation-print'
 import { useSettingsRepositories } from '~/repositories'
 import { useAppLocalization } from '~/composables/settings/useAppLocalization'
@@ -69,6 +71,14 @@ const containerIndex = computed(() => {
   return Number.isFinite(parsed) ? parsed : 0
 })
 
+const lineIndex = computed(() => {
+  const raw = route.query.line
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (value === undefined || value === null || value === '') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+})
+
 const viewModel = computed<PrintViewModel | null>(() => {
   if (!record.value) return null
   const context = {
@@ -84,6 +94,16 @@ const viewModel = computed<PrintViewModel | null>(() => {
   if (collection.value === 'quotations') {
     return buildQuotationPrintViewModel(record.value, templateId.value, context, {
       containerIndex: containerIndex.value,
+    })
+  }
+  if (collection.value === 'jobs') {
+    return buildJobPrintViewModel(record.value, templateId.value, context, {
+      containerIndex: containerIndex.value,
+    })
+  }
+  if (collection.value === 'jobCharges') {
+    return buildChargePrintViewModel(record.value, templateId.value, context, {
+      lineIndex: lineIndex.value,
     })
   }
   return buildPrintViewModel(record.value, templateId.value, context)

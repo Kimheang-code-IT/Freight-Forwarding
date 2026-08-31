@@ -1,5 +1,5 @@
 import { useAccessAlert } from '~/composables/common/useAccessAlert'
-import { safeInternalPath } from '~/utils/auth/session'
+import { safeInternalPath, sessionHasPermissionData } from '~/utils/auth/session'
 import { requiredPagePermissionForPath } from '~/utils/freight/page-access'
 
 const PERMITTED_LANDING_ROUTES = [
@@ -14,6 +14,7 @@ const PERMITTED_LANDING_ROUTES = [
 
 export default defineNuxtRouteMiddleware((to, from) => {
   const auth = useAuthStore()
+  if (import.meta.client) auth.hydrateClient()
   const { showPermissionDenied } = useAccessAlert()
 
   const publicPaths = [
@@ -38,7 +39,8 @@ export default defineNuxtRouteMiddleware((to, from) => {
   const permission = typeof to.meta.permission === 'string' && to.meta.permission
     ? to.meta.permission
     : requiredPagePermissionForPath(to.path)
-  if (auth.isLoggedIn && permission && !auth.canAccessPage(permission)) {
+  const canEnforcePermissions = !import.meta.server || sessionHasPermissionData(auth.user)
+  if (canEnforcePermissions && auth.isLoggedIn && permission && !auth.canAccessPage(permission)) {
     showPermissionDenied({
       requestedPath: to.fullPath,
       permission,

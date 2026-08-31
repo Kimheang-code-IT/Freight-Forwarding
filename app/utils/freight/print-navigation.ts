@@ -35,6 +35,7 @@ export function buildPrintRoute(options: {
   returnTo?: unknown
   modulePath?: string
   container?: number
+  lineIndex?: number
   autoPrint?: boolean
 }) {
   const fallback = documentDetailPath(options.modulePath || `/${options.collection}`, options.recordId)
@@ -44,6 +45,7 @@ export function buildPrintRoute(options: {
   }
   if (options.autoPrint !== false) query[PRINT_AUTO_QUERY] = '1'
   if (options.container !== undefined) query.container = String(options.container)
+  if (options.lineIndex !== undefined) query.line = String(options.lineIndex)
   return {
     path: `/print/${options.collection}/${encodeURIComponent(String(options.recordId || '').trim())}`,
     query,
